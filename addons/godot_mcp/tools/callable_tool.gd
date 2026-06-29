@@ -12,4 +12,4 @@ func _init(fn: Callable) -> void:
 	_fn = fn
 
 func execute(args: Dictionary) -> Variant:
-	return _fn.call(args)
+	return await _fn.call(args)

@@ -25,6 +25,7 @@ var max_reconnect_delay: float = 60.0
 var is_initialized: bool = false
 var is_connected: bool = false
 var reconnect_attempts: int = 0
+var _tool_busy: bool = false
 
 func _enter_tree() -> void:
 	"""Called when plugin is enabled"""
@@ -111,7 +112,8 @@ func _register_tools() -> void:
 	GodotMCPNodeTools.new(self).register(tool_registry)
 	GodotMCPScriptTools.new(self).register(tool_registry)
 	GodotMCPEditorTools.new(self).register(tool_registry)
-	# Input, Runtime, … tools registered here as implemented
+	GodotMCPInputTools.new(self).register(tool_registry)
+	# Runtime, Animation, … tools registered here as implemented
 
 	print_log("Registered %d tools" % tool_registry.get_tool_count())
 
@@ -179,10 +181,15 @@ func _on_websocket_message(data: String) -> void:
 		"pong":
 			_handle_pong()
 		"tool_call":
+			if _tool_busy:
+				_send_tool_result(message.get("id"), {"error": "Another tool call is already in progress"})
+				return
+			_tool_busy = true
 			var result = await _handle_tool_call(
 				message.get("tool", ""),
 				message.get("args", {})
 			)
+			_tool_busy = false
 			_send_tool_result(message.get("id"), result)
 		_:
 			print_log("Unknown message type: %s" % msg_type)
