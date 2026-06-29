@@ -40,7 +40,7 @@ func _process(_delta: float) -> void:
 			connection_closed.emit()
 		_last_state = state
 
-	while state == WebSocketPeer.STATE_OPEN and websocket.get_available_packet_count() > 0:
+	while websocket.get_ready_state() == WebSocketPeer.STATE_OPEN and websocket.get_available_packet_count() > 0:
 		var packet := websocket.get_packet()
 		if packet.is_empty():
 			continue
@@ -65,13 +65,14 @@ func connect_to_server() -> void:
 	var err := websocket.connect_to_url(url)
 	if err != OK:
 		error_received.emit("Failed to connect: %s" % error_string(err))
+		connection_closed.emit()
 
 func disconnect_from_server() -> void:
 	if websocket:
 		websocket.close()
 
 func send_message(data: String) -> void:
-	if not websocket or not is_connected:
+	if not websocket or websocket.get_ready_state() != WebSocketPeer.STATE_OPEN:
 		return
 	var err := websocket.send(data.to_utf8_buffer(), WebSocketPeer.WRITE_MODE_TEXT)
 	if err != OK:

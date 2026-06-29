@@ -192,7 +192,6 @@ func _on_ping_timeout() -> void:
 	"""Handle heartbeat ping timeout"""
 	print_log("Ping timeout - reconnecting")
 	_disconnect_from_server()
-	_schedule_reconnect()
 
 # ============================================================================
 # Heartbeat Handlers
