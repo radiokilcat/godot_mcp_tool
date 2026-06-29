@@ -48,7 +48,7 @@ func _resolve_node(node_path: String) -> Variant:
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return null
-	if node_path == "." or node_path == root.name:
+	if node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
 		return root
 	return root.get_node_or_null(node_path)
 
@@ -124,12 +124,19 @@ func _edit_script(args: Dictionary) -> Dictionary:
 	var start_line: int = int(args.get("start_line", 0))
 	var end_line: int   = int(args.get("end_line", 0))
 
+	if (start_line > 0) != (end_line > 0):
+		return {"error": "'start_line' and 'end_line' must both be provided for partial replacement"}
+
 	if start_line > 0 and end_line > 0:
 		# Partial replacement
 		var existing = _read_file(abs_path)
 		if existing == null:
 			return {"error": "Failed to read script"}
 		var lines: Array = Array((existing as String).split("\n"))
+		if start_line > end_line:
+			return {"error": "'start_line' (%d) must be <= 'end_line' (%d)" % [start_line, end_line]}
+		if end_line > lines.size():
+			return {"error": "'end_line' (%d) exceeds file length (%d lines)" % [end_line, lines.size()]}
 		var before: Array = lines.slice(0, start_line - 1)
 		var after: Array  = lines.slice(end_line)       # end_line is inclusive
 		var replacement: Array = Array(new_content.split("\n"))
