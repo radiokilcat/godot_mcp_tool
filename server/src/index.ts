@@ -4,6 +4,7 @@
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
@@ -14,8 +15,6 @@ import { projectTools } from "./tools/project.js";
 import { sceneTools } from "./tools/scene.js";
 import { nodeTools } from "./tools/node.js";
 
-// Configuration
-const PORT = process.env.GODOT_MCP_PORT || 6505;
 const VERSION = "1.0.0";
 
 // Initialize MCP Server
@@ -37,6 +36,11 @@ const toolRegistry = new Map<
   {
     name: string;
     description: string;
+    inputSchema?: {
+      type: string;
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
     handler: (args: Record<string, unknown>) => Promise<unknown>;
   }
 >();
@@ -60,6 +64,7 @@ function registerAllTools(): void {
           tool as {
             name: string;
             description: string;
+            inputSchema?: { type: string; properties?: Record<string, unknown>; required?: string[] };
             handler: (args: Record<string, unknown>) => Promise<unknown>;
           }
         );
@@ -67,25 +72,18 @@ function registerAllTools(): void {
     }
   }
 
-  console.log(`[MCP Server] Registered ${toolRegistry.size} tools`);
+  console.error(`[MCP Server] Registered ${toolRegistry.size} tools`);
 }
 
 /**
  * Handle list_tools request
  */
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const tools = Array.from(toolRegistry.entries()).map(
-    ([name, tool]) => ({
-      name,
-      description: tool.description,
-      inputSchema: {
-        type: "object",
-        properties: {
-          // Tool-specific input schema will be defined per tool
-        },
-      },
-    })
-  );
+  const tools = Array.from(toolRegistry.entries()).map(([name, tool]) => ({
+    name,
+    description: tool.description,
+    inputSchema: tool.inputSchema ?? { type: "object", properties: {} },
+  }));
 
   return { tools };
 });
@@ -122,17 +120,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
  * Start the MCP server
  */
 async function main(): Promise<void> {
-  console.log(`[MCP Server] Godot MCP Server v${VERSION}`);
-  console.log(`[MCP Server] Initializing...`);
+  console.error(`[MCP Server] Godot MCP Server v${VERSION}`);
+  console.error(`[MCP Server] Initializing...`);
 
   registerAllTools();
 
-  // Connect to stdio for MCP communication
-  // Note: Stdio transport is provided by the MCP SDK automatically
-  // when running in stdio mode (via spawning the server process)
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
 
-  console.log(`[MCP Server] Connected and ready for MCP protocol`);
-  console.log(`[MCP Server] Waiting for Godot connection on port ${PORT}...`);
+  console.error(`[MCP Server] Ready — listening for MCP requests via stdio`);
 }
 
 // Start server

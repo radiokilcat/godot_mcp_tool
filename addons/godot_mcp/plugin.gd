@@ -43,6 +43,7 @@ func _initialize_plugin() -> void:
 
 	# Create WebSocket client
 	websocket_client = GodotMCPWebSocketClient.new()
+	add_child(websocket_client)
 	websocket_client.set_server_url("ws://%s:%d" % [server_host, server_port])
 	websocket_client.connection_established.connect(_on_websocket_connected)
 	websocket_client.connection_closed.connect(_on_websocket_disconnected)
@@ -51,6 +52,7 @@ func _initialize_plugin() -> void:
 
 	# Create heartbeat system
 	heartbeat = GodotMCPHeartbeat.new()
+	add_child(heartbeat)
 	heartbeat.ping_timeout.connect(_on_ping_timeout)
 
 	# Create tool registry
