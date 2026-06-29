@@ -108,7 +108,8 @@ func _register_tools() -> void:
 	"""Register all available tools"""
 	GodotMCPProjectTools.new().register(tool_registry)
 	GodotMCPSceneTools.new(self).register(tool_registry)
-	# Node, Script, Editor, … tools registered here as implemented
+	GodotMCPNodeTools.new(self).register(tool_registry)
+	# Script, Editor, … tools registered here as implemented
 
 	print_log("Registered %d tools" % tool_registry.get_tool_count())
 
