@@ -12,7 +12,6 @@ signal message_received(data: String)
 
 var websocket: WebSocketPeer
 var server_url: String = ""
-var is_connected: bool = false
 var _last_state: WebSocketPeer.State = WebSocketPeer.STATE_CLOSED
 
 func _enter_tree() -> void:
@@ -33,10 +32,8 @@ func _process(_delta: float) -> void:
 
 	if state != _last_state:
 		if state == WebSocketPeer.STATE_OPEN:
-			is_connected = true
 			connection_established.emit()
-		elif state == WebSocketPeer.STATE_CLOSED and _last_state != WebSocketPeer.STATE_CLOSED:
-			is_connected = false
+		elif state == WebSocketPeer.STATE_CLOSED:
 			connection_closed.emit()
 		_last_state = state
 

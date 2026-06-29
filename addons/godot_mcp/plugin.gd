@@ -147,8 +147,9 @@ func _on_websocket_connected() -> void:
 
 func _on_websocket_disconnected() -> void:
 	"""Handle WebSocket connection closed"""
+	if is_connected:
+		print_log("Disconnected from MCP server")
 	is_connected = false
-	print_log("Disconnected from MCP server")
 
 	# Stop heartbeat
 	if heartbeat:
