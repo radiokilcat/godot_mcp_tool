@@ -105,10 +105,10 @@ func move_node(node: Node, new_parent: Node, index: int = -1) -> void:
 	if index >= 0:
 		undo_redo.add_do_method(new_parent, "move_child", node, index)
 	
-	# Undo: move back to old parent
-	undo_redo.add_undo_method(new_parent, "remove_child", node)
-	undo_redo.add_undo_method(old_parent, "add_child", node)
+	# Undo: move back to old parent (LIFO order: remove_child → add_child → move_child)
 	undo_redo.add_undo_method(old_parent, "move_child", node, old_index)
+	undo_redo.add_undo_method(old_parent, "add_child", node)
+	undo_redo.add_undo_method(new_parent, "remove_child", node)
 	
 	undo_redo.commit_action()
 

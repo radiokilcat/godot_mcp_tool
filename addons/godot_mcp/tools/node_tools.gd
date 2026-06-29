@@ -136,7 +136,7 @@ func _add_node(args: Dictionary) -> Dictionary:
 
 	var obj = ClassDB.instantiate(node_type)
 	if not obj is Node:
-		if obj:
+		if obj and not obj is RefCounted:
 			obj.free()
 		return {"error": "%s is not a Node type" % node_type}
 
@@ -147,7 +147,9 @@ func _add_node(args: Dictionary) -> Dictionary:
 	ur.create_action("Add Node: %s" % node.name)
 	ur.add_do_method(parent, "add_child", node, true)
 	ur.add_do_property(node, "owner", root)
+	ur.add_do_reference(node)
 	ur.add_undo_method(parent, "remove_child", node)
+	ur.add_undo_reference(node)
 	ur.commit_action()
 
 	return {"success": true, "node_path": str(node.get_path()), "node_name": node.name}
@@ -170,9 +172,12 @@ func _delete_node(args: Dictionary) -> Dictionary:
 	var ur := _plugin.get_undo_redo()
 	ur.create_action("Delete Node: %s" % node.name)
 	ur.add_do_method(parent, "remove_child", node)
-	ur.add_undo_method(parent, "add_child", node, true)
-	ur.add_undo_method(parent, "move_child", node, idx)
+	ur.add_do_reference(node)
+	# LIFO undo order: add_child runs first, then move_child, then owner
 	ur.add_undo_property(node, "owner", _scene_root())
+	ur.add_undo_method(parent, "move_child", node, idx)
+	ur.add_undo_method(parent, "add_child", node, true)
+	ur.add_undo_reference(node)
 	ur.commit_action()
 
 	return {"success": true, "deleted_path": node_path}
@@ -195,7 +200,9 @@ func _duplicate_node(args: Dictionary) -> Dictionary:
 	ur.create_action("Duplicate Node: %s" % node.name)
 	ur.add_do_method(parent, "add_child", dupe, true)
 	ur.add_do_property(dupe, "owner", root)
+	ur.add_do_reference(dupe)
 	ur.add_undo_method(parent, "remove_child", dupe)
+	ur.add_undo_reference(dupe)
 	ur.commit_action()
 
 	return {"success": true, "new_node_path": str(dupe.get_path()), "new_name": dupe.name}
@@ -226,10 +233,11 @@ func _move_node(args: Dictionary) -> Dictionary:
 	ur.add_do_property(node, "owner", root)
 	if new_idx >= 0:
 		ur.add_do_method(new_parent, "move_child", node, new_idx)
-	ur.add_undo_method(new_parent, "remove_child", node)
-	ur.add_undo_method(old_parent, "add_child", node, true)
-	ur.add_undo_method(old_parent, "move_child", node, old_idx)
+	# LIFO undo order: remove_child(new) → add_child(old) → move_child(old) → owner
 	ur.add_undo_property(node, "owner", root)
+	ur.add_undo_method(old_parent, "move_child", node, old_idx)
+	ur.add_undo_method(old_parent, "add_child", node, true)
+	ur.add_undo_method(new_parent, "remove_child", node)
 	ur.commit_action()
 
 	return {"success": true, "new_path": str(node.get_path())}
