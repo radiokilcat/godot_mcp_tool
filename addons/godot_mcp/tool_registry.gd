@@ -7,8 +7,8 @@ class_name GodotMCPToolRegistry
 
 var tools: Dictionary = {}
 
-func register_tool(tool_name: String, tool: Node) -> void:
-	"""Register a tool"""
+func register_tool(tool_name: String, tool: Object) -> void:
+	"""Register a tool (tool must have an execute(args) method)"""
 	if tool_name in tools:
 		push_error("Tool already registered: %s" % tool_name)
 		return

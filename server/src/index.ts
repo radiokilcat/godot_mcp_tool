@@ -15,6 +15,9 @@ import { projectTools } from "./tools/project.js";
 import { sceneTools } from "./tools/scene.js";
 import { nodeTools } from "./tools/node.js";
 
+// Initialize Godot WebSocket bridge (starts listening on port 6505)
+import "./godot-connection.js";
+
 const VERSION = "1.0.0";
 
 // Initialize MCP Server

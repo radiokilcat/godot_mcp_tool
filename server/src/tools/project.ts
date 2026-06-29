@@ -4,131 +4,125 @@
  */
 
 import { ToolCategory } from "../types/index.js";
+import { godotConnection } from "../godot-connection.js";
 
 export const projectTools: ToolCategory = {
   get_project_info: {
     name: "get_project_info",
-    description: "Get basic project information (name, version, path)",
+    description: "Get basic project information: name, version, Godot version, path, main scene",
     handler: async (_args) => {
-      // TODO: Implement WebSocket communication with Godot
-      return {
-        project_name: "MyProject",
-        project_version: "1.0.0",
-        godot_version: "4.0+",
-        project_path: "/path/to/project",
-      };
+      return await godotConnection.callTool("get_project_info", {});
     },
   },
 
   list_project_files: {
     name: "list_project_files",
-    description: "List all files in the project (with optional filter)",
+    description: "List files in the project (optionally filtered by folder path or file extension)",
     inputSchema: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Folder path (relative to project root)" },
+        path: {
+          type: "string",
+          description: "Folder path to list (default: res://)",
+        },
         filter: {
           type: "string",
-          description: "File extension filter (e.g., '.gd', '.tscn')",
+          description: "File extension filter, e.g. '.gd' or '.tscn'",
         },
       },
     },
-    handler: async (_args) => {
-      // TODO: Implement WebSocket communication with Godot
-      return {
-        files: [],
-        total: 0,
-      };
+    handler: async (args) => {
+      return await godotConnection.callTool("list_project_files", args);
     },
   },
 
   search_files: {
     name: "search_files",
-    description: "Search for files by name or content",
+    description: "Search for files by name or text content",
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Search query" },
+        query: {
+          type: "string",
+          description: "Search query string",
+        },
         type: {
           type: "string",
           enum: ["name", "content"],
-          description: "Search by filename or file content",
+          description: "Search by filename (default) or file content",
         },
       },
       required: ["query"],
     },
-    handler: async (_args) => {
-      // TODO: Implement WebSocket communication with Godot
-      return {
-        results: [],
-        total: 0,
-      };
+    handler: async (args) => {
+      return await godotConnection.callTool("search_files", args);
     },
   },
 
   get_project_settings: {
     name: "get_project_settings",
-    description: "Get project settings",
+    description: "Get one or all project settings. Pass setting_path for a specific setting (e.g. 'physics/2d/default_gravity'), omit for common defaults",
     inputSchema: {
       type: "object",
       properties: {
         setting_path: {
           type: "string",
-          description: "Specific setting path (e.g., 'physics/2d/gravity')",
+          description: "Specific setting path, e.g. 'physics/2d/default_gravity'",
         },
       },
     },
-    handler: async (_args) => {
-      // TODO: Implement WebSocket communication with Godot
-      return {
-        settings: {},
-      };
+    handler: async (args) => {
+      return await godotConnection.callTool("get_project_settings", args);
     },
   },
 
   set_project_setting: {
     name: "set_project_setting",
-    description: "Set a project setting",
+    description: "Set a project setting and save project.godot",
     inputSchema: {
       type: "object",
       properties: {
-        setting_path: { type: "string", description: "Setting path" },
-        value: { type: "unknown", description: "New value" },
+        setting_path: {
+          type: "string",
+          description: "Setting path, e.g. 'application/config/name'",
+        },
+        value: {
+          description: "New value (string, number, bool, or array)",
+        },
       },
       required: ["setting_path", "value"],
     },
-    handler: async (_args) => {
-      // TODO: Implement WebSocket communication with Godot
-      return { success: true };
+    handler: async (args) => {
+      return await godotConnection.callTool("set_project_setting", args);
     },
   },
 
   convert_uid: {
     name: "convert_uid",
-    description: "Convert between UID and resource path",
+    description: "Convert between Godot UID (uid://...) and resource path (res://...)",
     inputSchema: {
       type: "object",
       properties: {
-        uid: { type: "string", description: "Resource UID" },
-        path: { type: "string", description: "Resource path" },
+        uid: {
+          type: "string",
+          description: "Resource UID, e.g. 'uid://abc123'",
+        },
+        path: {
+          type: "string",
+          description: "Resource path, e.g. 'res://scenes/Player.tscn'",
+        },
       },
     },
-    handler: async (_args) => {
-      // TODO: Implement WebSocket communication with Godot
-      return { uid: "", path: "" };
+    handler: async (args) => {
+      return await godotConnection.callTool("convert_uid", args);
     },
   },
 
   get_project_metadata: {
     name: "get_project_metadata",
-    description: "Get project metadata (features, supported platforms, etc)",
+    description: "Get project metadata: renderer, viewport size, gravity, OS features",
     handler: async (_args) => {
-      // TODO: Implement WebSocket communication with Godot
-      return {
-        features: [],
-        supported_platforms: [],
-        render_method: "forward",
-      };
+      return await godotConnection.callTool("get_project_metadata", {});
     },
   },
 };

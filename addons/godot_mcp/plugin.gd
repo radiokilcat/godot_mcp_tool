@@ -106,16 +106,10 @@ func _disconnect_from_server() -> void:
 
 func _register_tools() -> void:
 	"""Register all available tools"""
-	# TODO: Register Project tools (7)
-	# TODO: Register Scene tools (9)
-	# TODO: Register Node tools (14)
-	# TODO: Register Script tools (8)
-	# TODO: Register Editor tools (9)
-	# TODO: Register Input tools (7)
-	# TODO: Register Runtime tools (19)
-	# ... and others
+	GodotMCPProjectTools.new().register(tool_registry)
+	# Scene, Node, Script, Editor, … tools registered here as implemented
 
-	print_log("Registered tools in tool registry")
+	print_log("Registered %d tools" % tool_registry.get_tool_count())
 
 func _handle_tool_call(tool_name: String, args: Dictionary) -> Variant:
 	"""Handle a tool call from the server"""
@@ -221,12 +215,13 @@ func _send_ready_message() -> void:
 	})
 
 func _send_tool_result(message_id: String, result: Variant) -> void:
-	"""Send tool execution result"""
-	_send_message({
-		"type": "tool_result",
-		"id": message_id,
-		"result": result
-	})
+	"""Send tool execution result. If result has an 'error' key, send it as error field."""
+	var msg: Dictionary = {"type": "tool_result", "id": message_id}
+	if result is Dictionary and result.has("error"):
+		msg["error"] = result.get("error", "Unknown error")
+	else:
+		msg["result"] = result
+	_send_message(msg)
 
 func _send_message(message: Dictionary) -> void:
 	"""Send a message to the server"""
