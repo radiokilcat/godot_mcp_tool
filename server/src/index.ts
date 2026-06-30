@@ -18,6 +18,7 @@ import { scriptTools } from "./tools/script.js";
 import { editorTools } from "./tools/editor.js";
 import { inputTools } from "./tools/input.js";
 import { runtimeTools } from "./tools/runtime.js";
+import { animationTools } from "./tools/animation.js";
 
 // Initialize Godot WebSocket bridge (starts listening on port 6505)
 import "./godot-connection.js";
@@ -64,6 +65,7 @@ function registerAllTools(): void {
     editorTools,
     inputTools,
     runtimeTools,
+    animationTools,
     // Additional categories will be imported here as they're implemented
   ];
 
