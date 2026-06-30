@@ -282,15 +282,20 @@
 - [x] set_particle_gradient: invalid `gradient_type` silently coerced to "color_ramp"; now returns explicit error consistent with other tools
 - **Completed:** 2026-06-30
 
-### [ ] 3.13 - Navigation Tools (6 tools)
-- [ ] add_navigation_region
-- [ ] add_navigation_agent
-- [ ] bake_navigation
-- [ ] set_navigation_layer
-- [ ] get_navigation_path
-- [ ] get_navigation_info
+### [x] 3.13 - Navigation Tools (6 tools)
+- [x] add_navigation_region
+- [x] add_navigation_agent
+- [x] bake_navigation
+- [x] set_navigation_layer
+- [x] get_navigation_path
+- [x] get_navigation_info
 - **Priority:** LOW
 - **Effort:** 2-3 hours
+- **Completed:** 2026-06-30
+
+### [x] 3.13b - Navigation Tools bug fixes (code review)
+- [x] set_navigation_layer: _is_navigation_node included NavigationObstacle3D/2D which lack navigation_layers in Godot 4.0; removed Obstacles from the helper — they gained navigation_layers only in 4.1
+- **Completed:** 2026-06-30
 
 ### [ ] 3.14 - Audio Tools (6 tools)
 - [ ] add_audio_player
@@ -505,8 +510,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 24 ✅ (Phases 1–2 + 3.1–3.12 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle Tools)
-- **Current Progress:** ~63% (103 tools implemented out of 163)
+- **Completed Tasks:** 26 ✅ (Phases 1–2 + 3.1–3.13 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation Tools)
+- **Current Progress:** ~65% (109 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
