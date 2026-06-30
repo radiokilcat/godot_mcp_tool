@@ -297,35 +297,61 @@
 - [x] set_navigation_layer: _is_navigation_node included NavigationObstacle3D/2D which lack navigation_layers in Godot 4.0; removed Obstacles from the helper — they gained navigation_layers only in 4.1
 - **Completed:** 2026-06-30
 
-### [ ] 3.14 - Audio Tools (6 tools)
-- [ ] add_audio_player
-- [ ] load_audio_file
-- [ ] play_audio
-- [ ] stop_audio
-- [ ] configure_bus
-- [ ] add_audio_effect
+### [x] 3.14 - Audio Tools (6 tools)
+- [x] add_audio_player
+- [x] load_audio_file
+- [x] play_audio
+- [x] stop_audio
+- [x] configure_bus
+- [x] add_audio_effect
 - **Priority:** LOW
 - **Effort:** 2-3 hours
+- **Completed:** 2026-06-30
 
-### [ ] 3.15 - TileMap Tools (6 tools)
-- [ ] set_tile_cell
-- [ ] fill_tiles
-- [ ] query_tile_cell
-- [ ] get_tileset_info
-- [ ] erase_tile_cell
-- [ ] get_tilemap_info
+### [x] 3.14b - Audio Tools bug fixes (code review)
+- [x] configure_bus: validate that send target bus exists (nonexistent send silently routes bus to nothing)
+- [x] configure_bus: guard against setting send on Master bus (bus_idx==0) — Godot ignores it but tool returned success
+- [x] load_audio_file: changed `load()` to `ResourceLoader.load()` for consistency with all other tool files
+- [x] configure_bus schema: added note to description that at least one property (volume_db/mute/solo/send) must be provided
+- **Completed:** 2026-06-30
+
+### [x] 3.15 - TileMap Tools (6 tools)
+- [x] set_tile_cell
+- [x] fill_tiles
+- [x] query_tile_cell
+- [x] get_tileset_info
+- [x] erase_tile_cell
+- [x] get_tilemap_info
 - **Priority:** MEDIUM
 - **Effort:** 2-3 hours
+- **Completed:** 2026-06-30
 
-### [ ] 3.16 - Theme/UI Tools (6 tools)
-- [ ] set_theme_color
-- [ ] set_theme_font
-- [ ] set_theme_constant
-- [ ] set_stylebox
-- [ ] get_theme_info
-- [ ] create_theme
+### [x] 3.15b - TileMap Tools bug fixes (code review)
+- [x] set_tile_cell/fill_tiles: validate source_id exists in TileSet (invalid ID silently no-ops in Godot 4)
+- [x] get_tileset_info: guard get_atlas_grid_size() with has_method for Godot 4.0 compatibility; fall back to texture/texture_region_size
+- [x] erase_tile_cell: early-return when cell is already empty to avoid spurious no-op undo entry
+- [x] get_tilemap_info: add has_tiles boolean (Rect2i(0,0,0,0) is ambiguous for empty tilemaps)
+- [x] get_tileset_info: replace ts.get('tile_shape') double-call with direct ts.tile_shape property
+- **Completed:** 2026-06-30
+
+### [x] 3.16 - Theme/UI Tools (6 tools)
+- [x] create_theme
+- [x] set_theme_color
+- [x] set_theme_font
+- [x] set_theme_constant
+- [x] set_stylebox
+- [x] get_theme_info
 - **Priority:** LOW
 - **Effort:** 2-3 hours
+- **Completed:** 2026-07-01
+
+### [x] 3.16b - Theme/UI Tools bug fixes (code review)
+- [x] _load_theme: use CACHE_MODE_IGNORE so modifications after _create_theme always read fresh from disk (CACHE_MODE_REUSE returned stale object)
+- [x] _parse_color: use Color.html_is_valid/Color.html to handle bare hex 'ff0000' and '#rrggbb' uniformly (previously fell back to WHITE for any non-'Color(' string)
+- [x] create_theme: guard existing file with overwrite: bool parameter — returns error if file exists and overwrite is not true (was silently overwriting)
+- [x] create_theme: return error when default_font path is specified but font file does not exist (was silently ignored)
+- [x] set_stylebox: use _as_bool() for draw_center, anti_aliased, vertical — bool("false") in GDScript returns true for any non-empty string
+- **Completed:** 2026-07-01
 
 ### [ ] 3.17 - Shader Tools (6 tools)
 - [ ] create_shader
@@ -510,8 +536,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 26 ✅ (Phases 1–2 + 3.1–3.13 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation Tools)
-- **Current Progress:** ~65% (109 tools implemented out of 163)
+- **Completed Tasks:** 32 ✅ (Phases 1–2 + 3.1–3.16 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme Tools)
+- **Current Progress:** ~78% (127 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -546,7 +572,12 @@
 - ✅ GodotMCPCallableTool wrapper (RefCounted, no Node overhead)
 - ✅ Phase 3.10 - 3D Scene Tools (6 tools) implemented (MeshInstance3D, Camera3D, Light3D types, WorldEnvironment, GridMap, scene scan)
 - ✅ Phase 3.11 - Physics Tools (6 tools) implemented (RigidBody3D/2D, CollisionShape3D/2D, layer/mask bitmask, RayCast3D/2D, physics info)
-- 🚀 Next: Phase 3.12 Particle Tools (5 tools)
+- ✅ Phase 3.12 - Particle Tools (5 tools) implemented
+- ✅ Phase 3.13 - Navigation Tools (6 tools) implemented
+- ✅ Phase 3.14 - Audio Tools (6 tools) implemented
+- ✅ Phase 3.15 - TileMap Tools (6 tools) implemented
+- ✅ Phase 3.16 - Theme/UI Tools (6 tools) implemented (file-based, no UndoRedo; CACHE_MODE_IGNORE, _as_bool, overwrite guard)
+- 🚀 Next: Phase 3.17 Shader Tools (6 tools)
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -554,4 +585,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-06-30 (Phase 3.11 complete)
+**Last Updated:** 2026-07-01 (Phase 3.16 complete)
