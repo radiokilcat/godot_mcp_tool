@@ -21,6 +21,7 @@ import { runtimeTools } from "./tools/runtime.js";
 import { animationTools } from "./tools/animation.js";
 import { animationTreeTools } from "./tools/animation-tree.js";
 import { scene3dTools } from "./tools/scene-3d.js";
+import { physicsTools } from "./tools/physics.js";
 
 // Initialize Godot WebSocket bridge (starts listening on port 6505)
 import "./godot-connection.js";
@@ -70,6 +71,7 @@ function registerAllTools(): void {
     animationTools,
     animationTreeTools,
     scene3dTools,
+    physicsTools,
     // Additional categories will be imported here as they're implemented
   ];
 
