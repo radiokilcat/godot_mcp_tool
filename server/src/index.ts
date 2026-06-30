@@ -24,6 +24,7 @@ import { scene3dTools } from "./tools/scene-3d.js";
 import { physicsTools } from "./tools/physics.js";
 import { particleTools } from "./tools/particles.js";
 import { navigationTools } from "./tools/navigation.js";
+import { audioTools } from "./tools/audio.js";
 
 // Initialize Godot WebSocket bridge (starts listening on port 6505)
 import "./godot-connection.js";
@@ -76,6 +77,7 @@ function registerAllTools(): void {
     physicsTools,
     particleTools,
     navigationTools,
+    audioTools,
     // Additional categories will be imported here as they're implemented
   ];
 
