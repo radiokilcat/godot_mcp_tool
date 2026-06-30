@@ -113,7 +113,8 @@ func _register_tools() -> void:
 	GodotMCPScriptTools.new(self).register(tool_registry)
 	GodotMCPEditorTools.new(self).register(tool_registry)
 	GodotMCPInputTools.new(self).register(tool_registry)
-	# Runtime, Animation, … tools registered here as implemented
+	GodotMCPRuntimeTools.new(self).register(tool_registry)
+	# Animation, … tools registered here as implemented
 
 	print_log("Registered %d tools" % tool_registry.get_tool_count())
 
