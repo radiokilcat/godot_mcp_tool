@@ -247,24 +247,40 @@
 - [x] set_environment created_new path: we.environment moved inside UndoRedo as add_do_property instead of eager assignment outside the action
 - **Completed:** 2026-06-30
 
-### [ ] 3.11 - Physics Tools (6 tools)
-- [ ] add_rigid_body
-- [ ] add_collision_shape
-- [ ] set_collision_layer
-- [ ] set_collision_mask
-- [ ] add_raycast
-- [ ] get_physics_info
+### [x] 3.11 - Physics Tools (6 tools)
+- [x] add_rigid_body
+- [x] add_collision_shape
+- [x] set_collision_layer
+- [x] set_collision_mask
+- [x] add_raycast
+- [x] get_physics_info
 - **Priority:** MEDIUM
 - **Effort:** 2-3 hours
+- **Completed:** 2026-06-30
 
-### [ ] 3.12 - Particle Tools (5 tools)
-- [ ] create_particle_system
-- [ ] add_particle_material
-- [ ] add_gradient
-- [ ] load_preset
-- [ ] get_particle_info
+### [x] 3.11b - Physics Tools bug fixes (code review)
+- [x] add_rigid_body 2D rotation: float(dict) → extract z key when dict is passed, silent 0 was lost
+- [x] add_collision_shape: explicit error for cross-dimension shape_type (sphere+2d, rectangle+3d etc.)
+- [x] get_physics_info RigidBody2D: angular_velocity wrapped as {z: value} to match 3D {x,y,z} dict shape
+- [x] get_physics_info RayCast: force_raycast_update() called before is_colliding() so value is valid in editor
+- [x] layersSchema (physics.ts): added anyOf[integer, array] so MCP clients receive typed schema
+- **Completed:** 2026-06-30
+
+### [x] 3.12 - Particle Tools (5 tools)
+- [x] create_particle_system
+- [x] set_particle_material
+- [x] set_particle_gradient
+- [x] load_particle_preset
+- [x] get_particle_info
 - **Priority:** LOW
 - **Effort:** 2-3 hours
+- **Completed:** 2026-06-30
+
+### [x] 3.12b - Particle Tools bug fixes (code review)
+- [x] set_particle_gradient: `while gradient.get_point_count() > 0` infinite loop — Gradient enforces min 1 point so remove_point is no-op at count=1; replaced with PackedFloat32Array/PackedColorArray bulk assignment
+- [x] get_particle_info: `pm.color_initial_ramp` direct access crashes on Godot 4.0 (property added in 4.1); replaced with safe `pm.get("color_initial_ramp")` which returns null instead of crashing
+- [x] set_particle_gradient: invalid `gradient_type` silently coerced to "color_ramp"; now returns explicit error consistent with other tools
+- **Completed:** 2026-06-30
 
 ### [ ] 3.13 - Navigation Tools (6 tools)
 - [ ] add_navigation_region
@@ -489,8 +505,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 20 ✅ (Phases 1–2 + 3.1–3.10 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene Tools)
-- **Current Progress:** ~57% (92 tools implemented out of 163)
+- **Completed Tasks:** 24 ✅ (Phases 1–2 + 3.1–3.12 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle Tools)
+- **Current Progress:** ~63% (103 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -524,7 +540,8 @@
 - ✅ GodotConnection WebSocket bridge (server → Godot, port 6505)
 - ✅ GodotMCPCallableTool wrapper (RefCounted, no Node overhead)
 - ✅ Phase 3.10 - 3D Scene Tools (6 tools) implemented (MeshInstance3D, Camera3D, Light3D types, WorldEnvironment, GridMap, scene scan)
-- 🚀 Next: Phase 3.11 Physics Tools (6 tools)
+- ✅ Phase 3.11 - Physics Tools (6 tools) implemented (RigidBody3D/2D, CollisionShape3D/2D, layer/mask bitmask, RayCast3D/2D, physics info)
+- 🚀 Next: Phase 3.12 Particle Tools (5 tools)
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -532,4 +549,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-06-30 (Phase 3.10 complete)
+**Last Updated:** 2026-06-30 (Phase 3.11 complete)
