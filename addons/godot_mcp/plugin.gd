@@ -122,6 +122,7 @@ func _register_tools() -> void:
 	GodotMCPNavigationTools.new(self).register(tool_registry)
 	GodotMCPAudioTools.new(self).register(tool_registry)
 	GodotMCPTileMapTools.new(self).register(tool_registry)
+	GodotMCPThemeTools.new(self).register(tool_registry)
 	# Further tool categories registered here as implemented
 
 	print_log("Registered %d tools" % tool_registry.get_tool_count())
