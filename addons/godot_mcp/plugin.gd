@@ -115,7 +115,9 @@ func _register_tools() -> void:
 	GodotMCPInputTools.new(self).register(tool_registry)
 	GodotMCPRuntimeTools.new(self).register(tool_registry)
 	GodotMCPAnimationTools.new(self).register(tool_registry)
-	# AnimationTree, … tools registered here as implemented
+	GodotMCPAnimationTreeTools.new(self).register(tool_registry)
+	GodotMCP3DSceneTools.new(self).register(tool_registry)
+	# Further tool categories registered here as implemented
 
 	print_log("Registered %d tools" % tool_registry.get_tool_count())
 
