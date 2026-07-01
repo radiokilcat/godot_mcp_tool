@@ -414,13 +414,20 @@
 - [x] bulk_rename all_scenes: add SceneState pre-scan before ps.instantiate() to skip scenes with no matching node names — mirrors the optimization already present in cross_scene_update, avoids unnecessary memory allocation for non-matching scenes
 - **Completed:** 2026-07-01
 
-### [ ] 3.20 - Analysis Tools (4 tools)
-- [ ] analyze_scene_complexity
-- [ ] trace_signal_flow
-- [ ] find_unused_resources
-- [ ] get_code_metrics
+### [x] 3.20 - Analysis Tools (4 tools)
+- [x] analyze_scene_complexity
+- [x] trace_signal_flow
+- [x] find_unused_resources
+- [x] get_code_metrics
 - **Priority:** LOW
 - **Effort:** 2-3 hours
+- **Completed:** 2026-07-01
+
+### [x] 3.20b - Analysis Tools bug fixes (code review)
+- [x] find_unused_resources: handle uid:// dependency strings returned by ResourceLoader.get_dependencies() in Godot 4.3+ (scenes omit path= in ext_resource); resolve via ResourceUID to res:// path before lookup — without this every asset was falsely reported as unused
+- [x] get_code_metrics single-file failure: return {error: "Failed to read <path>: <reason>"} instead of raw {script, error} dict (the raw shape leaked internal structure and lost path info when the MCP layer forwarded only the "error" value)
+- [x] get_code_metrics multi-file: count now reflects successfully analyzed scripts only, excluding failed-read entries — previously count==results.size() included failures, making totals/count inconsistent for callers computing per-file averages
+- **Completed:** 2026-07-01
 
 ### [ ] 3.21 - Testing/QA Tools (6 tools)
 - [ ] run_automated_tests
@@ -565,8 +572,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 38 ✅ (Phases 1–2 + 3.1–3.19 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch Tools)
-- **Current Progress:** ~90% (147 tools implemented out of 163)
+- **Completed Tasks:** 40 ✅ (Phases 1–2 + 3.1–3.20 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch/Analysis Tools)
+- **Current Progress:** ~92% (151 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -609,7 +616,8 @@
 - ✅ Phase 3.17 - Shader Tools (6 tools) implemented (create/edit .gdshader, assign ShaderMaterial, set params, inspect, validate)
 - ✅ Phase 3.18 - Resource Tools (6 tools) implemented (read/edit/create/save .tres resources, get_project_autoloads, set_autoload via EditorPlugin API; full type round-trip including Transform3D/Basis/Quaternion/Rect2i/Transform2D)
 - ✅ Phase 3.19 - Batch/Refactor Tools (8 tools) implemented (SceneState-based find_by_node_type/script/group, bulk_rename with UndoRedo for current scene + all_scenes mode, cross_scene_update, find_dependencies with BFS, orphaned_resources with entry-point seeding, refactor_signals)
-- 🚀 Next: Phase 3.20 Analysis Tools (4 tools)
+- ✅ Phase 3.20 - Analysis Tools (4 tools) implemented (analyze_scene_complexity via SceneState, trace_signal_flow with optional node filter, find_unused_resources with UID→path resolution for Godot 4.3+, get_code_metrics with per-file and aggregate stats)
+- 🚀 Next: Phase 3.21 Testing/QA Tools (6 tools)
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -617,4 +625,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-01 (Phase 3.19 complete)
+**Last Updated:** 2026-07-01 (Phase 3.20 complete)
