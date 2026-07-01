@@ -353,15 +353,26 @@
 - [x] set_stylebox: use _as_bool() for draw_center, anti_aliased, vertical — bool("false") in GDScript returns true for any non-empty string
 - **Completed:** 2026-07-01
 
-### [ ] 3.17 - Shader Tools (6 tools)
-- [ ] create_shader
-- [ ] edit_shader
-- [ ] assign_material
-- [ ] set_shader_param
-- [ ] get_shader_info
-- [ ] validate_shader
+### [x] 3.17 - Shader Tools (6 tools)
+- [x] create_shader
+- [x] edit_shader
+- [x] assign_material
+- [x] set_shader_param
+- [x] get_shader_info
+- [x] validate_shader
 - **Priority:** MEDIUM
 - **Effort:** 2-3 hours
+- **Completed:** 2026-07-01
+
+### [x] 3.17b - Shader Tools bug fixes (code review)
+- [x] _validate_shader: track /* */ block comment state across lines — multi-line block comments before shader_type caused early break and false "missing shader_type" error
+- [x] _validate_shader: strip inline // comment before parsing shader_type line — "shader_type spatial; // note" produced "spatial;" (with semicolon) as declared_type, failing type check
+- [x] _parse_param_value: add size-1 Array → float conversion; add explicit return inside Array branch for size 5+ (was falling through to return raw Array, passed to set_shader_parameter as wrong type)
+- [x] _set_shader_param: guard empty param_name after str() conversion — set_shader_parameter("", ...) is a silent no-op in Godot 4, tool returned success:true
+- [x] _set_shader_param: guard null param_value — set_shader_parameter(name, null) clears the uniform rather than setting it, now returns error
+- [x] _write_file: replace DirAccess.make_dir_recursive_absolute (Godot 4.1+) with instance-based make_dir_recursive for Godot 4.0 compatibility
+- [x] _assign_material material_path branch: add CACHE_MODE_IGNORE so freshly-saved material is never returned as stale cached object
+- **Completed:** 2026-07-01
 
 ### [ ] 3.18 - Resource Tools (6 tools)
 - [ ] read_resource
@@ -536,8 +547,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 32 ✅ (Phases 1–2 + 3.1–3.16 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme Tools)
-- **Current Progress:** ~78% (127 tools implemented out of 163)
+- **Completed Tasks:** 34 ✅ (Phases 1–2 + 3.1–3.17 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader Tools)
+- **Current Progress:** ~82% (133 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -577,7 +588,8 @@
 - ✅ Phase 3.14 - Audio Tools (6 tools) implemented
 - ✅ Phase 3.15 - TileMap Tools (6 tools) implemented
 - ✅ Phase 3.16 - Theme/UI Tools (6 tools) implemented (file-based, no UndoRedo; CACHE_MODE_IGNORE, _as_bool, overwrite guard)
-- 🚀 Next: Phase 3.17 Shader Tools (6 tools)
+- ✅ Phase 3.17 - Shader Tools (6 tools) implemented (create/edit .gdshader, assign ShaderMaterial, set params, inspect, validate)
+- 🚀 Next: Phase 3.18 Resource Tools (6 tools)
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -585,4 +597,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-01 (Phase 3.16 complete)
+**Last Updated:** 2026-07-01 (Phase 3.17 complete)
