@@ -374,15 +374,26 @@
 - [x] _assign_material material_path branch: add CACHE_MODE_IGNORE so freshly-saved material is never returned as stale cached object
 - **Completed:** 2026-07-01
 
-### [ ] 3.18 - Resource Tools (6 tools)
-- [ ] read_resource
-- [ ] edit_resource
-- [ ] create_resource
-- [ ] save_resource
-- [ ] list_autoloads
-- [ ] set_autoload
+### [x] 3.18 - Resource Tools (6 tools)
+- [x] read_resource
+- [x] edit_resource
+- [x] create_resource
+- [x] save_resource
+- [x] get_project_autoloads (renamed from list_autoloads to avoid collision with runtime_tools)
+- [x] set_autoload
 - **Priority:** MEDIUM
 - **Effort:** 2-3 hours
+- **Completed:** 2026-07-01
+
+### [x] 3.18b - Resource Tools bug fixes (code review)
+- [x] _set_autoload: add ProjectSettings.save() after add/remove_autoload_singleton — without it, autoload changes were lost on editor exit
+- [x] _parse_prop_value: add TYPE_QUATERNION, TYPE_RECT2I, TYPE_BASIS, TYPE_TRANSFORM3D, TYPE_TRANSFORM2D branches + _parse_v2/v3/basis helpers — these types were serialized by _value_to_json but silently failed on round-trip (raw dict → resource.set() no-op)
+- [x] _value_to_json: handle PackedByteArray — was falling through to str(val), producing multi-MB strings for audio/image assets; now returns up to 64 bytes as array or a {type, size, preview_hex} summary
+- [x] _edit_resource: guard against saving when all properties were skipped — was writing unchanged file, touching mtime, and returning misleading success:true
+- [x] _set_autoload: validate action string — 'delete', 'update', typos now return error instead of silently acting as 'add'
+- [x] _edit_resource: add res:// prefix validation — OS-absolute paths were silently attempted
+- [x] runtime_tools.gd _list_autoloads: fix enabled=not path.begins_with('*') (inverted Godot convention) → renamed field to is_singleton with correct polarity
+- **Completed:** 2026-07-01
 
 ### [ ] 3.19 - Batch/Refactor Tools (8 tools)
 - [ ] find_by_node_type
@@ -547,8 +558,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 34 ✅ (Phases 1–2 + 3.1–3.17 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader Tools)
-- **Current Progress:** ~82% (133 tools implemented out of 163)
+- **Completed Tasks:** 36 ✅ (Phases 1–2 + 3.1–3.18 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource Tools)
+- **Current Progress:** ~85% (139 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -589,7 +600,8 @@
 - ✅ Phase 3.15 - TileMap Tools (6 tools) implemented
 - ✅ Phase 3.16 - Theme/UI Tools (6 tools) implemented (file-based, no UndoRedo; CACHE_MODE_IGNORE, _as_bool, overwrite guard)
 - ✅ Phase 3.17 - Shader Tools (6 tools) implemented (create/edit .gdshader, assign ShaderMaterial, set params, inspect, validate)
-- 🚀 Next: Phase 3.18 Resource Tools (6 tools)
+- ✅ Phase 3.18 - Resource Tools (6 tools) implemented (read/edit/create/save .tres resources, get_project_autoloads, set_autoload via EditorPlugin API; full type round-trip including Transform3D/Basis/Quaternion/Rect2i/Transform2D)
+- 🚀 Next: Phase 3.19 Batch/Refactor Tools (8 tools)
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -597,4 +609,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-01 (Phase 3.17 complete)
+**Last Updated:** 2026-07-01 (Phase 3.18 complete)
