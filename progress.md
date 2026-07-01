@@ -429,15 +429,25 @@
 - [x] get_code_metrics multi-file: count now reflects successfully analyzed scripts only, excluding failed-read entries — previously count==results.size() included failures, making totals/count inconsistent for callers computing per-file averages
 - **Completed:** 2026-07-01
 
-### [ ] 3.21 - Testing/QA Tools (6 tools)
-- [ ] run_automated_tests
-- [ ] assert_node_state
-- [ ] compare_screenshots
-- [ ] record_test
-- [ ] replay_test
-- [ ] get_test_report
+### [x] 3.21 - Testing/QA Tools (6 tools)
+- [x] run_automated_tests
+- [x] assert_node_state
+- [x] compare_screenshots
+- [x] record_test
+- [x] replay_test
+- [x] get_test_report
 - **Priority:** LOW
 - **Effort:** 3-4 hours
+- **Completed:** 2026-07-01
+
+### [x] 3.21b - Testing/QA Tools bug fixes (code review)
+- [x] replay_test: InputEventAction now fires press + release (was press-only, leaving action stuck in pressed state)
+- [x] run_automated_tests: test methods called with await so async test_ functions don't silently pass as GDScriptFunctionState
+- [x] replay_test: replaced get_editor_viewport_2d() (Godot 4.1+ only) with Input.parse_input_event() for Godot 4.0 compatibility
+- [x] run_automated_tests: free() guard changed from has_method("free") to not instance is RefCounted — free() on RefCounted prints runtime error
+- [x] assert_node_state: int vs float now uses tolerant float comparison (str(1) != str(1.0) caused false failures on int properties)
+- [x] _collect_test_files: base_path normalized to end with "/" preventing "tests" from matching "tests_helper/" sibling directory
+- **Completed:** 2026-07-01
 
 ### [ ] 3.22 - Profiling Tools (2 tools)
 - [ ] get_performance_metrics
@@ -572,8 +582,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 40 ✅ (Phases 1–2 + 3.1–3.20 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch/Analysis Tools)
-- **Current Progress:** ~92% (151 tools implemented out of 163)
+- **Completed Tasks:** 42 ✅ (Phases 1–2 + 3.1–3.21 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch/Analysis/Testing Tools)
+- **Current Progress:** ~96% (157 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -617,7 +627,8 @@
 - ✅ Phase 3.18 - Resource Tools (6 tools) implemented (read/edit/create/save .tres resources, get_project_autoloads, set_autoload via EditorPlugin API; full type round-trip including Transform3D/Basis/Quaternion/Rect2i/Transform2D)
 - ✅ Phase 3.19 - Batch/Refactor Tools (8 tools) implemented (SceneState-based find_by_node_type/script/group, bulk_rename with UndoRedo for current scene + all_scenes mode, cross_scene_update, find_dependencies with BFS, orphaned_resources with entry-point seeding, refactor_signals)
 - ✅ Phase 3.20 - Analysis Tools (4 tools) implemented (analyze_scene_complexity via SceneState, trace_signal_flow with optional node filter, find_unused_resources with UID→path resolution for Godot 4.3+, get_code_metrics with per-file and aggregate stats)
-- 🚀 Next: Phase 3.21 Testing/QA Tools (6 tools)
+- ✅ Phase 3.21 - Testing/QA Tools (6 tools) implemented (run_automated_tests with await-safe method dispatch, assert_node_state with int/float tolerance, compare_screenshots, record_test/replay_test with Godot 4.0-safe Input.parse_input_event, get_test_report)
+- 🚀 Next: Phase 3.22 Profiling Tools (2 tools)
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -625,4 +636,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-01 (Phase 3.20 complete)
+**Last Updated:** 2026-07-01 (Phase 3.21 complete)
