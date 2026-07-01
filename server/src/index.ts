@@ -31,6 +31,7 @@ import { shaderTools } from "./tools/shader.js";
 import { resourceTools } from "./tools/resource.js";
 import { batchTools } from "./tools/batch.js";
 import { analysisTools } from "./tools/analysis.js";
+import { testingTools } from "./tools/testing.js";
 
 // Initialize Godot WebSocket bridge (starts listening on port 6505)
 import "./godot-connection.js";
@@ -90,6 +91,7 @@ function registerAllTools(): void {
     resourceTools,
     batchTools,
     analysisTools,
+    testingTools,
     // Additional categories will be imported here as they're implemented
   ];
 
