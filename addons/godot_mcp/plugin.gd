@@ -125,6 +125,7 @@ func _register_tools() -> void:
 	GodotMCPThemeTools.new(self).register(tool_registry)
 	GodotMCPShaderTools.new(self).register(tool_registry)
 	GodotMCPResourceTools.new(self).register(tool_registry)
+	GodotMCPBatchTools.new(self).register(tool_registry)
 	# Further tool categories registered here as implemented
 
 	print_log("Registered %d tools" % tool_registry.get_tool_count())
