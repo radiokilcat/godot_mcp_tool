@@ -28,6 +28,7 @@ import { audioTools } from "./tools/audio.js";
 import { tilemapTools } from "./tools/tilemap.js";
 import { themeTools } from "./tools/theme.js";
 import { shaderTools } from "./tools/shader.js";
+import { resourceTools } from "./tools/resource.js";
 
 // Initialize Godot WebSocket bridge (starts listening on port 6505)
 import "./godot-connection.js";
@@ -84,6 +85,7 @@ function registerAllTools(): void {
     tilemapTools,
     themeTools,
     shaderTools,
+    resourceTools,
     // Additional categories will be imported here as they're implemented
   ];
 

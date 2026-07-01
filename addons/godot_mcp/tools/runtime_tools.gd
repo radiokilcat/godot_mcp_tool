@@ -397,13 +397,13 @@ func _list_autoloads(_args: Dictionary) -> Dictionary:
 		if name.begins_with("autoload/"):
 			var al_name := name.substr("autoload/".length())
 			var al_path: String = str(ProjectSettings.get_setting(name))
-			var enabled := not al_path.begins_with("*")
-			if al_path.begins_with("*"):
+			var is_singleton := al_path.begins_with("*")
+			if is_singleton:
 				al_path = al_path.substr(1)
 			autoloads.append({
-				"name": al_name,
-				"path": al_path,
-				"enabled": enabled,
+				"name":         al_name,
+				"path":         al_path,
+				"is_singleton": is_singleton,
 			})
 	return {"autoloads": autoloads, "total": autoloads.size()}
 
