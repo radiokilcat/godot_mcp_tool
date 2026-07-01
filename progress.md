@@ -395,17 +395,24 @@
 - [x] runtime_tools.gd _list_autoloads: fix enabled=not path.begins_with('*') (inverted Godot convention) → renamed field to is_singleton with correct polarity
 - **Completed:** 2026-07-01
 
-### [ ] 3.19 - Batch/Refactor Tools (8 tools)
-- [ ] find_by_node_type
-- [ ] find_by_script
-- [ ] find_by_group
-- [ ] bulk_rename
-- [ ] cross_scene_update
-- [ ] find_dependencies
-- [ ] orphaned_resources
-- [ ] refactor_signals
+### [x] 3.19 - Batch/Refactor Tools (8 tools)
+- [x] find_by_node_type
+- [x] find_by_script
+- [x] find_by_group
+- [x] bulk_rename
+- [x] cross_scene_update
+- [x] find_dependencies
+- [x] orphaned_resources
+- [x] refactor_signals
 - **Priority:** LOW
 - **Effort:** 3-4 hours
+- **Completed:** 2026-07-01
+
+### [x] 3.19b - Batch/Refactor Tools bug fixes (code review)
+- [x] bulk_rename all_scenes: check ResourceSaver.save() return value — save failures were silently swallowed and reported as success
+- [x] bulk_rename current_scene: call ur.commit_action(false) when renamed array is empty to discard the action rather than pushing a spurious blank entry onto the undo stack
+- [x] bulk_rename all_scenes: add SceneState pre-scan before ps.instantiate() to skip scenes with no matching node names — mirrors the optimization already present in cross_scene_update, avoids unnecessary memory allocation for non-matching scenes
+- **Completed:** 2026-07-01
 
 ### [ ] 3.20 - Analysis Tools (4 tools)
 - [ ] analyze_scene_complexity
@@ -558,8 +565,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 36 ✅ (Phases 1–2 + 3.1–3.18 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource Tools)
-- **Current Progress:** ~85% (139 tools implemented out of 163)
+- **Completed Tasks:** 38 ✅ (Phases 1–2 + 3.1–3.19 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch Tools)
+- **Current Progress:** ~90% (147 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -601,7 +608,8 @@
 - ✅ Phase 3.16 - Theme/UI Tools (6 tools) implemented (file-based, no UndoRedo; CACHE_MODE_IGNORE, _as_bool, overwrite guard)
 - ✅ Phase 3.17 - Shader Tools (6 tools) implemented (create/edit .gdshader, assign ShaderMaterial, set params, inspect, validate)
 - ✅ Phase 3.18 - Resource Tools (6 tools) implemented (read/edit/create/save .tres resources, get_project_autoloads, set_autoload via EditorPlugin API; full type round-trip including Transform3D/Basis/Quaternion/Rect2i/Transform2D)
-- 🚀 Next: Phase 3.19 Batch/Refactor Tools (8 tools)
+- ✅ Phase 3.19 - Batch/Refactor Tools (8 tools) implemented (SceneState-based find_by_node_type/script/group, bulk_rename with UndoRedo for current scene + all_scenes mode, cross_scene_update, find_dependencies with BFS, orphaned_resources with entry-point seeding, refactor_signals)
+- 🚀 Next: Phase 3.20 Analysis Tools (4 tools)
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -609,4 +617,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-01 (Phase 3.18 complete)
+**Last Updated:** 2026-07-01 (Phase 3.19 complete)
