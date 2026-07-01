@@ -33,6 +33,7 @@ import { batchTools } from "./tools/batch.js";
 import { analysisTools } from "./tools/analysis.js";
 import { testingTools } from "./tools/testing.js";
 import { profilingTools } from "./tools/profiling.js";
+import { exportTools } from "./tools/export.js";
 
 // Initialize Godot WebSocket bridge (starts listening on port 6505)
 import "./godot-connection.js";
@@ -94,6 +95,7 @@ function registerAllTools(): void {
     analysisTools,
     testingTools,
     profilingTools,
+    exportTools,
     // Additional categories will be imported here as they're implemented
   ];
 

@@ -129,6 +129,7 @@ func _register_tools() -> void:
 	GodotMCPAnalysisTools.new(self).register(tool_registry)
 	GodotMCPTestingTools.new(self).register(tool_registry)
 	GodotMCPProfilingTools.new(self).register(tool_registry)
+	GodotMCPExportTools.new(self).register(tool_registry)
 	# Further tool categories registered here as implemented
 
 	print_log("Registered %d tools" % tool_registry.get_tool_count())
