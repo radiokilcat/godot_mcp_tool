@@ -465,12 +465,21 @@
 - [x] MEMORY_MESSAGE_BUFFER_MAX key renamed to message_buffer_max_bytes to clarify it is a queue ceiling, not current usage
 - **Completed:** 2026-07-01
 
-### [ ] 3.23 - Export Tools (3 tools)
-- [ ] list_export_presets
-- [ ] export_project
-- [ ] get_template_info
+### [x] 3.23 - Export Tools (3 tools)
+- [x] list_export_presets
+- [x] export_project
+- [x] get_template_info
 - **Priority:** LOW
 - **Effort:** 1-2 hours
+- **Completed:** 2026-07-01
+
+### [x] 3.23b - Export Tools bug fixes (code review)
+- [x] OS.execute stderr coercion: removed separate stderr Array; use single output Array + read_stderr=true; output included in both success and failure responses (was always "(no stderr)")
+- [x] Template path: use version_string (e.g. "4.2.2.stable") directly instead of "%d.%d.%d" numeric format — templates_installed was always false for correct installations
+- [x] DirAccess.make_dir_recursive_absolute (Godot 4.1+): replaced with instance-based DirAccess.open("user://").make_dir_recursive() for Godot 4.0 compatibility
+- [x] exit_code == -1: now returns distinct "subprocess not launched" error distinguishing from export failure
+- [x] Dead variables preset_index/preset_platform removed; redundant export_result intermediate variable inlined
+- **Completed:** 2026-07-01
 
 ---
 
@@ -592,8 +601,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 44 ✅ (Phases 1–2 + 3.1–3.22 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch/Analysis/Testing/Profiling Tools)
-- **Current Progress:** ~97% (159 tools implemented out of 163)
+- **Completed Tasks:** 46 ✅ (Phases 1–2 + 3.1–3.23 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch/Analysis/Testing/Profiling/Export Tools)
+- **Current Progress:** 100% (163/163 tools implemented)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -639,7 +648,8 @@
 - ✅ Phase 3.20 - Analysis Tools (4 tools) implemented (analyze_scene_complexity via SceneState, trace_signal_flow with optional node filter, find_unused_resources with UID→path resolution for Godot 4.3+, get_code_metrics with per-file and aggregate stats)
 - ✅ Phase 3.21 - Testing/QA Tools (6 tools) implemented (run_automated_tests with await-safe method dispatch, assert_node_state with int/float tolerance, compare_screenshots, record_test/replay_test with Godot 4.0-safe Input.parse_input_event, get_test_report)
 - ✅ Phase 3.22 - Profiling Tools (2 tools) implemented (get_performance_monitors with per-category filter, navigation monitors guarded for Godot 4.1+; get_memory_usage with static/render breakdown + cached resource sample guarded for Godot 4.1+)
-- 🚀 Next: Phase 3.23 Export Tools (3 tools)
+- ✅ Phase 3.23 - Export Tools (3 tools) implemented (list_export_presets via ConfigFile, export_project via OS.execute headless with merged output capture, get_template_info with version_string-based path lookup)
+- 🎉 ALL 163 TOOLS IMPLEMENTED — Phase 3 complete
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -647,4 +657,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-01 (Phase 3.22 complete)
+**Last Updated:** 2026-07-01 (Phase 3.23 complete — ALL 163 tools implemented)
