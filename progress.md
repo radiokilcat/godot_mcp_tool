@@ -449,11 +449,21 @@
 - [x] _collect_test_files: base_path normalized to end with "/" preventing "tests" from matching "tests_helper/" sibling directory
 - **Completed:** 2026-07-01
 
-### [ ] 3.22 - Profiling Tools (2 tools)
-- [ ] get_performance_metrics
-- [ ] get_memory_usage
+### [x] 3.22 - Profiling Tools (2 tools)
+- [x] get_performance_monitors
+- [x] get_memory_usage
 - **Priority:** LOW
 - **Effort:** 1-2 hours
+- **Completed:** 2026-07-01
+
+### [x] 3.22b - Profiling Tools bug fixes (code review)
+- [x] TIME_NAVIGATION_PROCESS + NAVIGATION_* constants: guarded with Engine.get_version_info minor>=1 check for Godot 4.0 compatibility
+- [x] clampi(): replaced with int(clamp()) for Godot 4.0 compatibility
+- [x] ResourceLoader.list_cached_resources(): guarded with has_method() check for Godot 4.1+; fallback returns informative note
+- [x] Dict self-reference bug: captured full_count before assignment to cached_resources dict so note field resolves correctly
+- [x] Double list_cached_resources() call eliminated: single call, stored in local, sliced in-place
+- [x] MEMORY_MESSAGE_BUFFER_MAX key renamed to message_buffer_max_bytes to clarify it is a queue ceiling, not current usage
+- **Completed:** 2026-07-01
 
 ### [ ] 3.23 - Export Tools (3 tools)
 - [ ] list_export_presets
@@ -582,8 +592,8 @@
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
-- **Completed Tasks:** 42 ✅ (Phases 1–2 + 3.1–3.21 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch/Analysis/Testing Tools)
-- **Current Progress:** ~96% (157 tools implemented out of 163)
+- **Completed Tasks:** 44 ✅ (Phases 1–2 + 3.1–3.22 Project/Scene/Node/Script/Editor/Input/Runtime/Animation/AnimationTree/3DScene/Physics/Particle/Navigation/Audio/TileMap/Theme/Shader/Resource/Batch/Analysis/Testing/Profiling Tools)
+- **Current Progress:** ~97% (159 tools implemented out of 163)
 - **Estimated Total Effort:** 120-150 hours
 
 ### Build & Test Results ✅
@@ -628,7 +638,8 @@
 - ✅ Phase 3.19 - Batch/Refactor Tools (8 tools) implemented (SceneState-based find_by_node_type/script/group, bulk_rename with UndoRedo for current scene + all_scenes mode, cross_scene_update, find_dependencies with BFS, orphaned_resources with entry-point seeding, refactor_signals)
 - ✅ Phase 3.20 - Analysis Tools (4 tools) implemented (analyze_scene_complexity via SceneState, trace_signal_flow with optional node filter, find_unused_resources with UID→path resolution for Godot 4.3+, get_code_metrics with per-file and aggregate stats)
 - ✅ Phase 3.21 - Testing/QA Tools (6 tools) implemented (run_automated_tests with await-safe method dispatch, assert_node_state with int/float tolerance, compare_screenshots, record_test/replay_test with Godot 4.0-safe Input.parse_input_event, get_test_report)
-- 🚀 Next: Phase 3.22 Profiling Tools (2 tools)
+- ✅ Phase 3.22 - Profiling Tools (2 tools) implemented (get_performance_monitors with per-category filter, navigation monitors guarded for Godot 4.1+; get_memory_usage with static/render breakdown + cached resource sample guarded for Godot 4.1+)
+- 🚀 Next: Phase 3.23 Export Tools (3 tools)
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -636,4 +647,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-01 (Phase 3.21 complete)
+**Last Updated:** 2026-07-01 (Phase 3.22 complete)
