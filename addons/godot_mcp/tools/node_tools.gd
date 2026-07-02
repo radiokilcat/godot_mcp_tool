@@ -166,8 +166,8 @@ func _delete_node(args: Dictionary) -> Dictionary:
 	if node == _scene_root():
 		return {"error": "Cannot delete the scene root node"}
 
-	var parent := node.get_parent()
-	var idx := node.get_index()
+	var parent: Node = node.get_parent()
+	var idx: int = node.get_index()
 
 	var ur := _plugin.get_undo_redo()
 	ur.create_action("Delete Node: %s" % node.name)
@@ -192,7 +192,7 @@ func _duplicate_node(args: Dictionary) -> Dictionary:
 		return {"error": "Node not found: %s" % node_path}
 
 	var root := _scene_root()
-	var parent := node.get_parent()
+	var parent: Node = node.get_parent()
 	var dupe: Node = node.duplicate()
 	dupe.name = args.get("new_name", node.name + "2")
 
@@ -217,12 +217,12 @@ func _move_node(args: Dictionary) -> Dictionary:
 	if node == null:
 		return {"error": "Node not found: %s" % node_path}
 
-	var new_parent := _resolve_node(new_parent_path)
+	var new_parent: Node = _resolve_node(new_parent_path)
 	if new_parent == null:
 		return {"error": "New parent not found: %s" % new_parent_path}
 
-	var old_parent := node.get_parent()
-	var old_idx    := node.get_index()
+	var old_parent: Node = node.get_parent()
+	var old_idx: int = node.get_index()
 	var new_idx: int = int(args.get("index", -1))
 	var root := _scene_root()
 
@@ -252,7 +252,7 @@ func _rename_node(args: Dictionary) -> Dictionary:
 	if node == null:
 		return {"error": "Node not found: %s" % node_path}
 
-	var old_name := node.name
+	var old_name: StringName = node.name
 
 	var ur := _plugin.get_undo_redo()
 	ur.create_action("Rename Node: %s → %s" % [old_name, new_name])
@@ -475,7 +475,7 @@ func _get_node_parent(args: Dictionary) -> Dictionary:
 	if node == null:
 		return {"error": "Node not found: %s" % node_path}
 
-	var parent := node.get_parent()
+	var parent: Node = node.get_parent()
 	if parent == null:
 		return {"node_path": node_path, "parent": null, "is_root": true}
 

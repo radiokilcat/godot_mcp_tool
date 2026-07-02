@@ -566,10 +566,10 @@ func _delete_animation_tree_node(args: Dictionary) -> Dictionary:
 		var node := _resolve_node(node_path)
 		if node == null:
 			return {"error": "Node not found: %s" % node_path}
-		var parent := node.get_parent()
+		var parent: Node = node.get_parent()
 		if parent == null:
 			return {"error": "Node has no parent (cannot delete scene root)"}
-		var idx  := node.get_index()
+		var idx: int = node.get_index()
 		var root := _scene_root()
 		var ur   := _plugin.get_undo_redo()
 		ur.create_action("Delete AnimationTree '%s'" % node_path)

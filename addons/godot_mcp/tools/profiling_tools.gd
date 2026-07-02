@@ -129,7 +129,8 @@ func _get_memory_usage(args: Dictionary) -> Dictionary:
 	if include_resources:
 		# list_cached_resources() requires Godot 4.1+
 		if ResourceLoader.has_method("list_cached_resources"):
-			var all_resources: Array = Array(ResourceLoader.list_cached_resources())
+			# Use .call() to bypass Godot 4.4 parse-time static method validation.
+			var all_resources: Array = Array(ResourceLoader.call("list_cached_resources"))
 			var full_count: int = all_resources.size()
 			all_resources.sort()
 			if all_resources.size() > max_resources:

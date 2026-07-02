@@ -1,16 +1,16 @@
 @tool
-extends Node
+extends RefCounted
 
 class_name GodotMCPUndoRedo
 
 ## UndoRedo integration for all mutations
 ## Provides wrapper for undo/redo operations with transaction support
 
-var undo_redo: EditorUndoRedo
+var undo_redo: EditorUndoRedoManager
 var transaction_stack: Array[Dictionary] = []
 var current_version: int = 0
 
-func _init(p_undo_redo: EditorUndoRedo) -> void:
+func _init(p_undo_redo: EditorUndoRedoManager) -> void:
 	undo_redo = p_undo_redo
 
 ## Begin a transaction (can be nested)

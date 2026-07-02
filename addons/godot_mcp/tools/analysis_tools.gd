@@ -265,7 +265,7 @@ func _get_code_metrics(args: Dictionary) -> Dictionary:
 			totals[key] += m.get(key, 0)
 
 	if results.size() == 1:
-		var r := results[0]
+		var r: Dictionary = results[0]
 		if r.has("error"):
 			return {"error": "Failed to read %s: %s" % [r.get("script", "?"), r.get("error", "unknown")]}
 		return r

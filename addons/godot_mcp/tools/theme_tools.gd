@@ -28,10 +28,10 @@ func _parse_color(val: Variant) -> Color:
 	if val is Color:
 		return val
 	if val is String:
-		var s := val.strip_edges()
+		var s: String = (val as String).strip_edges()
 		if s.begins_with("Color("):
 			s = s.trim_prefix("Color(").trim_suffix(")")
-			var parts := s.split(",")
+			var parts: PackedStringArray = s.split(",")
 			if parts.size() >= 3:
 				return Color(float(parts[0]), float(parts[1]), float(parts[2]),
 					float(parts[3]) if parts.size() >= 4 else 1.0)

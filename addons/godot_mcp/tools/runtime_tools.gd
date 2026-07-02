@@ -217,7 +217,7 @@ func _get_performance_metrics(args: Dictionary) -> Dictionary:
 		"process_ms":   Performance.TIME_PROCESS,
 		"physics_ms":   Performance.TIME_PHYSICS_PROCESS,
 		"memory_static":Performance.MEMORY_STATIC,
-		"memory_dynamic":Performance.MEMORY_DYNAMIC,
+
 		"object_count": Performance.OBJECT_COUNT,
 		"node_count":   Performance.OBJECT_NODE_COUNT,
 		"orphan_nodes": Performance.OBJECT_ORPHAN_NODE_COUNT,

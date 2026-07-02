@@ -216,7 +216,7 @@ func _get_scene_info(args: Dictionary) -> Dictionary:
 
 	var count := _count_nodes(instance)
 	var root_type := instance.get_class()
-	var script_path := instance.get_script().resource_path if instance.get_script() else ""
+	var script_path: String = instance.get_script().resource_path if instance.get_script() else ""
 	instance.free()
 
 	# Check if open in editor

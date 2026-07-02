@@ -95,7 +95,7 @@ func _type_name(t: int) -> String:
 
 func _uniform_list(shader: Shader) -> Array:
 	var out: Array = []
-	for p in RenderingServer.shader_get_param_list(shader.get_rid()):
+	for p in shader.get_shader_uniform_list():
 		out.append({
 			"name": str(p.get("name", "")),
 			"type": _type_name(int(p.get("type", TYPE_FLOAT))),
