@@ -481,6 +481,18 @@
 - [x] Dead variables preset_index/preset_platform removed; redundant export_result intermediate variable inlined
 - **Completed:** 2026-07-01
 
+### [x] 3.24 - Godot 4.4.1 Compatibility Fixes
+- [x] undo_redo_manager.gd: extend RefCounted instead of Node (eliminates add_to_group/remove_from_group Node signature conflicts); replace non-existent EditorUndoRedo type with EditorUndoRedoManager
+- [x] node_tools.gd, animation_tree_tools.gd: explicit type annotations (Node/int/StringName) where := inference fails on Variant-returning methods in Godot 4.4
+- [x] scene_tools.gd: fix ternary type-inference on get_script() result
+- [x] runtime_tools.gd: remove Performance.MEMORY_DYNAMIC (removed in 4.4)
+- [x] shader_tools.gd: replace RenderingServer.shader_get_param_list() (removed) with Shader.get_shader_uniform_list()
+- [x] theme_tools.gd: explicit String/PackedStringArray annotations in _parse_color()
+- [x] analysis_tools.gd: explicit Dictionary annotation for array element access
+- [x] profiling_tools.gd: ResourceLoader.call("list_cached_resources") to bypass Godot 4.4 parse-time static method validation
+- [x] Verified: plugin loads clean in Godot 4.4.1 — "Registered 162 tools", zero parse errors
+- **Completed:** 2026-07-02
+
 ---
 
 ## Phase 4: Lite Mode Implementation
@@ -650,6 +662,7 @@
 - ✅ Phase 3.22 - Profiling Tools (2 tools) implemented (get_performance_monitors with per-category filter, navigation monitors guarded for Godot 4.1+; get_memory_usage with static/render breakdown + cached resource sample guarded for Godot 4.1+)
 - ✅ Phase 3.23 - Export Tools (3 tools) implemented (list_export_presets via ConfigFile, export_project via OS.execute headless with merged output capture, get_template_info with version_string-based path lookup)
 - 🎉 ALL 163 TOOLS IMPLEMENTED — Phase 3 complete
+- ✅ Godot 4.4.1 compatibility verified: plugin loads with zero parse errors, registers 162 tools
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -657,4 +670,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-01 (Phase 3.23 complete — ALL 163 tools implemented)
+**Last Updated:** 2026-07-02 (Phase 3.24 — Godot 4.4.1 compatibility fixes applied and verified)
