@@ -126,12 +126,29 @@ func _delete_scene(args: Dictionary) -> Dictionary:
 	if not FileAccess.file_exists(abs_path):
 		return {"error": "Scene file not found: %s" % scene_path}
 
+	# Check if scene is open in editor — open scenes may be file-locked on Windows
+	var open_scenes := EditorInterface.get_open_scenes()
+	var is_open := scene_path in open_scenes
+
 	var err := OS.move_to_trash(abs_path)
 	if err != OK:
 		# Fallback: direct delete
 		err = DirAccess.remove_absolute(abs_path)
 		if err != OK:
 			return {"error": "Failed to delete scene: %s" % error_string(err)}
+
+	# Verify the file was actually removed — move_to_trash can return OK but leave
+	# the file on disk when Godot's resource cache holds a lock (common with scenes
+	# that have attached scripts).
+	if FileAccess.file_exists(abs_path):
+		if is_open:
+			return {"error": "Scene '%s' is currently open in the editor. Open a different scene first, then retry delete_scene." % scene_path}
+		return {"error": "Deletion reported success but '%s' still exists on disk. The file may be locked by Godot's resource cache." % scene_path}
+
+	# Clean up the .uid sidecar file if present
+	var uid_path := abs_path + ".uid"
+	if FileAccess.file_exists(uid_path):
+		DirAccess.remove_absolute(uid_path)
 
 	EditorInterface.get_resource_filesystem().scan()
 	return {"success": true, "deleted_path": scene_path}

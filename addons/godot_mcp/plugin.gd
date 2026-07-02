@@ -14,6 +14,31 @@ var websocket_client: GodotMCPWebSocketClient
 var heartbeat: GodotMCPHeartbeat
 var tool_registry: GodotMCPToolRegistry
 
+# Tool handler instances — must be held here to prevent RefCounted GC
+var _tool_project: GodotMCPProjectTools
+var _tool_scene: GodotMCPSceneTools
+var _tool_node: GodotMCPNodeTools
+var _tool_script: GodotMCPScriptTools
+var _tool_editor: GodotMCPEditorTools
+var _tool_input: GodotMCPInputTools
+var _tool_runtime: GodotMCPRuntimeTools
+var _tool_animation: GodotMCPAnimationTools
+var _tool_animation_tree: GodotMCPAnimationTreeTools
+var _tool_scene_3d: GodotMCP3DSceneTools
+var _tool_physics: GodotMCPPhysicsTools
+var _tool_particles: GodotMCPParticleTools
+var _tool_navigation: GodotMCPNavigationTools
+var _tool_audio: GodotMCPAudioTools
+var _tool_tilemap: GodotMCPTileMapTools
+var _tool_theme: GodotMCPThemeTools
+var _tool_shader: GodotMCPShaderTools
+var _tool_resource: GodotMCPResourceTools
+var _tool_batch: GodotMCPBatchTools
+var _tool_analysis: GodotMCPAnalysisTools
+var _tool_testing: GodotMCPTestingTools
+var _tool_profiling: GodotMCPProfilingTools
+var _tool_export: GodotMCPExportTools
+
 # Configuration
 var server_host: String = "localhost"
 var server_port: int = 6505
@@ -55,6 +80,7 @@ func _initialize_plugin() -> void:
 	heartbeat = GodotMCPHeartbeat.new()
 	add_child(heartbeat)
 	heartbeat.ping_timeout.connect(_on_ping_timeout)
+	heartbeat.send_fn = func(): _send_message({"type": "ping"})
 
 	# Create tool registry
 	tool_registry = GodotMCPToolRegistry.new()
@@ -107,30 +133,53 @@ func _disconnect_from_server() -> void:
 
 func _register_tools() -> void:
 	"""Register all available tools"""
-	GodotMCPProjectTools.new().register(tool_registry)
-	GodotMCPSceneTools.new(self).register(tool_registry)
-	GodotMCPNodeTools.new(self).register(tool_registry)
-	GodotMCPScriptTools.new(self).register(tool_registry)
-	GodotMCPEditorTools.new(self).register(tool_registry)
-	GodotMCPInputTools.new(self).register(tool_registry)
-	GodotMCPRuntimeTools.new(self).register(tool_registry)
-	GodotMCPAnimationTools.new(self).register(tool_registry)
-	GodotMCPAnimationTreeTools.new(self).register(tool_registry)
-	GodotMCP3DSceneTools.new(self).register(tool_registry)
-	GodotMCPPhysicsTools.new(self).register(tool_registry)
-	GodotMCPParticleTools.new(self).register(tool_registry)
-	GodotMCPNavigationTools.new(self).register(tool_registry)
-	GodotMCPAudioTools.new(self).register(tool_registry)
-	GodotMCPTileMapTools.new(self).register(tool_registry)
-	GodotMCPThemeTools.new(self).register(tool_registry)
-	GodotMCPShaderTools.new(self).register(tool_registry)
-	GodotMCPResourceTools.new(self).register(tool_registry)
-	GodotMCPBatchTools.new(self).register(tool_registry)
-	GodotMCPAnalysisTools.new(self).register(tool_registry)
-	GodotMCPTestingTools.new(self).register(tool_registry)
-	GodotMCPProfilingTools.new(self).register(tool_registry)
-	GodotMCPExportTools.new(self).register(tool_registry)
-	# Further tool categories registered here as implemented
+	_tool_project = GodotMCPProjectTools.new()
+	_tool_scene = GodotMCPSceneTools.new(self)
+	_tool_node = GodotMCPNodeTools.new(self)
+	_tool_script = GodotMCPScriptTools.new(self)
+	_tool_editor = GodotMCPEditorTools.new(self)
+	_tool_input = GodotMCPInputTools.new(self)
+	_tool_runtime = GodotMCPRuntimeTools.new(self)
+	_tool_animation = GodotMCPAnimationTools.new(self)
+	_tool_animation_tree = GodotMCPAnimationTreeTools.new(self)
+	_tool_scene_3d = GodotMCP3DSceneTools.new(self)
+	_tool_physics = GodotMCPPhysicsTools.new(self)
+	_tool_particles = GodotMCPParticleTools.new(self)
+	_tool_navigation = GodotMCPNavigationTools.new(self)
+	_tool_audio = GodotMCPAudioTools.new(self)
+	_tool_tilemap = GodotMCPTileMapTools.new(self)
+	_tool_theme = GodotMCPThemeTools.new(self)
+	_tool_shader = GodotMCPShaderTools.new(self)
+	_tool_resource = GodotMCPResourceTools.new(self)
+	_tool_batch = GodotMCPBatchTools.new(self)
+	_tool_analysis = GodotMCPAnalysisTools.new(self)
+	_tool_testing = GodotMCPTestingTools.new(self)
+	_tool_profiling = GodotMCPProfilingTools.new(self)
+	_tool_export = GodotMCPExportTools.new(self)
+
+	_tool_project.register(tool_registry)
+	_tool_scene.register(tool_registry)
+	_tool_node.register(tool_registry)
+	_tool_script.register(tool_registry)
+	_tool_editor.register(tool_registry)
+	_tool_input.register(tool_registry)
+	_tool_runtime.register(tool_registry)
+	_tool_animation.register(tool_registry)
+	_tool_animation_tree.register(tool_registry)
+	_tool_scene_3d.register(tool_registry)
+	_tool_physics.register(tool_registry)
+	_tool_particles.register(tool_registry)
+	_tool_navigation.register(tool_registry)
+	_tool_audio.register(tool_registry)
+	_tool_tilemap.register(tool_registry)
+	_tool_theme.register(tool_registry)
+	_tool_shader.register(tool_registry)
+	_tool_resource.register(tool_registry)
+	_tool_batch.register(tool_registry)
+	_tool_analysis.register(tool_registry)
+	_tool_testing.register(tool_registry)
+	_tool_profiling.register(tool_registry)
+	_tool_export.register(tool_registry)
 
 	print_log("Registered %d tools" % tool_registry.get_tool_count())
 

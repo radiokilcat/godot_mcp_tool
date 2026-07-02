@@ -493,6 +493,33 @@
 - [x] Verified: plugin loads clean in Godot 4.4.1 — "Registered 162 tools", zero parse errors
 - **Completed:** 2026-07-02
 
+### [x] 3.25 - Critical Bug Fixes (found during live MCP testing)
+- [x] **callable_tool.gd null instance**: all tool handlers (`GodotMCPProjectTools` etc.) extend `RefCounted` and were created as temporaries in `_register_tools()` — GC freed them immediately after `register()` returned. Fix: store all 23 tool instances as member variables in `plugin.gd` (`_tool_project`, `_tool_scene`, …, `_tool_export`).
+- [x] **heartbeat._send_ping() was empty (pass)**: ping was never sent over WebSocket → timeout fired every ~15s → constant disconnect/reconnect loop. Fix: added `send_fn: Callable` to `heartbeat.gd`; wired in `plugin.gd` via `heartbeat.send_fn = func(): _send_message({"type": "ping"})`.
+- **Completed:** 2026-07-02
+
+### [x] 6.1b - Live MCP Integration Test (18 basic tools)
+- [x] get_project_info ✅ — Godot 4.4.1, project "test_mcp"
+- [x] get_editor_version ✅ — 4.4.1-stable (official)
+- [x] get_editor_state ✅ — has_open_scene: false before scene created
+- [x] get_project_settings ✅ — gravity, viewport defaults returned
+- [x] list_project_files ✅ — 68 files incl. plugin addons/
+- [x] get_scene_tree ✅* — expected error with no scene; correct after open
+- [x] list_open_scenes ✅ — empty initially, expected
+- [x] create_scene ✅ — res://test_basic.tscn created
+- [x] open_scene ✅ — scene opened in editor
+- [x] add_node ✅ — Label "TestLabel" added to root
+- [x] set_node_property ✅ — text "" → "Hello MCP!"
+- [x] get_node_properties ✅ — all Label props returned, text confirmed
+- [x] get_scene_tree (repeat) ✅ — TestScene → TestLabel visible
+- [x] create_script ✅ — res://test_script.gd created
+- [x] read_script ✅ — content matches written source
+- [x] validate_syntax ✅ — valid: true
+- [x] get_error_log ✅ — empty log, no errors
+- [x] take_screenshot ✅ — 1920×1080, saved to res://screenshot.png
+- **Result:** 18/18 PASSED
+- **Completed:** 2026-07-02
+
 ---
 
 ## Phase 4: Lite Mode Implementation
@@ -670,4 +697,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-02 (Phase 3.24 — Godot 4.4.1 compatibility fixes applied and verified)
+**Last Updated:** 2026-07-02 (Phase 3.25 — critical GC + heartbeat bugs fixed; 18/18 live MCP tools pass)

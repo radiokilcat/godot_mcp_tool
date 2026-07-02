@@ -14,6 +14,7 @@ const PING_TIMEOUT: float = 5.0    # Wait 5 seconds for pong response
 var is_running: bool = false
 var last_ping_time: float = 0.0
 var timer: Timer
+var send_fn: Callable  # Set by plugin to actually send the ping over WebSocket
 
 func _enter_tree() -> void:
 	timer = Timer.new()
@@ -60,6 +61,5 @@ func _on_timer_timeout() -> void:
 			last_ping_time = 0.0
 
 func _send_ping() -> void:
-	"""Send ping to server"""
-	# This will be called from the main plugin to send ping through WebSocket
-	pass
+	if send_fn.is_valid():
+		send_fn.call()
