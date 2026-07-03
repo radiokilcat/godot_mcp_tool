@@ -5,6 +5,11 @@ class_name GodotMCPRuntimeTools
 
 ## Implements all 19 runtime tools.
 ## Tools that need the game running are marked with a guard check.
+##
+## get_performance_metrics: memory_dynamic/memory_dynamic_mb only appear on
+## Godot 4.0-4.3, where Performance.MEMORY_DYNAMIC still exists (removed in
+## 4.4); see version_utils.gd for how this is detected without breaking
+## script parsing on either engine version.
 
 var _plugin: EditorPlugin
 var _prev_time_scale: float = 1.0
@@ -226,6 +231,10 @@ func _get_performance_metrics(args: Dictionary) -> Dictionary:
 		"primitives":   Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME,
 		"video_mem_mb": Performance.RENDER_VIDEO_MEM_USED,
 	}
+	# MEMORY_DYNAMIC was removed in Godot 4.4; only offer it where it exists,
+	# looked up dynamically by name so this script still parses on 4.4+.
+	if GodotMCPVersionUtils.has_constant("Performance", "MEMORY_DYNAMIC"):
+		monitor_map["memory_dynamic"] = GodotMCPVersionUtils.get_constant("Performance", "MEMORY_DYNAMIC")
 
 	var requested: Array = args.get("monitors", monitor_map.keys())
 	var result: Dictionary = {}
@@ -236,6 +245,8 @@ func _get_performance_metrics(args: Dictionary) -> Dictionary:
 	# Always include unit info for memory
 	if "memory_static" in result:
 		result["memory_static_mb"] = snappedf(result["memory_static"] / 1_048_576.0, 0.01)
+	if "memory_dynamic" in result:
+		result["memory_dynamic_mb"] = snappedf(result["memory_dynamic"] / 1_048_576.0, 0.01)
 	if "video_mem_mb" in result:
 		result["video_mem_mb"] = snappedf(result["video_mem_mb"] / 1_048_576.0, 0.01)
 	return result

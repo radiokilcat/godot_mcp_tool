@@ -36,7 +36,9 @@ import { profilingTools } from "./tools/profiling.js";
 import { exportTools } from "./tools/export.js";
 
 // Initialize Godot WebSocket bridge (starts listening on port 6505)
-import "./godot-connection.js";
+import { godotConnection } from "./godot-connection.js";
+import { satisfiesVersionRange } from "./utils/version-utils.js";
+import { ToolDefinition } from "./types/index.js";
 
 const VERSION = "1.0.0";
 
@@ -54,19 +56,7 @@ const server = new Server(
 );
 
 // Track all available tools
-const toolRegistry = new Map<
-  string,
-  {
-    name: string;
-    description: string;
-    inputSchema?: {
-      type: string;
-      properties?: Record<string, unknown>;
-      required?: string[];
-    };
-    handler: (args: Record<string, unknown>) => Promise<unknown>;
-  }
->();
+const toolRegistry = new Map<string, ToolDefinition>();
 
 /**
  * Register tool handlers from all categories
@@ -102,15 +92,7 @@ function registerAllTools(): void {
   for (const category of toolCategories) {
     for (const [name, tool] of Object.entries(category)) {
       if (typeof tool === "object" && tool !== null && "handler" in tool) {
-        toolRegistry.set(
-          name,
-          tool as {
-            name: string;
-            description: string;
-            inputSchema?: { type: string; properties?: Record<string, unknown>; required?: string[] };
-            handler: (args: Record<string, unknown>) => Promise<unknown>;
-          }
-        );
+        toolRegistry.set(name, tool as ToolDefinition);
       }
     }
   }
@@ -140,6 +122,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   if (!tool) {
     throw new Error(`Tool not found: ${toolName}`);
+  }
+
+  if (
+    (tool.minGodotVersion || tool.maxGodotVersion) &&
+    !satisfiesVersionRange(godotConnection.godotVersion, tool.minGodotVersion, tool.maxGodotVersion)
+  ) {
+    const range = [
+      tool.minGodotVersion ? `>= ${tool.minGodotVersion}` : null,
+      tool.maxGodotVersion ? `<= ${tool.maxGodotVersion}` : null,
+    ].filter(Boolean).join(" and ");
+    throw new Error(
+      `Tool '${toolName}' requires Godot ${range}, but the connected editor is running ${godotConnection.godotVersion}.`
+    );
   }
 
   try {

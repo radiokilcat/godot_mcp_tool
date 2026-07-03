@@ -12,6 +12,8 @@ class_name GodotMCPProfilingTools
 ##
 ## Compatibility note: navigation monitors require Godot 4.1+.
 ## list_cached_resources() in get_memory_usage requires Godot 4.1+.
+## dynamic_bytes/dynamic_memory (Performance.MEMORY_DYNAMIC) only appear on
+## Godot 4.0-4.3, where that monitor still exists; see version_utils.gd.
 
 var _plugin: EditorPlugin
 
@@ -65,10 +67,17 @@ func _get_performance_monitors(args: Dictionary) -> Dictionary:
 		},
 	}
 
+	# MEMORY_DYNAMIC was removed in Godot 4.4. Looked up dynamically by name
+	# (ClassDB, not a static Performance.MEMORY_DYNAMIC reference) so this
+	# script still parses on 4.4+ builds; only present in the result when
+	# the running engine actually has it (Godot 4.0-4.3).
+	if GodotMCPVersionUtils.has_constant("Performance", "MEMORY_DYNAMIC"):
+		var dynamic_monitor: int = GodotMCPVersionUtils.get_constant("Performance", "MEMORY_DYNAMIC")
+		monitors["memory"]["dynamic_bytes"] = Performance.get_monitor(dynamic_monitor)
+
 	# Navigation monitors and TIME_NAVIGATION_PROCESS were added in Godot 4.1.
 	# Guard to maintain Godot 4.0+ compatibility.
-	var godot_minor: int = Engine.get_version_info().get("minor", 0)
-	if godot_minor >= 1:
+	if GodotMCPVersionUtils.at_least(4, 1):
 		monitors["time"]["navigation_ms"] = Performance.get_monitor(Performance.TIME_NAVIGATION_PROCESS) * 1000.0
 		monitors["navigation"] = {
 			"active_maps":            Performance.get_monitor(Performance.NAVIGATION_ACTIVE_MAPS),
@@ -125,6 +134,14 @@ func _get_memory_usage(args: Dictionary) -> Dictionary:
 			"buffer_mem_mb":      _round2(buffer_mem / 1048576.0),
 		},
 	}
+
+	# MEMORY_DYNAMIC was removed in Godot 4.4; only report it where it exists.
+	if GodotMCPVersionUtils.has_constant("Performance", "MEMORY_DYNAMIC"):
+		var dynamic_bytes: float = Performance.get_monitor(GodotMCPVersionUtils.get_constant("Performance", "MEMORY_DYNAMIC"))
+		result["dynamic_memory"] = {
+			"used_bytes": int(dynamic_bytes),
+			"used_mb":    _round2(dynamic_bytes / 1048576.0),
+		}
 
 	if include_resources:
 		# list_cached_resources() requires Godot 4.1+

@@ -2,6 +2,9 @@
  * TileMap tools - 6 tools
  * Tools for reading and modifying TileMap nodes: setting cells, filling regions,
  * querying tile data, and inspecting TileSet sources.
+ *
+ * Also accepts TileMapLayer nodes (Godot 4.3+), which have a single implicit
+ * layer instead of TileMap's indexed layers.
  */
 
 import { ToolCategory } from "../types/index.js";
@@ -24,7 +27,8 @@ export const tilemapTools: ToolCategory = {
       properties: {
         node_path: {
           type: "string",
-          description: "Path to the TileMap node",
+          description:
+            "Path to the TileMap or TileMapLayer node. TileMapLayer (Godot 4.3+) has a single implicit layer — omit 'layer' or pass 0.",
         },
         layer: {
           type: "integer",
@@ -66,7 +70,8 @@ export const tilemapTools: ToolCategory = {
       properties: {
         node_path: {
           type: "string",
-          description: "Path to the TileMap node",
+          description:
+            "Path to the TileMap or TileMapLayer node. TileMapLayer (Godot 4.3+) has a single implicit layer — omit 'layer' or pass 0.",
         },
         layer: {
           type: "integer",
@@ -111,7 +116,8 @@ export const tilemapTools: ToolCategory = {
       properties: {
         node_path: {
           type: "string",
-          description: "Path to the TileMap node",
+          description:
+            "Path to the TileMap or TileMapLayer node. TileMapLayer (Godot 4.3+) has a single implicit layer — omit 'layer' or pass 0.",
         },
         layer: {
           type: "integer",
@@ -138,7 +144,8 @@ export const tilemapTools: ToolCategory = {
       properties: {
         node_path: {
           type: "string",
-          description: "Path to the TileMap node",
+          description:
+            "Path to the TileMap or TileMapLayer node. TileMapLayer (Godot 4.3+) has a single implicit layer — omit 'layer' or pass 0.",
         },
       },
       required: ["node_path"],
@@ -157,7 +164,8 @@ export const tilemapTools: ToolCategory = {
       properties: {
         node_path: {
           type: "string",
-          description: "Path to the TileMap node",
+          description:
+            "Path to the TileMap or TileMapLayer node. TileMapLayer (Godot 4.3+) has a single implicit layer — omit 'layer' or pass 0.",
         },
         layer: {
           type: "integer",
@@ -184,7 +192,8 @@ export const tilemapTools: ToolCategory = {
       properties: {
         node_path: {
           type: "string",
-          description: "Path to the TileMap node",
+          description:
+            "Path to the TileMap or TileMapLayer node. TileMapLayer (Godot 4.3+) has a single implicit layer — omit 'layer' or pass 0.",
         },
       },
       required: ["node_path"],

@@ -19,6 +19,8 @@ class GodotConnection {
   private wss: WebSocketServer;
   private socket: WebSocket | null = null;
   private pending = new Map<string, PendingCall>();
+  private _godotVersion: string | null = null;
+  private _pluginVersion: string | null = null;
 
   constructor() {
     this.wss = new WebSocketServer({ port: WS_PORT });
@@ -38,6 +40,8 @@ class GodotConnection {
     ws.on("close", () => {
       if (this.socket === ws) {
         this.socket = null;
+        this._godotVersion = null;
+        this._pluginVersion = null;
         console.error("[Godot] Godot plugin disconnected");
         // Reject all pending calls
         for (const [id, call] of this.pending) {
@@ -69,6 +73,8 @@ class GodotConnection {
     }
 
     if (type === "ready") {
+      this._godotVersion = (msg.godot_version as string) ?? null;
+      this._pluginVersion = (msg.plugin_version as string) ?? null;
       console.error(`[Godot] Ready — Godot ${msg.godot_version}, plugin ${msg.plugin_version}`);
       return;
     }
@@ -89,6 +95,16 @@ class GodotConnection {
 
   get isConnected(): boolean {
     return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
+  }
+
+  /** Godot engine version string reported by the plugin at handshake (e.g. "4.4.1.stable"), or null before connection. */
+  get godotVersion(): string | null {
+    return this._godotVersion;
+  }
+
+  /** Plugin version string reported by the plugin at handshake, or null before connection. */
+  get pluginVersion(): string | null {
+    return this._pluginVersion;
   }
 
   async callTool(tool: string, args: Record<string, unknown> = {}): Promise<unknown> {

@@ -11,6 +11,9 @@ export interface ToolDefinition {
     required?: string[];
   };
   handler: (args: Record<string, unknown>) => Promise<unknown>;
+  /** Minimum/maximum Godot engine version this tool supports (e.g. "4.3"). Checked against the connected plugin's reported version before dispatch. */
+  minGodotVersion?: string;
+  maxGodotVersion?: string;
 }
 
 export interface ToolCategory {

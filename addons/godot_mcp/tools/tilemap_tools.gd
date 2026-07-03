@@ -5,6 +5,11 @@ class_name GodotMCPTileMapTools
 
 ## Implements 6 TileMap tools: set_tile_cell, fill_tiles, query_tile_cell,
 ## get_tileset_info, erase_tile_cell, get_tilemap_info.
+##
+## node_path may point at either a TileMap or a TileMapLayer node (the latter
+## introduced in Godot 4.3 as TileMap's eventual replacement). A TileMapLayer
+## has no `layer` argument on its cell methods and represents a single layer;
+## pass layer 0 (default) or omit it. See _is_layer_node() and version_utils.gd.
 
 var _plugin: EditorPlugin
 
@@ -43,20 +48,52 @@ func _parse_vec2i(val: Variant, default_val: Vector2i = Vector2i.ZERO) -> Vector
 		return Vector2i(int(val.get("x", 0)), int(val.get("y", 0)))
 	return default_val
 
+## TileMapLayer (Godot 4.3+) is checked via is_class(), a String-based lookup,
+## rather than `node is TileMapLayer` — a static type reference to a class
+## introduced in 4.3 would fail to parse at all on Godot 4.0-4.2. See
+## version_utils.gd for background on this constraint.
+func _is_layer_node(node: Node) -> bool:
+	return node.is_class("TileMapLayer")
+
 func _validate_tilemap(node_path: String) -> Variant:
 	if node_path.is_empty():
 		return {"error": "'node_path' is required"}
 	var node = _resolve_node(node_path)
 	if node == null:
 		return {"error": "Node not found: %s" % node_path}
-	if not node is TileMap:
-		return {"error": "Node '%s' is not a TileMap (got %s)" % [node_path, node.get_class()]}
+	if not (node is TileMap or _is_layer_node(node)):
+		return {"error": "Node '%s' is not a TileMap or TileMapLayer (got %s)" % [node_path, node.get_class()]}
 	return node
 
-func _validate_layer(tilemap: TileMap, layer: int) -> String:
+## `tilemap` is intentionally left dynamically typed (not cast to TileMap) so
+## the same call sites work for both TileMap and TileMapLayer nodes, whose
+## cell methods take a different argument list (TileMapLayer has no `layer`).
+func _validate_layer(tilemap, is_layer: bool, layer: int) -> String:
+	if is_layer:
+		if layer != 0:
+			return "TileMapLayer nodes represent a single layer (layer must be 0). Use sibling TileMapLayer nodes for additional layers, or target a TileMap node instead."
+		return ""
 	if layer < 0 or layer >= tilemap.get_layers_count():
 		return "Layer %d out of range (TileMap has %d layer(s))" % [layer, tilemap.get_layers_count()]
 	return ""
+
+## Read helpers: dynamically dispatched (no static TileMap/TileMapLayer cast)
+## so the correct overload — with or without the `layer` argument — is
+## resolved at runtime based on the node's actual class.
+func _cell_source_id(tilemap, is_layer: bool, layer: int, coords: Vector2i) -> int:
+	if is_layer:
+		return tilemap.get_cell_source_id(coords)
+	return tilemap.get_cell_source_id(layer, coords)
+
+func _cell_atlas_coords(tilemap, is_layer: bool, layer: int, coords: Vector2i) -> Vector2i:
+	if is_layer:
+		return tilemap.get_cell_atlas_coords(coords)
+	return tilemap.get_cell_atlas_coords(layer, coords)
+
+func _cell_alternative_tile(tilemap, is_layer: bool, layer: int, coords: Vector2i) -> int:
+	if is_layer:
+		return tilemap.get_cell_alternative_tile(coords)
+	return tilemap.get_cell_alternative_tile(layer, coords)
 
 # ---------------------------------------------------------------------------
 # Tool implementations
@@ -72,10 +109,11 @@ func _set_tile_cell(args: Dictionary) -> Dictionary:
 	var result = _validate_tilemap(node_path)
 	if result is Dictionary:
 		return result
-	var tilemap := result as TileMap
+	var tilemap = result
+	var is_layer := _is_layer_node(tilemap)
 
 	var layer: int = int(args.get("layer", 0))
-	var err := _validate_layer(tilemap, layer)
+	var err := _validate_layer(tilemap, is_layer, layer)
 	if not err.is_empty():
 		return {"error": err}
 
@@ -84,23 +122,27 @@ func _set_tile_cell(args: Dictionary) -> Dictionary:
 	var atlas_coords := _parse_vec2i(args.get("atlas_coords", Vector2i.ZERO))
 	var alt: int       = int(args.get("alternative_tile", 0))
 
-	var ts_check := tilemap.tile_set
+	var ts_check = tilemap.tile_set
 	if ts_check == null:
-		return {"error": "TileMap '%s' has no TileSet assigned" % node_path}
+		return {"error": "%s '%s' has no TileSet assigned" % [tilemap.get_class(), node_path]}
 	if not ts_check.has_source(source_id):
 		var ids: Array = []
 		for i in ts_check.get_source_count():
 			ids.append(ts_check.get_source_id(i))
 		return {"error": "Source ID %d not found in TileSet. Available IDs: %s" % [source_id, str(ids)]}
 
-	var old_src: int = tilemap.get_cell_source_id(layer, coords)
-	var old_ac       = tilemap.get_cell_atlas_coords(layer, coords)
-	var old_alt: int = tilemap.get_cell_alternative_tile(layer, coords)
+	var old_src: int = _cell_source_id(tilemap, is_layer, layer, coords)
+	var old_ac       = _cell_atlas_coords(tilemap, is_layer, layer, coords)
+	var old_alt: int = _cell_alternative_tile(tilemap, is_layer, layer, coords)
 
 	var ur := _plugin.get_undo_redo()
 	ur.create_action("Set tile at (%d, %d)" % [coords.x, coords.y])
-	ur.add_do_method(tilemap, "set_cell", layer, coords, source_id, atlas_coords, alt)
-	ur.add_undo_method(tilemap, "set_cell", layer, coords, old_src, old_ac, old_alt)
+	if is_layer:
+		ur.add_do_method(tilemap, "set_cell", coords, source_id, atlas_coords, alt)
+		ur.add_undo_method(tilemap, "set_cell", coords, old_src, old_ac, old_alt)
+	else:
+		ur.add_do_method(tilemap, "set_cell", layer, coords, source_id, atlas_coords, alt)
+		ur.add_undo_method(tilemap, "set_cell", layer, coords, old_src, old_ac, old_alt)
 	ur.commit_action()
 
 	return {
@@ -126,10 +168,11 @@ func _fill_tiles(args: Dictionary) -> Dictionary:
 	var result = _validate_tilemap(node_path)
 	if result is Dictionary:
 		return result
-	var tilemap := result as TileMap
+	var tilemap = result
+	var is_layer := _is_layer_node(tilemap)
 
 	var layer: int = int(args.get("layer", 0))
-	var err := _validate_layer(tilemap, layer)
+	var err := _validate_layer(tilemap, is_layer, layer)
 	if not err.is_empty():
 		return {"error": err}
 
@@ -139,9 +182,9 @@ func _fill_tiles(args: Dictionary) -> Dictionary:
 	var atlas_coords   := _parse_vec2i(args.get("atlas_coords", Vector2i.ZERO))
 	var alt: int        = int(args.get("alternative_tile", 0))
 
-	var ts_fill := tilemap.tile_set
+	var ts_fill = tilemap.tile_set
 	if ts_fill == null:
-		return {"error": "TileMap '%s' has no TileSet assigned" % node_path}
+		return {"error": "%s '%s' has no TileSet assigned" % [tilemap.get_class(), node_path]}
 	if not ts_fill.has_source(source_id):
 		var ids: Array = []
 		for i in ts_fill.get_source_count():
@@ -163,11 +206,15 @@ func _fill_tiles(args: Dictionary) -> Dictionary:
 	for x in range(min_x, max_x + 1):
 		for y in range(min_y, max_y + 1):
 			var c := Vector2i(x, y)
-			var old_src: int = tilemap.get_cell_source_id(layer, c)
-			var old_ac       = tilemap.get_cell_atlas_coords(layer, c)
-			var old_alt: int = tilemap.get_cell_alternative_tile(layer, c)
-			ur.add_do_method(tilemap, "set_cell", layer, c, source_id, atlas_coords, alt)
-			ur.add_undo_method(tilemap, "set_cell", layer, c, old_src, old_ac, old_alt)
+			var old_src: int = _cell_source_id(tilemap, is_layer, layer, c)
+			var old_ac       = _cell_atlas_coords(tilemap, is_layer, layer, c)
+			var old_alt: int = _cell_alternative_tile(tilemap, is_layer, layer, c)
+			if is_layer:
+				ur.add_do_method(tilemap, "set_cell", c, source_id, atlas_coords, alt)
+				ur.add_undo_method(tilemap, "set_cell", c, old_src, old_ac, old_alt)
+			else:
+				ur.add_do_method(tilemap, "set_cell", layer, c, source_id, atlas_coords, alt)
+				ur.add_undo_method(tilemap, "set_cell", layer, c, old_src, old_ac, old_alt)
 
 	ur.commit_action()
 
@@ -189,15 +236,16 @@ func _query_tile_cell(args: Dictionary) -> Dictionary:
 	var result = _validate_tilemap(node_path)
 	if result is Dictionary:
 		return result
-	var tilemap := result as TileMap
+	var tilemap = result
+	var is_layer := _is_layer_node(tilemap)
 
 	var layer: int = int(args.get("layer", 0))
-	var err := _validate_layer(tilemap, layer)
+	var err := _validate_layer(tilemap, is_layer, layer)
 	if not err.is_empty():
 		return {"error": err}
 
 	var coords := _parse_vec2i(args["coords"])
-	var source_id: int = tilemap.get_cell_source_id(layer, coords)
+	var source_id: int = _cell_source_id(tilemap, is_layer, layer, coords)
 	var is_empty: bool = (source_id == -1)
 
 	var info: Dictionary = {
@@ -208,12 +256,12 @@ func _query_tile_cell(args: Dictionary) -> Dictionary:
 	}
 
 	if not is_empty:
-		var ac       = tilemap.get_cell_atlas_coords(layer, coords)
-		var alt: int = tilemap.get_cell_alternative_tile(layer, coords)
+		var ac       = _cell_atlas_coords(tilemap, is_layer, layer, coords)
+		var alt: int = _cell_alternative_tile(tilemap, is_layer, layer, coords)
 		info["source_id"]    = source_id
 		info["atlas_coords"] = {"x": ac.x, "y": ac.y}
 		info["alternative"]  = alt
-		var ts := tilemap.tile_set
+		var ts = tilemap.tile_set
 		if ts != null and ts.has_source(source_id):
 			var src = ts.get_source(source_id)
 			if not src.resource_name.is_empty():
@@ -227,9 +275,9 @@ func _get_tileset_info(args: Dictionary) -> Dictionary:
 	var result = _validate_tilemap(node_path)
 	if result is Dictionary:
 		return result
-	var tilemap := result as TileMap
+	var tilemap = result
 
-	var ts := tilemap.tile_set
+	var ts = tilemap.tile_set
 	if ts == null:
 		return {"node_path": node_path, "has_tileset": false}
 
@@ -272,25 +320,30 @@ func _erase_tile_cell(args: Dictionary) -> Dictionary:
 	var result = _validate_tilemap(node_path)
 	if result is Dictionary:
 		return result
-	var tilemap := result as TileMap
+	var tilemap = result
+	var is_layer := _is_layer_node(tilemap)
 
 	var layer: int = int(args.get("layer", 0))
-	var err := _validate_layer(tilemap, layer)
+	var err := _validate_layer(tilemap, is_layer, layer)
 	if not err.is_empty():
 		return {"error": err}
 
 	var coords := _parse_vec2i(args["coords"])
-	var old_src: int = tilemap.get_cell_source_id(layer, coords)
+	var old_src: int = _cell_source_id(tilemap, is_layer, layer, coords)
 	if old_src == -1:
 		return {"success": true, "node_path": node_path, "layer": layer, "coords": {"x": coords.x, "y": coords.y}, "was_empty": true}
 
-	var old_ac       = tilemap.get_cell_atlas_coords(layer, coords)
-	var old_alt: int = tilemap.get_cell_alternative_tile(layer, coords)
+	var old_ac       = _cell_atlas_coords(tilemap, is_layer, layer, coords)
+	var old_alt: int = _cell_alternative_tile(tilemap, is_layer, layer, coords)
 
 	var ur := _plugin.get_undo_redo()
 	ur.create_action("Erase tile at (%d, %d)" % [coords.x, coords.y])
-	ur.add_do_method(tilemap, "erase_cell", layer, coords)
-	ur.add_undo_method(tilemap, "set_cell", layer, coords, old_src, old_ac, old_alt)
+	if is_layer:
+		ur.add_do_method(tilemap, "erase_cell", coords)
+		ur.add_undo_method(tilemap, "set_cell", coords, old_src, old_ac, old_alt)
+	else:
+		ur.add_do_method(tilemap, "erase_cell", layer, coords)
+		ur.add_undo_method(tilemap, "set_cell", layer, coords, old_src, old_ac, old_alt)
 	ur.commit_action()
 
 	return {
@@ -307,26 +360,39 @@ func _get_tilemap_info(args: Dictionary) -> Dictionary:
 	var result = _validate_tilemap(node_path)
 	if result is Dictionary:
 		return result
-	var tilemap := result as TileMap
+	var tilemap = result
+	var is_layer := _is_layer_node(tilemap)
 
 	var layers: Array = []
-	for i in tilemap.get_layers_count():
+	if is_layer:
+		# A TileMapLayer node is itself a single layer; use sibling
+		# TileMapLayer nodes for additional layers (there is no built-in
+		# multi-layer container the way TileMap has one).
 		layers.append({
-			"index":      i,
-			"name":       tilemap.get_layer_name(i),
-			"enabled":    tilemap.is_layer_enabled(i),
-			"cell_count": tilemap.get_used_cells(i).size(),
+			"index":      0,
+			"name":       tilemap.name,
+			"enabled":    tilemap.visible,
+			"cell_count": tilemap.get_used_cells().size(),
 		})
+	else:
+		for i in tilemap.get_layers_count():
+			layers.append({
+				"index":      i,
+				"name":       tilemap.get_layer_name(i),
+				"enabled":    tilemap.is_layer_enabled(i),
+				"cell_count": tilemap.get_used_cells(i).size(),
+			})
 
-	var used_rect := tilemap.get_used_rect()
-	var ts := tilemap.tile_set
+	var used_rect = tilemap.get_used_rect()
+	var ts = tilemap.tile_set
 	var total_cells: int = 0
 	for layer_info in layers:
 		total_cells += int(layer_info["cell_count"])
 
 	return {
 		"node_path":    node_path,
-		"layer_count":  tilemap.get_layers_count(),
+		"node_type":    tilemap.get_class(),
+		"layer_count":  layers.size(),
 		"layers":       layers,
 		"has_tiles":    total_cells > 0,
 		"used_rect":    {

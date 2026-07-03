@@ -498,6 +498,16 @@
 - [x] **heartbeat._send_ping() was empty (pass)**: ping was never sent over WebSocket → timeout fired every ~15s → constant disconnect/reconnect loop. Fix: added `send_fn: Callable` to `heartbeat.gd`; wired in `plugin.gd` via `heartbeat.send_fn = func(): _send_message({"type": "ping"})`.
 - **Completed:** 2026-07-02
 
+### [x] 3.26 - Godot API Versioning Infrastructure
+- [x] `addons/godot_mcp/version_utils.gd`: shared `GodotMCPVersionUtils` helper — `at_least()`/`before()` for version-number branching, plus `has_class()`/`has_constant()`/`get_constant()` for String-based ClassDB lookups (needed because GDScript resolves class/constant identifiers at *parse time*, so a runtime `if` guard cannot protect a direct reference to a symbol missing on the running engine — e.g. `TileMapLayer` on 4.0-4.2, `Performance.MEMORY_DYNAMIC` on 4.4+)
+- [x] `tilemap_tools.gd`: all 6 tools now also accept `TileMapLayer` nodes (Godot 4.3+) alongside `TileMap`, dispatched dynamically (no static cast) since the two classes have different cell-method signatures (TileMapLayer has no `layer` argument)
+- [x] `profiling_tools.gd`, `runtime_tools.gd`: restored the `MEMORY_DYNAMIC` monitor (dropped in the 4.4 compat pass, 3.24) for Godot 4.0-4.3 via dynamic constant lookup, and switched the existing inline "godot_minor >= 1" navigation-monitor guard to `GodotMCPVersionUtils.at_least()`
+- [x] `server/src/utils/version-utils.ts`: parses Godot version strings (e.g. "4.4.1.stable") and compares against optional `minGodotVersion`/`maxGodotVersion` on a `ToolDefinition`
+- [x] `server/src/godot-connection.ts`: now retains `godot_version`/`plugin_version` from the plugin's handshake (previously logged and discarded) via `godotVersion`/`pluginVersion` getters, cleared on disconnect
+- [x] `server/src/index.ts`: `call_tool` checks a tool's version range against the connected editor before dispatch, returning a clear error instead of a confusing in-Godot failure
+- **Note:** TileMapLayer dual-support is unverified against a live Godot 4.3+/4.4 editor (no editor available in this environment) — spot-check `set_tile_cell`/`get_tilemap_info` on a `TileMapLayer` node before relying on it.
+- **Completed:** 2026-07-03
+
 ### [x] 6.1b - Live MCP Integration Test (18 basic tools)
 - [x] get_project_info ✅ — Godot 4.4.1, project "test_mcp"
 - [x] get_editor_version ✅ — 4.4.1-stable (official)
