@@ -608,6 +608,18 @@
 - **Priority:** HIGH
 - **Effort:** 3-4 hours
 
+### [ ] 6.4 - Autonomous E2E Test Infrastructure (design: docs/e2e_test_infrastructure.md)
+- [x] Design document: pipeline (provision → generate → launch → execute → teardown), workspace layout, assertion DSL, report format, risk register — see docs/e2e_test_infrastructure.md (2026-07-08)
+- [ ] 6.4.1 - Provisioning: download/cache Godot 4.x win64 from godot-builds releases, `_sc_` self-contained mode, `--godot` version matrix
+- [ ] 6.4.2 - Test project generation: project.godot template with version-matched features tag, addon copy, fixtures, `--import` pre-pass
+- [ ] 6.4.3 - Process management: spawn console exe with log capture, readiness gate (poll get_editor_version), taskkill /T teardown, cleanup with file-lock retries
+- [ ] 6.4.4 - Executor: MCP stdio client (full stack) + `--bridge-only` mode, sequential block runner, $VAR store, disconnect recovery, per-test timeout
+- [ ] 6.4.5 - Assertion DSL evaluator (eq/neq/notNull/contains/gte/matches/errorContains/allElementsMatch, dot-path fields)
+- [ ] 6.4.6 - Port 23 blocks from docs/mcp_test_plan.md to e2e/blocks/*.json (178 tests)
+- [ ] 6.4.7 - Reporting: JSON + Markdown, per-block tables, failure log slices, tool coverage diff vs tools/list, CI exit codes
+- **Priority:** HIGH
+- **Effort:** 12-16 hours
+
 ---
 
 ## Phase 7: Performance & Optimization
@@ -707,4 +719,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-02 (Phase 3.25 — critical GC + heartbeat bugs fixed; 18/18 live MCP tools pass)
+**Last Updated:** 2026-07-08 (Phase 6.4 — autonomous E2E test infrastructure designed, see docs/e2e_test_infrastructure.md)
