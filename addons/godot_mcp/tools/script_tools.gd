@@ -319,5 +319,16 @@ func _get_script_info(args: Dictionary) -> Dictionary:
 	}
 
 func _reload_scripts(_args: Dictionary) -> Dictionary:
-	EditorInterface.get_script_editor().reload_scripts()
-	return {"success": true}
+	# ScriptEditor.reload_scripts() is not exposed to scripting in Godot 4.0-4.4 —
+	# reload each open script from disk and rescan the filesystem instead
+	var reloaded: Array = []
+	for script in EditorInterface.get_script_editor().get_open_scripts():
+		if not script is Script or script.resource_path.is_empty():
+			continue
+		var text = _read_file(script.resource_path)
+		if text is String:
+			script.source_code = text
+			script.reload(true)
+			reloaded.append(script.resource_path)
+	EditorInterface.get_resource_filesystem().scan_sources()
+	return {"success": true, "reloaded": reloaded, "count": reloaded.size()}

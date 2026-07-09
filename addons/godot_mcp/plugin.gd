@@ -67,6 +67,11 @@ func _initialize_plugin() -> void:
 	if is_initialized:
 		return
 
+	# Env override so test harnesses can isolate from a live setup on the default port
+	var env_port := OS.get_environment("GODOT_MCP_PORT")
+	if env_port.is_valid_int():
+		server_port = int(env_port)
+
 	# Create WebSocket client
 	websocket_client = GodotMCPWebSocketClient.new()
 	add_child(websocket_client)

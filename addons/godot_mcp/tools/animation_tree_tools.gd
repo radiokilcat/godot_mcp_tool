@@ -356,8 +356,16 @@ func _get_state_machine_info(args: Dictionary) -> Dictionary:
 	if root is AnimationNodeStateMachine:
 		var sm := root as AnimationNodeStateMachine
 		var states: Array = []
-		for sn in sm.get_node_list():
-			var snode := sm.get_node(sn)
+		# AnimationNodeStateMachine exposes no get_node_list() in Godot 4.x —
+		# states are only enumerable via its dynamic "states/<name>/node" properties
+		for prop in sm.get_property_list():
+			var pname: String = prop.get("name", "")
+			if not (pname.begins_with("states/") and pname.ends_with("/node")):
+				continue
+			var sn := pname.trim_prefix("states/").trim_suffix("/node")
+			var snode: AnimationNode = sm.get_node(sn)
+			if snode == null:
+				continue
 			var state_info: Dictionary = {
 				"name": str(sn),
 				"type": snode.get_class(),
