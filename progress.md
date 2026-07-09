@@ -498,6 +498,12 @@
 - [x] **heartbeat._send_ping() was empty (pass)**: ping was never sent over WebSocket → timeout fired every ~15s → constant disconnect/reconnect loop. Fix: added `send_fn: Callable` to `heartbeat.gd`; wired in `plugin.gd` via `heartbeat.send_fn = func(): _send_message({"type": "ping"})`.
 - **Completed:** 2026-07-02
 
+### [x] 3.27 - Plugin bugs found by the E2E suite (2026-07-08)
+- [x] **get_state_machine_info returned `{}`**: called `AnimationNodeStateMachine.get_node_list()`, which does not exist in Godot 4.x — the runtime error aborted the typed `-> Dictionary` function, silently returning an empty dict. Fix: enumerate states via the SM's dynamic `states/<name>/node` properties.
+- [x] **reload_scripts silently failed**: called `ScriptEditor.reload_scripts()`, not exposed to scripting in Godot 4.0-4.4 — same silent-`{}` abort pattern, and the tool still reported success. Fix: reload each open script from disk (`source_code` + `reload(true)`) and `scan_sources()`; response now includes the reloaded list.
+- **Lesson:** a runtime error in a GDScript function typed `-> Dictionary` returns `{}` instead of propagating — e2e asserts must check a concrete field (e.g. `success == true`), never just "call did not error".
+- **Completed:** 2026-07-08
+
 ### [x] 3.26 - Godot API Versioning Infrastructure
 - [x] `addons/godot_mcp/version_utils.gd`: shared `GodotMCPVersionUtils` helper — `at_least()`/`before()` for version-number branching, plus `has_class()`/`has_constant()`/`get_constant()` for String-based ClassDB lookups (needed because GDScript resolves class/constant identifiers at *parse time*, so a runtime `if` guard cannot protect a direct reference to a symbol missing on the running engine — e.g. `TileMapLayer` on 4.0-4.2, `Performance.MEMORY_DYNAMIC` on 4.4+)
 - [x] `tilemap_tools.gd`: all 6 tools now also accept `TileMapLayer` nodes (Godot 4.3+) alongside `TileMap`, dispatched dynamically (no static cast) since the two classes have different cell-method signatures (TileMapLayer has no `layer` argument)
@@ -608,17 +614,21 @@
 - **Priority:** HIGH
 - **Effort:** 3-4 hours
 
-### [ ] 6.4 - Autonomous E2E Test Infrastructure (design: docs/e2e_test_infrastructure.md)
+### [x] 6.4 - Autonomous E2E Test Infrastructure (design: docs/e2e_test_infrastructure.md)
 - [x] Design document: pipeline (provision → generate → launch → execute → teardown), workspace layout, assertion DSL, report format, risk register — see docs/e2e_test_infrastructure.md (2026-07-08)
-- [ ] 6.4.1 - Provisioning: download/cache Godot 4.x win64 from godot-builds releases, `_sc_` self-contained mode, `--godot` version matrix
-- [ ] 6.4.2 - Test project generation: project.godot template with version-matched features tag, addon copy, fixtures, `--import` pre-pass
-- [ ] 6.4.3 - Process management: spawn console exe with log capture, readiness gate (poll get_editor_version), taskkill /T teardown, cleanup with file-lock retries
-- [ ] 6.4.4 - Executor: MCP stdio client (full stack) + `--bridge-only` mode, sequential block runner, $VAR store, disconnect recovery, per-test timeout
-- [ ] 6.4.5 - Assertion DSL evaluator (eq/neq/notNull/contains/gte/matches/errorContains/allElementsMatch, dot-path fields)
-- [ ] 6.4.6 - Port 23 blocks from docs/mcp_test_plan.md to e2e/blocks/*.json (178 tests)
-- [ ] 6.4.7 - Reporting: JSON + Markdown, per-block tables, failure log slices, tool coverage diff vs tools/list, CI exit codes
+- [x] 6.4.0 - Port isolation: `GODOT_MCP_PORT` env override in server (godot-connection.ts) and plugin (plugin.gd); runner defaults to 6510 so a live setup on 6505 is untouched
+- [x] 6.4.1 - Provisioning: download/cache Godot 4.x win64 from godot-builds releases (fallback: main repo), `_sc_` self-contained mode, `--godot` version matrix, `--purge-cache`
+- [x] 6.4.2 - Test project generation: project.godot template with version-matched features tag, addon copy, fixtures, `--import` pre-pass
+- [x] 6.4.3 - Process management: spawn console exe with log capture, readiness gate (poll get_editor_version), taskkill /T + wait-for-exit teardown, cleanup with file-lock retries
+- [x] 6.4.4 - Executor: MCP stdio client (full production stack via SDK), sequential block runner, $VAR store, disconnect recovery with single retry, per-test timeout (`--bridge-only` mode deferred)
+- [x] 6.4.5 - Assertion DSL evaluator (eq/neq/notNull/isNull/notEmpty/contains/gte/lte/matches/allElementsMatch/jsonContains, expectError/errorContains, dot-path fields with literal-key priority)
+- [x] 6.4.6 - Port 23 blocks from docs/mcp_test_plan.md to e2e/blocks/*.json — all 23 blocks ported (190 tests), args adapted to the actual tool schemas (dumped from server/dist) rather than the stale plan
+- [x] 6.4.7 - Reporting: JSON + Markdown, per-block tables, failure details, tool coverage diff vs tools/list, CI exit codes (0/1/2)
+- [x] Live verification: full pipeline from clean machine state — download 4.4.1 (66 MB), pre-import, editor boot, handshake, block 1 = 9 passed / 0 failed, workspace cleaned
+- [x] **FULL SUITE GREEN (2026-07-08): 191 passed / 0 failed / 0 skipped, coverage 162/162 registered tools, 46s wall time on cached distribution.** Two real plugin bugs found and fixed along the way (see 3.27); 14 initial failures triaged — 12 were stale-plan/arg mismatches fixed in blocks, 2 were the plugin bugs.
+- **Note:** mcp_test_plan.md is stale vs the implemented API in at least two places found while porting block 1: `set_project_setting` takes `setting_path` (not `setting`); `get_editor_version` returns Godot's version dict (`string`/`build`/`major`…), not `version`/`is_official`. e2e/blocks/*.json are the executable source of truth.
 - **Priority:** HIGH
-- **Effort:** 12-16 hours
+- **Completed:** 2026-07-08 (run: `node e2e/run.mjs --godot 4.4.1`; CI exit codes 0/1/2; version matrix via `--godot 4.2.2,4.4.1` ready but only 4.4.1 verified live)
 
 ---
 
@@ -719,4 +729,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-08 (Phase 6.4 — autonomous E2E test infrastructure designed, see docs/e2e_test_infrastructure.md)
+**Last Updated:** 2026-07-08 (Phase 6.4 COMPLETE — autonomous E2E suite green: 191/191 tests, 162/162 tools covered on Godot 4.4.1; two plugin bugs fixed (3.27))

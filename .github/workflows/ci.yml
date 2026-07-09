@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Fast, deterministic checks — no editor required. Runs on every push/PR.
+  check:
+    name: Lint, build & unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # package-lock.json is gitignored, so use install rather than ci.
+      - run: npm install --no-audit --no-fund
+        working-directory: server
+      - run: npm run lint
+        working-directory: server
+      - run: npm run build
+        working-directory: server
+      - run: npm test
+        working-directory: server
+
+  # Full end-to-end suite: downloads Godot, boots a real editor, runs every tool.
+  # Manual-only — it pulls a ~66 MB distribution and launches the editor headless,
+  # which is heavier than a per-push check. Verified locally on Windows; the hosted
+  # windows-latest path may need tuning on first run.
+  e2e:
+    name: End-to-end (Godot 4.4.1, headless)
+    runs-on: windows-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Cache the downloaded Godot distribution so reruns skip the ~66 MB fetch.
+      - uses: actions/cache@v4
+        with:
+          path: .e2e_work/cache
+          key: godot-dist-4.4.1-${{ runner.os }}
+      - run: npm install --no-audit --no-fund
+        working-directory: server
+      - run: npm run build
+        working-directory: server
+      - run: node e2e/run.mjs --godot 4.4.1 --headless
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: .e2e_work/reports/
