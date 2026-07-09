@@ -50,3 +50,6 @@ tmp/
 temp/
 *.tmp
 .e2e_work
+
+# Claude Code local settings (personal, do not commit)
+.claude/settings.local.json
