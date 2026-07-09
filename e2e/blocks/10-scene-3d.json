@@ -1,0 +1,58 @@
+{
+  "block": 10,
+  "name": "3D Scene Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "Root3D", "root_type": "Node3D", "path": "res://test_3d.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_3d.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "3D-01",
+      "tool": "add_mesh",
+      "args": { "parent_path": ".", "node_name": "TestBox", "mesh_type": "BoxMesh" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "TestBox" }]
+      }
+    },
+    {
+      "id": "3D-02",
+      "tool": "add_camera",
+      "args": { "parent_path": ".", "node_name": "TestCam", "position": "Vector3(0, 2, 5)" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "3D-03",
+      "tool": "add_light",
+      "args": { "parent_path": ".", "node_name": "TestLight", "light_type": "DirectionalLight3D" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "3D-04",
+      "tool": "set_environment",
+      "args": { "ambient_light_color": "#333333", "ambient_light_energy": 1.0 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "3D-05",
+      "tool": "get_3d_scene_info",
+      "args": {},
+      "asserts": [
+        { "field": "", "op": "jsonContains", "value": "TestBox" },
+        { "field": "", "op": "jsonContains", "value": "TestCam" },
+        { "field": "", "op": "jsonContains", "value": "TestLight" }
+      ]
+    },
+    {
+      "id": "3D-06",
+      "tool": "add_gridmap",
+      "args": { "parent_path": ".", "node_name": "TestGrid", "cell_size": "Vector3(1, 1, 1)" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_3d.tscn" } }
+  ]
+}

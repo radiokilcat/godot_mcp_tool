@@ -1,0 +1,55 @@
+{
+  "block": 14,
+  "name": "Audio Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "AudioRoot", "root_type": "Node", "path": "res://test_audio.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_audio.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "AU-01",
+      "tool": "add_audio_player",
+      "args": { "parent_path": ".", "node_name": "Player", "type": "2d" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AU-02",
+      "tool": "configure_bus",
+      "args": { "bus_name": "Master", "volume_db": -6.0 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AU-03",
+      "tool": "add_audio_effect",
+      "args": { "bus_name": "Master", "effect_type": "reverb", "effect_name": "TestReverb" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AU-04",
+      "tool": "configure_bus",
+      "args": { "bus_name": "Master", "volume_db": 0.0 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AU-05",
+      "tool": "load_audio_file",
+      "args": { "node_path": "Player", "file_path": "res://nonexistent.ogg" },
+      "expectError": true
+    },
+    {
+      "id": "AU-06",
+      "tool": "play_audio",
+      "args": { "node_path": "Player" },
+      "allowError": true
+    },
+    {
+      "id": "AU-07",
+      "tool": "stop_audio",
+      "args": { "node_path": "Player" },
+      "allowError": true
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_audio.tscn" } }
+  ]
+}

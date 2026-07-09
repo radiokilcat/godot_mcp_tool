@@ -7,7 +7,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
 
 const TOOL_TIMEOUT_MS = 15_000;
-const WS_PORT = 6505;
+// Overridable so test harnesses can run in parallel with a live setup on the default port
+const WS_PORT = Number(process.env.GODOT_MCP_PORT ?? "") || 6505;
 
 interface PendingCall {
   resolve: (value: unknown) => void;

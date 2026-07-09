@@ -1,0 +1,38 @@
+{
+  "block": 20,
+  "name": "Analysis Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "AnalysisRoot", "root_type": "Node2D", "path": "res://test_analysis.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_analysis.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "AL-01",
+      "tool": "analyze_scene_complexity",
+      "args": { "scene_path": "res://test_analysis.tscn" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "AL-02",
+      "tool": "trace_signal_flow",
+      "args": { "scene_path": "res://test_analysis.tscn" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "AL-03",
+      "tool": "find_unused_resources",
+      "args": {},
+      "timeoutMs": 30000,
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "AL-04",
+      "tool": "get_code_metrics",
+      "args": { "script_path": "res://tests/test_example.gd" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_analysis.tscn" } }
+  ]
+}

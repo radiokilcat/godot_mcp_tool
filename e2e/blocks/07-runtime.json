@@ -1,0 +1,152 @@
+{
+  "block": 7,
+  "name": "Runtime Tools",
+  "requires": { "rendering": true },
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "RuntimeRoot", "root_type": "Node2D", "path": "res://test_runtime.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_runtime.tscn" } },
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "Button", "node_name": "TestBtn" } },
+    { "tool": "execute_script", "args": { "code": "EditorInterface.save_scene()" } },
+    { "tool": "play_scene", "args": { "scene_path": "res://test_runtime.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "R-01",
+      "tool": "get_game_state",
+      "args": {},
+      "delayMs": 3000,
+      "asserts": [{ "field": "is_playing", "op": "eq", "value": true }]
+    },
+    {
+      "id": "R-02",
+      "tool": "pause_game",
+      "args": {},
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_game_state",
+        "args": {},
+        "asserts": [{ "field": "is_paused", "op": "eq", "value": true }]
+      }
+    },
+    {
+      "id": "R-03",
+      "tool": "resume_game",
+      "args": {},
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_game_state",
+        "args": {},
+        "asserts": [{ "field": "is_paused", "op": "eq", "value": false }]
+      }
+    },
+    {
+      "id": "R-04a",
+      "tool": "set_game_speed",
+      "args": { "time_scale": 0.5 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "R-04b",
+      "tool": "set_game_speed",
+      "args": { "time_scale": 1.0 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "R-05",
+      "tool": "get_node_tree_runtime",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "R-06",
+      "tool": "inspect_node_at_runtime",
+      "args": { "node_path": "/root" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "R-07",
+      "tool": "get_performance_metrics",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "R-08",
+      "tool": "list_loaded_resources",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "R-09",
+      "tool": "list_autoloads",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "R-10",
+      "tool": "get_variable_value",
+      "args": { "node_path": "/root", "variable": "name" },
+      "asserts": [{ "field": "value", "op": "notNull" }]
+    },
+    {
+      "id": "R-11",
+      "tool": "call_function",
+      "args": { "node_path": "/root", "method": "get_name" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "R-12",
+      "tool": "emit_signal",
+      "args": { "node_path": "/root", "signal_name": "child_entered_tree", "args": [] },
+      "allowError": true
+    },
+    {
+      "id": "R-13",
+      "tool": "listen_to_signal",
+      "args": { "node_path": "/root", "signal_name": "child_entered_tree", "timeout": 2 },
+      "allowError": true,
+      "timeoutMs": 20000
+    },
+    {
+      "id": "R-14",
+      "tool": "navigate_to_node",
+      "args": { "node_path": "/root" },
+      "allowError": true
+    },
+    {
+      "id": "R-15",
+      "tool": "click_ui_element",
+      "args": { "node_path": "/root/RuntimeRoot/TestBtn" },
+      "allowError": true
+    },
+    {
+      "id": "R-16",
+      "tool": "get_signal_connections",
+      "args": { "node_path": "/root" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "R-17",
+      "tool": "record_gameplay",
+      "args": { "duration": 1 },
+      "timeoutMs": 20000,
+      "save": { "GP_EVENTS": "events" }
+    },
+    {
+      "id": "R-18",
+      "tool": "replay_gameplay",
+      "args": { "events": "$GP_EVENTS" },
+      "allowError": true,
+      "timeoutMs": 20000
+    },
+    {
+      "id": "R-19",
+      "tool": "set_variable_value",
+      "args": { "node_path": "/root", "variable": "_mcp_test_var", "value": 42 },
+      "allowError": true
+    }
+  ],
+  "cleanup": [
+    { "tool": "stop_scene", "args": {} },
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_runtime.tscn" }, "delayMs": 1500 }
+  ]
+}

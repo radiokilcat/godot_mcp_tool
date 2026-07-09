@@ -1,0 +1,52 @@
+{
+  "block": 11,
+  "name": "Physics Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "PhysRoot", "root_type": "Node2D", "path": "res://test_physics.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_physics.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "PH-01",
+      "tool": "add_rigid_body",
+      "args": { "parent_path": ".", "node_name": "Body2D", "dimension": "2d", "position": "Vector2(100, 100)" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "PH-02",
+      "tool": "add_collision_shape",
+      "args": { "parent_path": "Body2D", "node_name": "Shape2D", "shape_type": "circle", "dimension": "2d", "radius": 32.0 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "PH-03",
+      "tool": "set_collision_layer",
+      "args": { "node_path": "Body2D", "layers": [1, 2] },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "PH-04",
+      "tool": "set_collision_mask",
+      "args": { "node_path": "Body2D", "layers": [1] },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "PH-05",
+      "tool": "add_raycast",
+      "args": { "parent_path": ".", "node_name": "Ray2D", "dimension": "2d", "target_position": "Vector2(0, 100)" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "PH-06",
+      "tool": "get_physics_info",
+      "args": { "node_path": "Body2D" },
+      "asserts": [
+        { "field": "", "op": "jsonContains", "value": "RigidBody" },
+        { "field": "", "op": "jsonContains", "value": "collision_layer" }
+      ]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_physics.tscn" } }
+  ]
+}

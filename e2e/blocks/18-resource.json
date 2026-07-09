@@ -1,0 +1,78 @@
+{
+  "block": 18,
+  "name": "Resource Tools",
+  "setup": [],
+  "tests": [
+    {
+      "id": "RS-01",
+      "tool": "create_resource",
+      "args": { "resource_class": "Resource", "resource_path": "res://test_res.tres", "overwrite": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "RS-02",
+      "tool": "read_resource",
+      "args": { "resource_path": "res://test_res.tres" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "RS-03",
+      "tool": "edit_resource",
+      "args": { "resource_path": "res://test_res.tres", "properties": { "resource_name": "MCPTestResource" } },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "read_resource",
+        "args": { "resource_path": "res://test_res.tres" },
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "MCPTestResource" }]
+      }
+    },
+    {
+      "id": "RS-04",
+      "tool": "save_resource",
+      "args": { "source_path": "res://test_res.tres" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "RS-05",
+      "tool": "get_project_autoloads",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "RS-06",
+      "tool": "set_autoload",
+      "args": { "action": "add", "name": "MCPTestAutoload", "path": "res://tests/test_example.gd" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_project_autoloads",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "MCPTestAutoload" }]
+      }
+    },
+    {
+      "id": "RS-07",
+      "tool": "set_autoload",
+      "args": { "action": "remove", "name": "MCPTestAutoload" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_project_autoloads",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonNotContains", "value": "MCPTestAutoload" }]
+      }
+    },
+    {
+      "id": "RS-08",
+      "tool": "set_autoload",
+      "args": { "action": "update", "name": "MCPTestAutoload" },
+      "expectError": true
+    }
+  ],
+  "cleanup": [
+    {
+      "tool": "execute_script",
+      "args": {
+        "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://test_res.tres\"))\nEditorInterface.get_resource_filesystem().scan()"
+      }
+    }
+  ]
+}

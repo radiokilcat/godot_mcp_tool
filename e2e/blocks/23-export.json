@@ -1,0 +1,27 @@
+{
+  "block": 23,
+  "name": "Export Tools",
+  "setup": [],
+  "tests": [
+    {
+      "id": "EX-01",
+      "tool": "list_export_presets",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "EX-02",
+      "tool": "get_template_info",
+      "args": {},
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "templates_installed" }]
+    },
+    {
+      "id": "EX-03",
+      "tool": "export_project",
+      "args": { "preset_name": "NonExistentPreset" },
+      "expectError": true,
+      "errorContains": "reset"
+    }
+  ],
+  "cleanup": []
+}

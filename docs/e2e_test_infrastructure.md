@@ -83,6 +83,8 @@ enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
 
 ### 3.3 Launch
 
+**Port isolation:** the runner uses WS port **6510** (`--port` to change), passed as `GODOT_MCP_PORT` env to both the spawned server and the spawned editor (both honor it since 2026-07-08; default stays 6505). A live MCP setup on the developer's machine keeps running untouched; a preflight bind-check aborts early with a clear message if the chosen port is busy.
+
 Order matters only for log cleanliness — the plugin auto-reconnects with backoff regardless:
 
 1. **MCP server** — the runner spawns `node server/dist/index.js` over **stdio** and connects with `Client` from `@modelcontextprotocol/sdk` (already a dependency). This exercises the *full production stack*: MCP schema layer → version gating (`version-utils.ts`) → WebSocket bridge → plugin → tool code.

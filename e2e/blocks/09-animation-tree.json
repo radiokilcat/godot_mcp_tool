@@ -1,0 +1,67 @@
+{
+  "block": 9,
+  "name": "AnimationTree Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "ATRoot", "root_type": "Node2D", "path": "res://test_animtree.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_animtree.tscn" } },
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "AnimationPlayer", "node_name": "AP" } }
+  ],
+  "tests": [
+    {
+      "id": "AT-01",
+      "tool": "create_animation_tree",
+      "args": { "parent_path": ".", "node_name": "AT", "anim_player_path": "AP", "tree_root_type": "StateMachine" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AT-02",
+      "tool": "create_state_machine",
+      "args": { "node_path": "AT", "states": [{ "name": "Idle" }, { "name": "Walk" }] },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AT-03",
+      "tool": "get_state_machine_info",
+      "args": { "node_path": "AT" },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "Idle" }]
+    },
+    {
+      "id": "AT-04",
+      "tool": "add_transition",
+      "args": { "node_path": "AT", "from_state": "Idle", "to_state": "Walk" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AT-05",
+      "tool": "set_active_state",
+      "args": { "node_path": "AT", "active": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AT-06",
+      "tool": "delete_animation_tree_node",
+      "args": { "node_path": "AT", "state_name": "Walk" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_state_machine_info",
+        "args": { "node_path": "AT", "include_transitions": false },
+        "asserts": [{ "field": "", "op": "jsonNotContains", "value": "Walk" }]
+      }
+    },
+    {
+      "id": "AT-07",
+      "tool": "add_blend_tree",
+      "args": { "node_path": "AT" },
+      "allowError": true
+    },
+    {
+      "id": "AT-08",
+      "tool": "edit_blend_space",
+      "args": { "node_path": "AT", "action": "list_points" },
+      "allowError": true
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_animtree.tscn" } }
+  ]
+}

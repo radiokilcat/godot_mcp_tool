@@ -1,0 +1,101 @@
+{
+  "block": 4,
+  "name": "Script Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "ScriptRoot", "root_type": "Node2D", "path": "res://test_scripts.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_scripts.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "SC-01",
+      "tool": "create_script",
+      "args": {
+        "script_path": "res://test_tool.gd",
+        "content": "extends Node\n\nvar value: int = 0\n\nfunc increment() -> void:\n\tvalue += 1\n\nfunc get_value() -> int:\n\treturn value\n"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SC-02",
+      "tool": "read_script",
+      "args": { "script_path": "res://test_tool.gd" },
+      "asserts": [
+        { "field": "content", "op": "contains", "value": "func increment" },
+        { "field": "content", "op": "contains", "value": "extends Node" }
+      ]
+    },
+    {
+      "id": "SC-03",
+      "tool": "validate_syntax",
+      "args": { "script_path": "res://test_tool.gd" },
+      "asserts": [{ "field": "valid", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SC-04",
+      "tool": "create_script",
+      "args": {
+        "script_path": "res://test_broken.gd",
+        "content": "extends Node\n\nfunc broken(\n\tpass\n"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SC-05",
+      "tool": "validate_syntax",
+      "args": { "script_path": "res://test_broken.gd" },
+      "expectError": true,
+      "errorContains": "yntax"
+    },
+    {
+      "id": "SC-06",
+      "tool": "edit_script",
+      "args": {
+        "script_path": "res://test_tool.gd",
+        "content": "extends Node\n\nvar value: int = 0\n\nfunc increment(step: int = 1) -> void:\n\tvalue += step\n\nfunc get_value() -> int:\n\treturn value\n\nfunc reset() -> void:\n\tvalue = 0\n"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "read_script",
+        "args": { "script_path": "res://test_tool.gd" },
+        "asserts": [{ "field": "content", "op": "contains", "value": "func reset" }]
+      }
+    },
+    {
+      "id": "SC-07",
+      "tool": "get_script_info",
+      "args": { "script_path": "res://test_tool.gd" },
+      "asserts": [
+        { "field": "", "op": "jsonContains", "value": "increment" },
+        { "field": "", "op": "jsonContains", "value": "get_value" }
+      ]
+    },
+    {
+      "id": "SC-08",
+      "tool": "attach_script",
+      "args": { "node_path": ".", "script_path": "res://test_tool.gd" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SC-09",
+      "tool": "search_in_scripts",
+      "args": { "query": "increment" },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "test_tool.gd" }]
+    },
+    {
+      "id": "SC-10",
+      "tool": "reload_scripts",
+      "args": {},
+      "timeoutMs": 30000,
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_scripts.tscn" } },
+    {
+      "tool": "execute_script",
+      "args": {
+        "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://test_tool.gd\"))\nDirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://test_broken.gd\"))\nEditorInterface.get_resource_filesystem().scan()"
+      }
+    }
+  ]
+}

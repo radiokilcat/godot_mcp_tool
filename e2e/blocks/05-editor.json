@@ -1,0 +1,81 @@
+{
+  "block": 5,
+  "name": "Editor Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "EditorRoot", "root_type": "Node2D", "path": "res://test_editor.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_editor.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "E-01",
+      "tool": "get_editor_state",
+      "args": {},
+      "asserts": [{ "field": "has_open_scene", "op": "notNull" }]
+    },
+    {
+      "id": "E-02",
+      "tool": "get_editor_state",
+      "args": {},
+      "asserts": [
+        { "field": "has_open_scene", "op": "eq", "value": true },
+        { "field": "active_scene", "op": "contains", "value": "test_editor" }
+      ]
+    },
+    {
+      "id": "E-03",
+      "tool": "get_error_log",
+      "args": {}
+    },
+    {
+      "id": "E-04",
+      "tool": "take_screenshot",
+      "args": { "save_path": "res://screenshot_a.png" },
+      "requires": { "rendering": true },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "width", "op": "gte", "value": 100 },
+        { "field": "height", "op": "gte", "value": 100 }
+      ]
+    },
+    {
+      "id": "E-05",
+      "tool": "select_node_in_editor",
+      "args": { "node_path": "." },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "E-06",
+      "tool": "get_editor_state",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "E-07",
+      "tool": "focus_editor",
+      "args": {},
+      "requires": { "rendering": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "E-08",
+      "tool": "execute_script",
+      "args": { "code": "print(2 + 2)" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "E-09",
+      "tool": "execute_script",
+      "args": { "code": "EditorInterface.get_editor_main_screen().show()" },
+      "requires": { "rendering": true }
+    },
+    {
+      "id": "E-10",
+      "tool": "open_editor_settings",
+      "args": {},
+      "asserts": [{ "field": "count", "op": "gte", "value": 1 }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_editor.tscn" } }
+  ]
+}

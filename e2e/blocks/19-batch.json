@@ -1,0 +1,65 @@
+{
+  "block": 19,
+  "name": "Batch/Refactor Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "BatchRoot", "root_type": "Node2D", "path": "res://test_batch.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_batch.tscn" } },
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "Label", "node_name": "LabelA" } },
+    { "tool": "add_to_group", "args": { "node_path": "LabelA", "group_name": "test_group" } },
+    { "tool": "execute_script", "args": { "code": "EditorInterface.save_scene()" } }
+  ],
+  "tests": [
+    {
+      "id": "BR-01",
+      "tool": "find_by_node_type",
+      "args": { "node_type": "Label" },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "LabelA" }]
+    },
+    {
+      "id": "BR-02",
+      "tool": "find_by_group",
+      "args": { "group_name": "test_group" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "BR-03",
+      "tool": "find_by_script",
+      "args": { "script_path": "res://tests/test_example.gd" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "BR-04",
+      "tool": "find_dependencies",
+      "args": { "resource_path": "res://test_batch.tscn" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "BR-05",
+      "tool": "orphaned_resources",
+      "args": {},
+      "timeoutMs": 30000,
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "BR-06",
+      "tool": "bulk_rename",
+      "args": { "match": "LabelA", "replacement": "TextA", "scope": "current_scene" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "BR-07",
+      "tool": "cross_scene_update",
+      "args": { "node_type": "Label", "property": "text", "value": "Hi MCP", "dry_run": true },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "BR-08",
+      "tool": "refactor_signals",
+      "args": { "old_method": "_on_btn_pressed", "new_method": "_on_button_pressed", "dry_run": true },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_batch.tscn" } }
+  ]
+}

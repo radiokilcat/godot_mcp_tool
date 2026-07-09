@@ -1,0 +1,51 @@
+{
+  "block": 15,
+  "name": "TileMap Tools",
+  "requires": { "minGodot": "4.3" },
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "TileRoot", "root_type": "Node2D", "path": "res://test_tilemap.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_tilemap.tscn" } },
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "TileMapLayer", "node_name": "TileMap" } }
+  ],
+  "tests": [
+    {
+      "id": "TM-01",
+      "tool": "get_tilemap_info",
+      "args": { "node_path": "TileMap" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "TM-02",
+      "tool": "get_tileset_info",
+      "args": { "node_path": "TileMap" },
+      "allowError": true
+    },
+    {
+      "id": "TM-03",
+      "tool": "set_tile_cell",
+      "args": { "node_path": "TileMap", "coords": "Vector2i(0, 0)", "source_id": 0 },
+      "allowError": true
+    },
+    {
+      "id": "TM-04",
+      "tool": "query_tile_cell",
+      "args": { "node_path": "TileMap", "coords": "Vector2i(0, 0)" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "TM-05",
+      "tool": "erase_tile_cell",
+      "args": { "node_path": "TileMap", "coords": "Vector2i(0, 0)" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "TM-06",
+      "tool": "fill_tiles",
+      "args": { "node_path": "TileMap", "from_coords": "Vector2i(0, 0)", "to_coords": "Vector2i(2, 2)", "source_id": 0 },
+      "allowError": true
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_tilemap.tscn" } }
+  ]
+}

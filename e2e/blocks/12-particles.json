@@ -1,0 +1,52 @@
+{
+  "block": 12,
+  "name": "Particle Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "PartRoot", "root_type": "Node2D", "path": "res://test_particles.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_particles.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "PT-01",
+      "tool": "create_particle_system",
+      "args": { "parent_path": ".", "node_name": "Particles", "dimension": "2d", "amount": 50 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "PT-02",
+      "tool": "get_particle_info",
+      "args": { "node_path": "Particles" },
+      "asserts": [
+        { "field": "amount", "op": "eq", "value": 50 },
+        { "field": "emitting", "op": "notNull" }
+      ]
+    },
+    {
+      "id": "PT-03",
+      "tool": "set_particle_material",
+      "args": { "node_path": "Particles", "spread": 30.0 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "PT-04",
+      "tool": "set_particle_gradient",
+      "args": {
+        "node_path": "Particles",
+        "colors": [
+          { "offset": 0.0, "color": "#ff0000" },
+          { "offset": 1.0, "color": "#0000ff" }
+        ]
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "PT-05",
+      "tool": "load_particle_preset",
+      "args": { "node_path": "Particles", "preset": "fire" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_particles.tscn" } }
+  ]
+}

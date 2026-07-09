@@ -1,0 +1,119 @@
+{
+  "block": 2,
+  "name": "Scene Tools",
+  "setup": [],
+  "tests": [
+    {
+      "id": "S-01",
+      "tool": "get_scene_tree",
+      "args": {},
+      "expectError": true,
+      "errorContains": "cene"
+    },
+    {
+      "id": "S-02",
+      "tool": "create_scene",
+      "args": { "name": "TestRoot", "root_type": "Node2D", "path": "res://test_scene.tscn" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "S-03",
+      "tool": "list_project_files",
+      "args": { "path": "res://", "filter": ".tscn" },
+      "asserts": [{ "field": "files", "op": "contains", "value": "res://test_scene.tscn" }]
+    },
+    {
+      "id": "S-04",
+      "tool": "open_scene",
+      "args": { "scene_path": "res://test_scene.tscn" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "S-05",
+      "tool": "get_scene_tree",
+      "args": {},
+      "asserts": [
+        { "field": "", "op": "jsonContains", "value": "TestRoot" },
+        { "field": "", "op": "jsonContains", "value": "Node2D" }
+      ]
+    },
+    {
+      "id": "S-06",
+      "tool": "get_scene_info",
+      "args": { "scene_path": "res://test_scene.tscn" },
+      "asserts": [
+        { "field": "", "op": "jsonContains", "value": "test_scene.tscn" },
+        { "field": "", "op": "jsonContains", "value": "Node2D" }
+      ]
+    },
+    {
+      "id": "S-07",
+      "tool": "list_open_scenes",
+      "args": {},
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "test_scene.tscn" }]
+    },
+    {
+      "id": "S-08a",
+      "tool": "create_scene",
+      "args": { "name": "Prefab", "root_type": "Sprite2D", "path": "res://test_prefab.tscn" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "S-08b",
+      "tool": "open_scene",
+      "args": { "scene_path": "res://test_scene.tscn" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "S-08c",
+      "tool": "instantiate_scene",
+      "args": { "scene_path": "res://test_prefab.tscn", "parent_path": ".", "node_name": "PrefabInstance" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "PrefabInstance" }]
+      }
+    },
+    {
+      "id": "S-09a",
+      "tool": "play_scene",
+      "args": { "scene_path": "res://test_scene.tscn" },
+      "requires": { "rendering": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "S-09b",
+      "tool": "stop_scene",
+      "args": {},
+      "requires": { "rendering": true },
+      "delayMs": 2000,
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "S-09c",
+      "tool": "delete_node",
+      "args": { "node_path": "PrefabInstance" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "S-09d",
+      "tool": "execute_script",
+      "args": { "code": "EditorInterface.save_scene()" }
+    },
+    {
+      "id": "S-10",
+      "tool": "delete_scene",
+      "args": { "scene_path": "res://test_prefab.tscn" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "list_project_files",
+        "args": { "path": "res://", "filter": ".tscn" },
+        "asserts": [{ "field": "files", "op": "notContains", "value": "res://test_prefab.tscn" }]
+      }
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_scene.tscn" } }
+  ]
+}

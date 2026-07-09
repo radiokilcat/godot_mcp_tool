@@ -1,0 +1,71 @@
+{
+  "block": 17,
+  "name": "Shader Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "ShaderRoot", "root_type": "Node3D", "path": "res://test_shader_scene.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_shader_scene.tscn" } },
+    { "tool": "add_mesh", "args": { "parent_path": ".", "node_name": "TestBox", "mesh_type": "BoxMesh" } }
+  ],
+  "tests": [
+    {
+      "id": "SH-01",
+      "tool": "create_shader",
+      "args": { "shader_path": "res://test_shader.gdshader", "shader_type": "spatial" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SH-02",
+      "tool": "get_shader_info",
+      "args": { "shader_path": "res://test_shader.gdshader" },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "spatial" }]
+    },
+    {
+      "id": "SH-03",
+      "tool": "validate_shader",
+      "args": { "shader_path": "res://test_shader.gdshader" },
+      "asserts": [{ "field": "valid", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SH-04",
+      "tool": "edit_shader",
+      "args": {
+        "shader_path": "res://test_shader.gdshader",
+        "code": "shader_type spatial;\n\nuniform vec4 albedo : source_color = vec4(1.0);\n\nvoid fragment() {\n\tALBEDO = albedo.rgb;\n}\n"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SH-05",
+      "tool": "validate_shader",
+      "args": { "shader_path": "res://test_shader.gdshader" },
+      "asserts": [{ "field": "valid", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SH-05b",
+      "tool": "get_shader_info",
+      "args": { "shader_path": "res://test_shader.gdshader" },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "albedo" }]
+    },
+    {
+      "id": "SH-06",
+      "tool": "assign_material",
+      "args": { "node_path": "TestBox", "shader_path": "res://test_shader.gdshader" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "SH-07",
+      "tool": "set_shader_param",
+      "args": { "node_path": "TestBox", "param_name": "albedo", "param_value": "Color(0, 1, 0, 1)" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_shader_scene.tscn" } },
+    {
+      "tool": "execute_script",
+      "args": {
+        "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://test_shader.gdshader\"))\nEditorInterface.get_resource_filesystem().scan()"
+      }
+    }
+  ]
+}

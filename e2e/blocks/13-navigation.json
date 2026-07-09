@@ -1,0 +1,49 @@
+{
+  "block": 13,
+  "name": "Navigation Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "NavRoot", "root_type": "Node2D", "path": "res://test_nav.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_nav.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "NAV-01",
+      "tool": "add_navigation_region",
+      "args": { "parent_path": ".", "node_name": "NavRegion", "dimension": "2d" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "NAV-02",
+      "tool": "add_navigation_agent",
+      "args": { "parent_path": ".", "node_name": "NavAgent", "dimension": "2d" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "NAV-03",
+      "tool": "set_navigation_layer",
+      "args": { "node_path": "NavRegion", "navigation_layers": [1] },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "NAV-04",
+      "tool": "get_navigation_info",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "NAV-05",
+      "tool": "get_navigation_path",
+      "args": { "from": "Vector2(0, 0)", "to": "Vector2(100, 100)", "dimension": "2d" },
+      "allowError": true
+    },
+    {
+      "id": "NAV-06",
+      "tool": "bake_navigation",
+      "args": { "node_path": "NavRegion" },
+      "allowError": true
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_nav.tscn" } }
+  ]
+}

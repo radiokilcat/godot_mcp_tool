@@ -1,0 +1,26 @@
+{
+  "block": 22,
+  "name": "Profiling Tools",
+  "setup": [],
+  "tests": [
+    {
+      "id": "PR-01",
+      "tool": "get_performance_monitors",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "PR-02",
+      "tool": "get_performance_monitors",
+      "args": { "category": "memory" },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "memory" }]
+    },
+    {
+      "id": "PR-03",
+      "tool": "get_memory_usage",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    }
+  ],
+  "cleanup": []
+}

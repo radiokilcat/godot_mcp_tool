@@ -1,0 +1,90 @@
+{
+  "block": 1,
+  "name": "Project Tools",
+  "setup": [],
+  "tests": [
+    {
+      "id": "P-01",
+      "tool": "get_project_info",
+      "args": {},
+      "asserts": [
+        { "field": "project_name", "op": "notNull" },
+        { "field": "godot_version", "op": "contains", "value": "{GODOT_MAJOR_MINOR}" },
+        { "field": "project_path", "op": "notNull" }
+      ],
+      "save": { "PROJECT_PATH": "project_path" }
+    },
+    {
+      "id": "P-02",
+      "tool": "get_editor_version",
+      "args": {},
+      "asserts": [
+        { "field": "string", "op": "contains", "value": "{GODOT_VERSION}" },
+        { "field": "build", "op": "eq", "value": "official" }
+      ]
+    },
+    {
+      "id": "P-03",
+      "tool": "list_project_files",
+      "args": { "path": "res://" },
+      "asserts": [
+        { "field": "files", "op": "notNull" },
+        { "field": "total", "op": "gte", "value": 1 },
+        { "field": "files", "op": "contains", "value": "res://icon.svg" }
+      ]
+    },
+    {
+      "id": "P-04",
+      "tool": "list_project_files",
+      "args": { "path": "res://", "filter": ".gd" },
+      "asserts": [{ "field": "files", "op": "allElementsMatch", "value": "\\.gd$" }]
+    },
+    {
+      "id": "P-05",
+      "tool": "search_files",
+      "args": { "query": "plugin", "type": "name" },
+      "asserts": [
+        { "field": "results", "op": "notNull" },
+        { "field": "results", "op": "jsonContains", "value": "plugin" }
+      ]
+    },
+    {
+      "id": "P-06",
+      "tool": "get_project_settings",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "P-07",
+      "tool": "set_project_setting",
+      "args": { "setting_path": "application/config/description", "value": "MCP Test Project" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_project_settings",
+        "args": { "setting_path": "application/config/description" },
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "MCP Test Project" }]
+      }
+    },
+    {
+      "id": "P-08",
+      "tool": "get_project_metadata",
+      "args": {},
+      "asserts": [
+        { "field": "features", "op": "notNull" },
+        { "field": "renderer", "op": "notNull" }
+      ]
+    },
+    {
+      "id": "P-09",
+      "tool": "convert_uid",
+      "args": { "uid": "uid://invalid_test_uid_xyz" },
+      "expectError": true
+    }
+  ],
+  "cleanup": [
+    {
+      "tool": "set_project_setting",
+      "args": { "setting_path": "application/config/description", "value": "" }
+    }
+  ]
+}

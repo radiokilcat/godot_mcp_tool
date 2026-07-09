@@ -1,0 +1,76 @@
+{
+  "block": 21,
+  "name": "Testing/QA Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "QARoot", "root_type": "Node2D", "path": "res://test_qa.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_qa.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "QA-01",
+      "tool": "run_automated_tests",
+      "args": { "test_path": "res://tests/" },
+      "timeoutMs": 60000,
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "QA-02",
+      "tool": "get_test_report",
+      "args": {},
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "QA-03",
+      "tool": "assert_node_state",
+      "args": { "node_path": ".", "property": "visible", "expected": true },
+      "asserts": [{ "field": "passed", "op": "eq", "value": true }]
+    },
+    {
+      "id": "QA-04",
+      "tool": "assert_node_state",
+      "args": { "node_path": ".", "property": "position", "expected": "Vector2(9999, 9999)" },
+      "asserts": [{ "field": "passed", "op": "eq", "value": false }]
+    },
+    {
+      "id": "QA-05",
+      "tool": "record_test",
+      "args": { "action": "start", "test_name": "mcp_e2e_rec" }
+    },
+    {
+      "id": "QA-06",
+      "tool": "record_test",
+      "args": { "action": "stop" },
+      "save": { "REC_EVENTS": "events" }
+    },
+    {
+      "id": "QA-07",
+      "tool": "replay_test",
+      "args": { "events": "$REC_EVENTS" },
+      "allowError": true,
+      "timeoutMs": 20000
+    },
+    {
+      "id": "QA-08",
+      "tool": "take_screenshot",
+      "args": { "save_path": "res://screenshot_qa.png" },
+      "requires": { "rendering": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "QA-09",
+      "tool": "compare_screenshots",
+      "args": { "path_a": "res://screenshot_qa.png", "path_b": "res://screenshot_qa.png" },
+      "requires": { "rendering": true },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_qa.tscn" } },
+    {
+      "tool": "execute_script",
+      "args": {
+        "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://screenshot_a.png\"))\nDirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://screenshot_qa.png\"))\nEditorInterface.get_resource_filesystem().scan()"
+      }
+    }
+  ]
+}

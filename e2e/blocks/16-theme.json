@@ -1,0 +1,64 @@
+{
+  "block": 16,
+  "name": "Theme/UI Tools",
+  "setup": [],
+  "tests": [
+    {
+      "id": "TH-01",
+      "tool": "create_theme",
+      "args": { "theme_path": "res://test_theme.tres", "overwrite": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "TH-02",
+      "tool": "create_theme",
+      "args": { "theme_path": "res://test_theme.tres" },
+      "expectError": true,
+      "errorContains": "xist"
+    },
+    {
+      "id": "TH-03",
+      "tool": "set_theme_color",
+      "args": { "theme_path": "res://test_theme.tres", "theme_type": "Button", "color_name": "font_color", "color": "#ff0000" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "TH-04",
+      "tool": "set_theme_constant",
+      "args": { "theme_path": "res://test_theme.tres", "theme_type": "Button", "constant_name": "outline_size", "value": 2 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "TH-05",
+      "tool": "set_stylebox",
+      "args": {
+        "theme_path": "res://test_theme.tres",
+        "theme_type": "Button",
+        "stylebox_name": "normal",
+        "stylebox_type": "flat",
+        "properties": { "bg_color": "#334455" }
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "TH-05b",
+      "tool": "set_theme_font",
+      "args": { "theme_path": "res://test_theme.tres", "theme_type": "Button", "font_name": "font", "font_path": "res://nonexistent_font.ttf" },
+      "expectError": true
+    },
+    {
+      "id": "TH-06",
+      "tool": "get_theme_info",
+      "args": { "theme_path": "res://test_theme.tres" },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "Button" }]
+    }
+  ],
+  "cleanup": [
+    {
+      "tool": "execute_script",
+      "args": {
+        "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://test_theme.tres\"))\nEditorInterface.get_resource_filesystem().scan()"
+      }
+    }
+  ]
+}

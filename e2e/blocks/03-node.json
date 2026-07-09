@@ -1,0 +1,158 @@
+{
+  "block": 3,
+  "name": "Node Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "Root", "root_type": "Node2D", "path": "res://test_nodes.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_nodes.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "N-01",
+      "tool": "add_node",
+      "args": { "parent_path": ".", "node_type": "Label", "node_name": "LabelA" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "LabelA" }]
+      }
+    },
+    {
+      "id": "N-02",
+      "tool": "get_node_properties",
+      "args": { "node_path": "LabelA" },
+      "asserts": [
+        { "field": "properties", "op": "notNull" },
+        { "field": "properties", "op": "jsonContains", "value": "\"text\"" }
+      ]
+    },
+    {
+      "id": "N-03",
+      "tool": "set_node_property",
+      "args": { "node_path": "LabelA", "property": "text", "value": "Hello" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_node_properties",
+        "args": { "node_path": "LabelA" },
+        "asserts": [{ "field": "properties", "op": "jsonContains", "value": "Hello" }]
+      }
+    },
+    {
+      "id": "N-04",
+      "tool": "rename_node",
+      "args": { "node_path": "LabelA", "new_name": "LabelRenamed" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [
+          { "field": "", "op": "jsonNotContains", "value": "LabelA" },
+          { "field": "", "op": "jsonContains", "value": "LabelRenamed" }
+        ]
+      }
+    },
+    {
+      "id": "N-05",
+      "tool": "duplicate_node",
+      "args": { "node_path": "LabelRenamed", "new_name": "LabelCopy" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "LabelCopy" }]
+      }
+    },
+    {
+      "id": "N-06",
+      "tool": "get_node_children",
+      "args": { "node_path": "." },
+      "asserts": [
+        { "field": "children", "op": "notNull" },
+        { "field": "children", "op": "jsonContains", "value": "LabelRenamed" },
+        { "field": "children", "op": "jsonContains", "value": "LabelCopy" }
+      ]
+    },
+    {
+      "id": "N-07",
+      "tool": "get_node_parent",
+      "args": { "node_path": "LabelRenamed" },
+      "asserts": [{ "field": "", "op": "notEmpty" }]
+    },
+    {
+      "id": "N-08",
+      "tool": "add_to_group",
+      "args": { "node_path": "LabelRenamed", "group_name": "test_group" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_node_groups",
+        "args": { "node_path": "LabelRenamed" },
+        "asserts": [{ "field": "groups", "op": "contains", "value": "test_group" }]
+      }
+    },
+    {
+      "id": "N-09",
+      "tool": "get_node_groups",
+      "args": { "node_path": "LabelRenamed" },
+      "asserts": [{ "field": "groups", "op": "contains", "value": "test_group" }]
+    },
+    {
+      "id": "N-10",
+      "tool": "remove_from_group",
+      "args": { "node_path": "LabelRenamed", "group_name": "test_group" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_node_groups",
+        "args": { "node_path": "LabelRenamed" },
+        "asserts": [{ "field": "groups", "op": "notContains", "value": "test_group" }]
+      }
+    },
+    {
+      "id": "N-11",
+      "tool": "get_node_signals",
+      "args": { "node_path": "LabelRenamed" },
+      "asserts": [{ "field": "signals", "op": "notNull" }]
+    },
+    {
+      "id": "N-12",
+      "tool": "add_node",
+      "args": { "parent_path": ".", "node_type": "Button", "node_name": "TestBtn" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "N-13",
+      "tool": "connect_signal",
+      "args": {
+        "source_node_path": "TestBtn",
+        "signal_name": "pressed",
+        "target_node_path": ".",
+        "callback_name": "queue_free"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_signal_connections",
+        "args": { "node_path": "TestBtn" },
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "queue_free" }]
+      }
+    },
+    {
+      "id": "N-14",
+      "tool": "move_node",
+      "args": { "node_path": "LabelCopy", "new_parent_path": "TestBtn" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "N-15",
+      "tool": "delete_node",
+      "args": { "node_path": "TestBtn/LabelCopy" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonNotContains", "value": "LabelCopy" }]
+      }
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_nodes.tscn" } }
+  ]
+}

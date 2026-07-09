@@ -1,0 +1,73 @@
+{
+  "block": 6,
+  "name": "Input Tools",
+  "requires": { "rendering": true },
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "InputRoot", "root_type": "Node2D", "path": "res://test_input.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_input.tscn" } },
+    { "tool": "play_scene", "args": { "scene_path": "res://test_input.tscn" } }
+  ],
+  "tests": [
+    {
+      "id": "I-01",
+      "tool": "simulate_key_press",
+      "args": { "key": "A", "pressed": true },
+      "delayMs": 2500,
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "I-02",
+      "tool": "simulate_key_press",
+      "args": { "key": "A", "pressed": false },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "I-03",
+      "tool": "simulate_mouse_move",
+      "args": { "x": 400, "y": 300 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "I-04",
+      "tool": "simulate_mouse_click",
+      "args": { "x": 400, "y": 300, "button": "left" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "I-05",
+      "tool": "trigger_input_action",
+      "args": { "action": "ui_accept", "pressed": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "I-06",
+      "tool": "record_input_sequence",
+      "args": { "duration": 1 },
+      "timeoutMs": 20000,
+      "save": { "INPUT_EVENTS": "events" }
+    },
+    {
+      "id": "I-07",
+      "tool": "replay_input_sequence",
+      "args": { "events": "$INPUT_EVENTS" },
+      "allowError": true,
+      "timeoutMs": 20000
+    },
+    {
+      "id": "I-08",
+      "tool": "configure_input_mapping",
+      "args": { "operation": "add", "action_name": "test_action_mcp", "key": "F12" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "I-09",
+      "tool": "configure_input_mapping",
+      "args": { "operation": "remove", "action_name": "test_action_mcp" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    }
+  ],
+  "cleanup": [
+    { "tool": "stop_scene", "args": {} },
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_input.tscn" }, "delayMs": 1500 }
+  ]
+}

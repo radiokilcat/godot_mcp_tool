@@ -1,0 +1,91 @@
+{
+  "block": 8,
+  "name": "Animation Tools",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "AnimRoot", "root_type": "Node2D", "path": "res://test_anim.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_anim.tscn" } },
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "AnimationPlayer", "node_name": "AnimPlayer" } }
+  ],
+  "tests": [
+    {
+      "id": "AN-01",
+      "tool": "create_animation",
+      "args": { "node_path": "AnimPlayer", "animation_name": "test_anim", "length": 1.0 },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AN-02",
+      "tool": "get_animation_info",
+      "args": { "node_path": "AnimPlayer", "animation_name": "test_anim" },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "test_anim" }]
+    },
+    {
+      "id": "AN-03",
+      "tool": "add_animation_track",
+      "args": {
+        "node_path": "AnimPlayer",
+        "animation_name": "test_anim",
+        "track_type": "value",
+        "target_path": ".:position"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AN-04a",
+      "tool": "add_keyframe",
+      "args": {
+        "node_path": "AnimPlayer",
+        "animation_name": "test_anim",
+        "track_index": 0,
+        "time": 0.0,
+        "value": "Vector2(0, 0)"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AN-04b",
+      "tool": "add_keyframe",
+      "args": {
+        "node_path": "AnimPlayer",
+        "animation_name": "test_anim",
+        "track_index": 0,
+        "time": 1.0,
+        "value": "Vector2(100, 0)"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AN-05",
+      "tool": "set_easing",
+      "args": {
+        "node_path": "AnimPlayer",
+        "animation_name": "test_anim",
+        "track_index": 0,
+        "key_index": 0,
+        "transition": "ease_in_out"
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AN-06",
+      "tool": "get_animation_info",
+      "args": { "node_path": "AnimPlayer", "animation_name": "test_anim", "include_keyframes": true },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "position" }]
+    },
+    {
+      "id": "AN-07",
+      "tool": "delete_animation",
+      "args": { "node_path": "AnimPlayer", "animation_name": "test_anim" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AN-08",
+      "tool": "get_animation_info",
+      "args": { "node_path": "AnimPlayer", "animation_name": "test_anim" },
+      "expectError": true
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_anim.tscn" } }
+  ]
+}
