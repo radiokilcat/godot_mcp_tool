@@ -44,8 +44,10 @@ func _take_screenshot(args: Dictionary) -> Dictionary:
 	var image: Image
 
 	if viewport_type == "editor":
-		# Capture entire editor window (display screen 0)
-		image = DisplayServer.screen_get_image(0)
+		# Render the editor's own window. A desktop grab (screen_get_image) would
+		# capture whatever window happens to sit on top of the editor instead.
+		var vp := EditorInterface.get_base_control().get_viewport()
+		image = vp.get_texture().get_image()
 	elif viewport_type == "2d":
 		var vp := EditorInterface.get_editor_viewport_2d()
 		image = vp.get_texture().get_image()

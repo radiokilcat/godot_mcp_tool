@@ -209,18 +209,60 @@ func _validate_syntax(args: Dictionary) -> Dictionary:
 			return {"error": "Script not found: %s" % script_path}
 		source = content as String
 
-	var test_script := GDScript.new()
-	test_script.source_code = source
-	var err := test_script.reload(false)
+	var line_count := source.split("\n").size()
+	var err := _reload_probe(source)
 
 	if err == OK:
-		return {"valid": true, "line_count": source.split("\n").size()}
+		return {"valid": true, "line_count": line_count}
+
+	# A script declaring a class_name that is already registered globally collides with
+	# its own registration, so reload() reports a parse error for otherwise valid code.
+	# That is the normal case when validating a file already in the project — retry once
+	# without the declaration so only genuine errors are reported.
+	var declared := _declared_class_name(source)
+	if not declared.is_empty() and _is_global_class(declared):
+		if _reload_probe(_strip_class_name(source)) == OK:
+			return {
+				"valid": true,
+				"line_count": line_count,
+				"note": "class_name '%s' is already registered; validated without the declaration" % declared,
+			}
 
 	return {
 		"valid": false,
 		"error_code": err,
 		"error": "Syntax error (code %d) — open in Godot editor for details" % err,
 	}
+
+## Compile source in a throwaway GDScript and report the resulting error code.
+## The probe is given a path under res://addons/ so the parser applies the
+## "exclude_addons" warning opt-out. Without a path it reports warnings that sit at Error
+## level — inferring a variable type from a Variant, for one — and would reject code the
+## engine loads happily. The file itself never has to exist; only the string is consulted.
+func _reload_probe(source: String) -> int:
+	var test_script := GDScript.new()
+	test_script.resource_path = "res://addons/.godot_mcp_syntax_probe_%d.gd" % Time.get_ticks_usec()
+	test_script.source_code = source
+	return test_script.reload(false)
+
+func _declared_class_name(source: String) -> String:
+	var re := RegEx.new()
+	re.compile(r"(?m)^[ \t]*class_name[ \t]+([A-Za-z_]\w*)")
+	var m := re.search(source)
+	return m.get_string(1) if m != null else ""
+
+func _is_global_class(class_ident: String) -> bool:
+	for entry in ProjectSettings.get_global_class_list():
+		if entry.get("class", "") == class_ident:
+			return true
+	return false
+
+## Drop only the "class_name Ident" tokens, keeping any trailing "extends X" on the
+## same line intact and leaving line numbering unchanged.
+func _strip_class_name(source: String) -> String:
+	var re := RegEx.new()
+	re.compile(r"(?m)^([ \t]*)class_name[ \t]+[A-Za-z_]\w*[ \t]*")
+	return re.sub(source, "$1", true)
 
 func _search_in_scripts(args: Dictionary) -> Dictionary:
 	var query: String = args.get("query", "")

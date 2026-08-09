@@ -83,11 +83,19 @@ func _coerce_value(node: Node, property: String, value: Variant) -> Variant:
 		break
 	return value
 
+## Pull the numbers out of a Godot type literal.
+## Only the text inside the parentheses is scanned, so digits in the type name
+## itself ("Vector2", "Rect2") are not mistaken for components.
 func _extract_floats(s: String) -> Array:
+	var body := s
+	var open := s.find("(")
+	var close := s.rfind(")")
+	if open != -1 and close > open:
+		body = s.substr(open + 1, close - open - 1)
 	var nums: Array = []
 	var re := RegEx.new()
 	re.compile(r"-?\d+(\.\d+)?")
-	for m in re.search_all(s):
+	for m in re.search_all(body):
 		nums.append(float(m.get_string()))
 	return nums
 
