@@ -3,7 +3,7 @@ extends RefCounted
 
 class_name GodotMCPSceneTools
 
-## Implements all 9 scene-level tools.
+## Implements all 10 scene-level tools.
 
 var _plugin: EditorPlugin
 
@@ -13,6 +13,7 @@ func _init(plugin: EditorPlugin) -> void:
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("get_scene_tree",    GodotMCPCallableTool.new(_get_scene_tree))
 	registry.register_tool("create_scene",      GodotMCPCallableTool.new(_create_scene))
+	registry.register_tool("save_scene",        GodotMCPCallableTool.new(_save_scene))
 	registry.register_tool("open_scene",        GodotMCPCallableTool.new(_open_scene))
 	registry.register_tool("delete_scene",      GodotMCPCallableTool.new(_delete_scene))
 	registry.register_tool("play_scene",        GodotMCPCallableTool.new(_play_scene))
@@ -20,6 +21,25 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("instantiate_scene", GodotMCPCallableTool.new(_instantiate_scene))
 	registry.register_tool("get_scene_info",    GodotMCPCallableTool.new(_get_scene_info))
 	registry.register_tool("list_open_scenes",  GodotMCPCallableTool.new(_list_open_scenes))
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+## ResourceSaver does not create intermediate directories, so saving into a folder that
+## does not exist yet fails with a bare "Can't open". Create the tree first.
+## Returns "" on success, or an error message.
+func _ensure_dir_for(res_path: String) -> String:
+	var dir_path := res_path.get_base_dir()
+	if dir_path.is_empty():
+		return ""
+	var abs_dir := ProjectSettings.globalize_path(dir_path)
+	if DirAccess.dir_exists_absolute(abs_dir):
+		return ""
+	var err := DirAccess.make_dir_recursive_absolute(abs_dir)
+	if err != OK:
+		return "Failed to create directory %s: %s" % [dir_path, error_string(err)]
+	return ""
 
 # ---------------------------------------------------------------------------
 # Tool implementations
@@ -89,6 +109,10 @@ func _create_scene(args: Dictionary) -> Dictionary:
 	if err != OK:
 		return {"error": "Failed to pack scene: %s" % error_string(err)}
 
+	var dir_err := _ensure_dir_for(save_path)
+	if not dir_err.is_empty():
+		return {"error": dir_err}
+
 	err = ResourceSaver.save(packed, save_path)
 	if err != OK:
 		return {"error": "Failed to save scene to %s: %s" % [save_path, error_string(err)]}
@@ -100,6 +124,40 @@ func _create_scene(args: Dictionary) -> Dictionary:
 		EditorInterface.open_scene_from_path(save_path)
 
 	return {"success": true, "scene_path": save_path}
+
+## Commit the scene currently open in the editor to disk. The mutation tools (add_node,
+## set_node_property, add_mesh, …) change the in-memory scene only — without this their work
+## is lost when the editor closes.
+func _save_scene(args: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null:
+		return {"error": "No scene is currently open in the editor"}
+
+	var save_path: String = args.get("scene_path", "")
+	var target: String = save_path if not save_path.is_empty() else root.scene_file_path
+	if target.is_empty():
+		return {"error": "Scene has never been saved to disk — pass 'scene_path' to choose a location"}
+
+	var dir_err := _ensure_dir_for(target)
+	if not dir_err.is_empty():
+		return {"error": dir_err}
+
+	# EditorInterface.save_scene() is what Ctrl+S runs: it writes the scene exactly as the
+	# editor holds it, including the owner relationships that a hand-rolled
+	# PackedScene.pack() of the edited root gets wrong for instanced children.
+	if save_path.is_empty():
+		var err := EditorInterface.save_scene()
+		if err != OK:
+			return {"error": "Failed to save scene to %s: %s" % [target, error_string(err)]}
+	else:
+		# save_scene_as() returns void, so confirm the write by checking the file landed
+		# rather than reporting a success we never verified.
+		EditorInterface.save_scene_as(target, true)
+		if not FileAccess.file_exists(ProjectSettings.globalize_path(target)):
+			return {"error": "Failed to save scene to %s" % target}
+
+	EditorInterface.get_resource_filesystem().scan()
+	return {"success": true, "scene_path": target}
 
 func _create_node_by_type(type_name: String) -> Node:
 	if ClassDB.class_exists(type_name):

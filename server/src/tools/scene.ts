@@ -1,6 +1,6 @@
 /**
- * Scene tools - 9 tools
- * Tools for scene-level operations: tree, create, open, delete, play/stop, instancing
+ * Scene tools - 10 tools
+ * Tools for scene-level operations: tree, create, save, open, delete, play/stop, instancing
  */
 
 import { ToolCategory } from "../types/index.js";
@@ -55,6 +55,28 @@ export const sceneTools: ToolCategory = {
     },
     handler: async (args) => {
       return await godotConnection.callTool("create_scene", args);
+    },
+  },
+
+  save_scene: {
+    name: "save_scene",
+    description:
+      "Save the scene currently open in the editor to disk. Node mutations (add_node, " +
+      "set_node_property, add_mesh, ...) only change the in-memory scene — call this to commit them.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scene_path: {
+          type: "string",
+          description:
+            "Optional 'save as' path, e.g. 'res://scenes/Main.tscn'. Omit to save over the " +
+            "scene's existing file. Required if the scene has never been saved. " +
+            "Intermediate directories are created automatically.",
+        },
+      },
+    },
+    handler: async (args) => {
+      return await godotConnection.callTool("save_scene", args);
     },
   },
 

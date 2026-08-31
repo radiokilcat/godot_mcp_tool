@@ -98,8 +98,12 @@
     },
     {
       "id": "S-09d",
-      "tool": "execute_script",
-      "args": { "code": "EditorInterface.save_scene()" }
+      "tool": "save_scene",
+      "args": {},
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "scene_path", "op": "eq", "value": "res://test_scene.tscn" }
+      ]
     },
     {
       "id": "S-10",
@@ -111,9 +115,43 @@
         "args": { "path": "res://", "filter": ".tscn" },
         "asserts": [{ "field": "files", "op": "notContains", "value": "res://test_prefab.tscn" }]
       }
+    },
+    {
+      "id": "S-11",
+      "tool": "create_scene",
+      "args": {
+        "name": "Nested",
+        "root_type": "Node2D",
+        "path": "res://e2e_nested/deep/Nested.tscn",
+        "open_after_create": false
+      },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "list_project_files",
+        "args": { "path": "res://e2e_nested/deep", "filter": ".tscn" },
+        "asserts": [
+          { "field": "files", "op": "contains", "value": "res://e2e_nested/deep/Nested.tscn" }
+        ]
+      }
+    },
+    {
+      "id": "S-12",
+      "tool": "save_scene",
+      "args": { "scene_path": "res://e2e_saveas/Copy.tscn" },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "scene_path", "op": "eq", "value": "res://e2e_saveas/Copy.tscn" }
+      ],
+      "verify": {
+        "tool": "list_project_files",
+        "args": { "path": "res://e2e_saveas", "filter": ".tscn" },
+        "asserts": [{ "field": "files", "op": "contains", "value": "res://e2e_saveas/Copy.tscn" }]
+      }
     }
   ],
   "cleanup": [
-    { "tool": "delete_scene", "args": { "scene_path": "res://test_scene.tscn" } }
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_scene.tscn" } },
+    { "tool": "delete_scene", "args": { "scene_path": "res://e2e_nested/deep/Nested.tscn" } },
+    { "tool": "delete_scene", "args": { "scene_path": "res://e2e_saveas/Copy.tscn" } }
   ]
 }
