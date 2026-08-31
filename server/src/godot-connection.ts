@@ -22,11 +22,28 @@ class GodotConnection {
   private pending = new Map<string, PendingCall>();
   private _godotVersion: string | null = null;
   private _pluginVersion: string | null = null;
+  private _bindError: string | null = null;
 
   constructor() {
     this.wss = new WebSocketServer({ port: WS_PORT });
     this.wss.on("connection", (ws) => this._onConnection(ws));
-    console.error(`[Godot] WebSocket server listening on ws://localhost:${WS_PORT}`);
+    // Only announce the port once the bind actually succeeded — listen() is async,
+    // so logging in the constructor claims success before it is known.
+    this.wss.on("listening", () => {
+      console.error(`[Godot] WebSocket server listening on ws://localhost:${WS_PORT}`);
+    });
+    // Without this handler a failed bind surfaces as an unhandled 'error' event and
+    // kills the process before the MCP handshake completes, so the client reports
+    // nothing but "connection closed". Stay up and report the cause through the
+    // tools instead.
+    this.wss.on("error", (err: NodeJS.ErrnoException) => {
+      this._bindError = err.code === "EADDRINUSE"
+        ? `Port ${WS_PORT} is already in use — another Godot MCP server is still running. ` +
+          `Stop that process, or set GODOT_MCP_PORT to a free port for both this server ` +
+          `and the Godot plugin.`
+        : `WebSocket server failed: ${err.message}`;
+      console.error(`[Godot] ${this._bindError}`);
+    });
   }
 
   private _onConnection(ws: WebSocket): void {
@@ -109,6 +126,12 @@ class GodotConnection {
   }
 
   async callTool(tool: string, args: Record<string, unknown> = {}): Promise<unknown> {
+    // Check this first: with a failed bind the editor can never connect, and the
+    // generic "plugin not enabled" hint below would send the user after the wrong fix.
+    if (this._bindError) {
+      throw new Error(this._bindError);
+    }
+
     if (!this.isConnected) {
       throw new Error(
         "Godot editor is not connected. " +
