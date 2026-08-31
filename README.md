@@ -55,13 +55,13 @@ Godot Editor Plugin (GDScript)
 - **Heartbeat** — ping/pong keeps the connection alive
 - **Structured errors** — contextual hints on failure
 - **2D & 3D** — full support for both workflows
-- **Version-gating** — tools declare a supported Godot range; incompatible calls return a clear error instead of failing inside the editor (verified on Godot 4.4.1; targets 4.0+)
+- **Version-gating** — tools declare a supported Godot range; incompatible calls return a clear error instead of failing inside the editor (verified on Godot 4.4.1 and 4.7.2; targets 4.0+)
 
 ## Quick start
 
 ### Prerequisites
 
-- **Godot 4.x** (verified on 4.4.1; targets 4.0+)
+- **Godot 4.x** (verified on 4.4.1 and 4.7.2; targets 4.0+)
 - **Node.js 18+**
 
 ### 1. Install the plugin
@@ -123,9 +123,10 @@ node e2e/run.mjs --godot 4.4.1
 ```
 
 Useful flags: `--blocks 3,9` (run specific blocks), `--test AT-03` (single test),
-`--headless` (rendering-dependent tests auto-skip), `--godot 4.2.2,4.4.1` (version
-matrix), `--keep-work` (keep the generated project for debugging). Exit codes are
-CI-friendly: `0` all pass, `1` test failures, `2` infrastructure error.
+`--headless` (rendering-dependent tests auto-skip), `--godot 4.4.1,4.7.2` (version
+matrix), `--port 6510` (isolate from a live setup on 6505), `--keep-work` (keep the
+generated project for debugging). Exit codes are CI-friendly: `0` all pass, `1` test
+failures, `2` infrastructure error.
 
 Design and internals: [docs/e2e_test_infrastructure.md](docs/e2e_test_infrastructure.md).
 Human-readable test spec: [docs/mcp_test_plan.md](docs/mcp_test_plan.md).
@@ -162,8 +163,8 @@ planned for clients with tool-count limits — see [progress.md](progress.md).
 ## Status
 
 - All 163 tools implemented (23 categories)
-- Godot 4.4.1 compatibility verified — plugin loads clean, all tools registered
-- End-to-end suite green: **191/191 tests, 162/162 tools covered** on Godot 4.4.1
+- Godot 4.4.1 and 4.7.2 compatibility verified — plugin loads clean, all tools registered
+- End-to-end suite green: **191/191 tests, 162/162 tools covered** on both 4.4.1 and 4.7.2
 - Planned: Lite Mode, expanded API docs, and npm packaging — see [progress.md](progress.md)
 
 ## Troubleshooting

@@ -504,6 +504,13 @@
 - **Lesson:** a runtime error in a GDScript function typed `-> Dictionary` returns `{}` instead of propagating — e2e asserts must check a concrete field (e.g. `success == true`), never just "call did not error".
 - **Completed:** 2026-07-08
 
+### [x] 3.28 - Server survives a failed WebSocket bind (2026-08-31)
+- [x] **A busy port killed the whole process**: `WebSocketServer` was constructed with no `error` handler, so `EADDRINUSE` surfaced as an unhandled `'error'` event and terminated the server before the MCP handshake — the client could only report `CONNECTION_CLOSED` with no cause. Fix: handle `wss.on("error")`, record the reason, stay up.
+- [x] **`callTool` reported the wrong cause**: after a failed bind every tool fell through to the generic "Godot editor is not connected — make sure the plugin is enabled" hint, sending the user after a problem that was not theirs. Now the bind error is checked first and returned verbatim (names the port and the `GODOT_MCP_PORT` escape hatch).
+- [x] **"listening" was logged before the bind resolved**: `listen()` is async, so the constructor announced success it could not yet know — moved into the `listening` event.
+- **Context:** every MCP client session spawns its own server process, but the bridge port is a machine-wide singleton — a second session (or a leftover orphan from a closed one) always collides. This makes the collision diagnosable; it does not resolve it (see 6.5).
+- **Completed:** 2026-08-31
+
 ### [x] 3.26 - Godot API Versioning Infrastructure
 - [x] `addons/godot_mcp/version_utils.gd`: shared `GodotMCPVersionUtils` helper — `at_least()`/`before()` for version-number branching, plus `has_class()`/`has_constant()`/`get_constant()` for String-based ClassDB lookups (needed because GDScript resolves class/constant identifiers at *parse time*, so a runtime `if` guard cannot protect a direct reference to a symbol missing on the running engine — e.g. `TileMapLayer` on 4.0-4.2, `Performance.MEMORY_DYNAMIC` on 4.4+)
 - [x] `tilemap_tools.gd`: all 6 tools now also accept `TileMapLayer` nodes (Godot 4.3+) alongside `TileMap`, dispatched dynamically (no static cast) since the two classes have different cell-method signatures (TileMapLayer has no `layer` argument)
@@ -627,8 +634,15 @@
 - [x] Live verification: full pipeline from clean machine state — download 4.4.1 (66 MB), pre-import, editor boot, handshake, block 1 = 9 passed / 0 failed, workspace cleaned
 - [x] **FULL SUITE GREEN (2026-07-08): 191 passed / 0 failed / 0 skipped, coverage 162/162 registered tools, 46s wall time on cached distribution.** Two real plugin bugs found and fixed along the way (see 3.27); 14 initial failures triaged — 12 were stale-plan/arg mismatches fixed in blocks, 2 were the plugin bugs.
 - **Note:** mcp_test_plan.md is stale vs the implemented API in at least two places found while porting block 1: `set_project_setting` takes `setting_path` (not `setting`); `get_editor_version` returns Godot's version dict (`string`/`build`/`major`…), not `version`/`is_official`. e2e/blocks/*.json are the executable source of truth.
+- [x] 6.4.8 - **Pre-import pass ignored `--port` (2026-08-31)**: `preImport()` called `spawnSync` with no `env`, so it inherited a `process.env` without `GODOT_MCP_PORT` — the plugin loads during the import pass too, so it attached to the default 6505 and connected to whatever live server owned it. Since the server replaces its existing client on a new connection, an e2e run could knock a developer's editor off its own server mid-session — exactly what `--port` exists to prevent. Fix: thread `port` through to `preImport` (e2e/lib/project.mjs, e2e/run.mjs). Verified: the pre-import pass now logs 6510, and 6505 appears nowhere in the run.
+- [x] **GODOT 4.7.2 VERIFIED (2026-08-31): 191 passed / 0 failed / 0 skipped, 162/162 tools, 60s.** No code changes were needed for 4.7 — all 34 plugin classes register with zero parse errors and the handshake reports `4.7.2-stable (official)`. The version range in the README (verified on 4.4.1) understates actual coverage.
 - **Priority:** HIGH
-- **Completed:** 2026-07-08 (run: `node e2e/run.mjs --godot 4.4.1`; CI exit codes 0/1/2; version matrix via `--godot 4.2.2,4.4.1` ready but only 4.4.1 verified live)
+- **Completed:** 2026-07-08 (run: `node e2e/run.mjs --godot 4.4.1`; CI exit codes 0/1/2; version matrix via `--godot 4.2.2,4.4.1` ready). Verified live on 4.4.1 (2026-07-08) and 4.7.2 (2026-08-31).
+
+### [ ] 6.5 - Bridge port lifecycle (discovered 2026-08-31)
+- [ ] 6.5.1 - **Graceful shutdown**: `GodotConnection.close()` exists but is wired to no signal, so a closing client leaves an orphaned node process holding 6505 — which then blocks every later session until it is killed by hand. Hook `SIGTERM`/`SIGINT`/`exit`.
+- [ ] 6.5.2 - **Decide the multi-session story**: each MCP client session spawns its own server process, but the bridge port is machine-wide, so two concurrent sessions cannot both reach the editor. Options: (a) auto-pick a free port plus a discovery file the plugin reads, (b) split into one long-lived broker owning 6505 and thin per-session stdio servers that attach to it. 3.28 only makes the collision legible — it does not fix it.
+- **Priority:** MEDIUM
 
 ---
 
@@ -722,6 +736,7 @@
 - ✅ Phase 3.23 - Export Tools (3 tools) implemented (list_export_presets via ConfigFile, export_project via OS.execute headless with merged output capture, get_template_info with version_string-based path lookup)
 - 🎉 ALL 163 TOOLS IMPLEMENTED — Phase 3 complete
 - ✅ Godot 4.4.1 compatibility verified: plugin loads with zero parse errors, registers 162 tools
+- ✅ Godot 4.7.2 compatibility verified (2026-08-31): full E2E suite green, 191/191, no code changes required
 - ✅ Type parser tested with 26 comprehensive tests
 - 📝 Update this file after completing each task
 - Add new subtasks as they are discovered
@@ -729,4 +744,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-07-08 (Phase 6.4 COMPLETE — autonomous E2E suite green: 191/191 tests, 162/162 tools covered on Godot 4.4.1; two plugin bugs fixed (3.27))
+**Last Updated:** 2026-08-31 (Godot 4.7.2 verified green: 191/191 tests, 162/162 tools, no code changes needed; e2e pre-import port isolation fixed (6.4.8); server now survives a failed bind (3.28); bridge port lifecycle opened as 6.5)
