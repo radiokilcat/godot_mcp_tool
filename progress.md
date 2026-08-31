@@ -644,6 +644,41 @@
 - [ ] 6.5.2 - **Decide the multi-session story**: each MCP client session spawns its own server process, but the bridge port is machine-wide, so two concurrent sessions cannot both reach the editor. Options: (a) auto-pick a free port plus a discovery file the plugin reads, (b) split into one long-lived broker owning 6505 and thin per-session stdio servers that attach to it. 3.28 only makes the collision legible — it does not fix it.
 - **Priority:** MEDIUM
 
+### [ ] 6.6 - Field report: 3D blockout session in a real project (dragon_hoard, 2026-08-31)
+First sustained use of the toolset on real work rather than E2E fixtures. Node-graph
+construction (`add_node`, `add_mesh`, `set_node_property`, `create_scene`) held up and
+produced exactly the intended scene. **Everything on the feedback path — script output,
+errors, and seeing the frame as the player sees it — had to be routed around through
+files on disk.** Nearly all of the session's real work ended up inside `execute_script`
+plus PowerShell file reads instead of the specialized tools. All items below are
+confirmed against the source.
+
+**Blocking — required workarounds**
+- [ ] 6.6.1 - **`execute_script` drops coroutines.** `instance._run()` (editor_tools.gd:148) discards the return value, so a `_run()` containing `await` yields a `GDScriptFunctionState` that is never resumed — the whole tail of the script (saving a PNG, `queue_free`) silently never runs. `await RenderingServer.frame_post_draw` is the common case. Worse, editor_tools.gd:150 reports `success: true` regardless, and an orphaned `SubViewport` is left parented in the editor. Fix: detect `GDScriptFunctionState`, keep the instance alive, and `await` completion (callable_tool.gd already supports async tools).
+- [ ] 6.6.2 - **`execute_script` returns no output.** `print()` goes to Godot's Output panel; the tool returns only "Check Godot Output panel" (editor_tools.gd:146-150 — the comment concedes capture is "not available"). The only way to get data out of the editor is writing to `user://` and reading it off disk. Fix: expose a collector (e.g. an injected `mcp_print()`/return-value convention) so `_run()` can hand structured data back.
+- [ ] 6.6.3 - **No way to see what the player sees.** `take_screenshot` offers `editor`, `2d`, `3d` — all editor viewports via `EditorInterface.get_editor_viewport_*` (editor_tools.gd:46-56). Neither the running game window nor a render through the game camera is reachable. For an orthographic camera this is fatal: `size` cannot be tuned blind. Drove the entire offscreen `SubViewport` + `own_world_3d` pipeline. Fix: a `viewport: "game"` mode, or a first-class "render through camera N" tool.
+- [ ] 6.6.4 - **`get_error_log` does not work out of the box.** editor_tools.gd:79 reads `<editor data dir>/logs/godot.log`, which the editor does not write unless file logging is on — so the tool answers "Log file not found. Run project with --verbose". There is no way to confirm a scene starts clean; `get_game_state` (scene/fps/is_playing) was the fallback. Fix: read the engine's actual log setting, or capture errors in-process.
+
+**Smaller, but cost time**
+- [ ] 6.6.5 - **Compile errors carry no diagnostics.** `Script compilation failed (code 43). Check syntax.` — no line, no message (editor_tools.gd:140). `validate_syntax` has the same hole (script_tools.gd:234). A typo has to be found by eye. `GDScript.reload()` genuinely does not surface the parse message, so the fix means capturing stderr or the editor log around the probe.
+- [ ] 6.6.6 - **`create_scene` does not create directories.** scene_tools.gd:71 calls `ResourceSaver.save` straight into the path, so `res://scenes/lair/Lair.tscn` fails with "Can't open" when `lair/` is missing. Fix: `DirAccess.make_dir_recursive_absolute` on the parent first.
+- [ ] 6.6.7 - **`set_project_setting` writes ints as floats.** project_tools.gd:135 passes the JSON value through untouched, and JSON numbers arrive as `float` — `1920` lands in project.godot as `viewport_width=1920.0`. Fix: coerce to the existing setting's type (or the property-list type) before setting.
+- [ ] 6.6.8 - **A value equal to the engine default is silently not persisted.** `stretch/aspect = keep` returned `success: true` and never appeared in project.godot, because Godot omits defaults on save. The response echoes the *input* value (project_tools.gd:139) rather than reading back, so "did not apply" and "applied but not written" are indistinguishable. Fix: read the setting back and report the effective value.
+- [ ] 6.6.9 - **No scene-save tool.** `add_node` / `set_node_property` mutate the open scene but nothing commits it; the only `ResourceSaver.save` in the scene path is inside `create_scene` (scene_tools.gd:92). Saving meant calling `save_scene()` by hand inside `execute_script`. Fix: add `save_scene` (and likely `save_all_scenes`).
+
+**API inconsistencies**
+- [ ] 6.6.10 - **`add_node` returns an unusable path.** node_tools.gd:163 returns `str(node.get_path())` — a screen-long `/root/@EditorNode@19513/@Panel@14/...` — while every other tool expects a scene-relative path. `_add_to_scene` in the 3D tools already does it right: `str(root.get_path_to(new_node))` (scene_3d_tools.gd:76). Fix: make node_tools match.
+- [ ] 6.6.11 - **`add_camera` cannot set `size`** — the one parameter that means anything for an orthographic camera. It accepts `fov`/`near`/`far` (scene_3d_tools.gd:180-213) and cheerfully returns `"fov": 75` for an orthographic camera (line 213). Fix: accept `size`, and return the projection-relevant field.
+- [ ] 6.6.12 - **`add_mesh` gives no access to the mesh resource** — only the node transform (scene_3d_tools.gd:140-176). Primitives are born at engine defaults, so worker capsules came out 2.0 m tall instead of 1.8; dimensions and materials had to be finished in a script anyway. Fix: pass through the `PrimitiveMesh` properties (radius/height/size) and an optional material.
+- [ ] 6.6.13 - **`get_node_properties` dumps ~40 properties with no filter** (node_tools.gd:273) — reading one `scale` returns a wall of text. Fix: an optional `names` / prefix filter.
+
+**Test-suite gap:** the E2E suite is green at 191/191 across 162/162 tools, and caught none of
+these. It asserts tool *responses*, and the responses are exactly what is wrong — 6.6.1 and
+6.6.8 both report `success: true` for work that did not happen. Effect-level assertions
+(read the setting back, verify the file on disk, check the node tree after the call) are what
+would have caught them.
+- **Priority:** HIGH (6.6.1–6.6.4 block real 3D work; the rest are papercuts)
+
 ---
 
 ## Phase 7: Performance & Optimization
@@ -744,4 +779,4 @@
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-08-31 (Godot 4.7.2 verified green: 191/191 tests, 162/162 tools, no code changes needed; e2e pre-import port isolation fixed (6.4.8); server now survives a failed bind (3.28); bridge port lifecycle opened as 6.5)
+**Last Updated:** 2026-08-31 (Godot 4.7.2 verified green: 191/191 tests, 162/162 tools, no code changes needed; e2e pre-import port isolation fixed (6.4.8); server now survives a failed bind (3.28); bridge port lifecycle opened as 6.5; field report from first real-project session opened as 6.6 — 13 findings, feedback path is the weak spot)
