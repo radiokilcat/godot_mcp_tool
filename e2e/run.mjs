@@ -132,7 +132,7 @@ async function runForVersion(version) {
       version,
       log,
     });
-    preImport({ consoleExe, projectDir, logPath: godotLog, log });
+    preImport({ consoleExe, projectDir, logPath: godotLog, port, log });
 
     // 3. LAUNCH
     client = new McpTestClient({ serverDir: join(repoRoot, "server"), port, serverLogPath: serverLog });

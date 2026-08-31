@@ -27,11 +27,15 @@ export function generateProject({ repoRoot, templatesDir, projectDir, version, l
 }
 
 /** Headless import pass so the first editor open is clean (no import churn/dialogs). */
-export function preImport({ consoleExe, projectDir, logPath, log }) {
+export function preImport({ consoleExe, projectDir, logPath, port, log }) {
   log(`[project] pre-import pass (headless)…`);
   const r = spawnSync(consoleExe, ["--headless", "--import", "--path", projectDir], {
     encoding: "utf8",
     timeout: 180_000,
+    // The plugin loads during import too, so it needs the same port as the main pass —
+    // on the default it would attach to whatever live setup owns 6505 and, since the
+    // server replaces its existing client, knock a developer's editor off mid-session.
+    env: { ...process.env, GODOT_MCP_PORT: String(port) },
   });
   appendFileSync(logPath, `\n===== pre-import =====\n${r.stdout ?? ""}${r.stderr ?? ""}\n`);
   if (r.error) throw new Error(`pre-import failed to launch: ${r.error.message}`);
