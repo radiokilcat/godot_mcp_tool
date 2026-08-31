@@ -66,6 +66,21 @@
       }
     },
     {
+      "id": "P-07b",
+      "tool": "set_project_setting",
+      "args": { "setting_path": "display/window/size/viewport_width", "value": 1281 },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "value", "op": "eq", "value": 1281 },
+        { "field": "is_engine_default", "op": "isNull" }
+      ],
+      "verify": {
+        "tool": "get_project_metadata",
+        "args": {},
+        "asserts": [{ "field": "viewport_size.width", "op": "eq", "value": 1281 }]
+      }
+    },
+    {
       "id": "P-08",
       "tool": "get_project_metadata",
       "args": {},
@@ -85,6 +100,10 @@
     {
       "tool": "set_project_setting",
       "args": { "setting_path": "application/config/description", "value": "" }
+    },
+    {
+      "tool": "set_project_setting",
+      "args": { "setting_path": "display/window/size/viewport_width", "value": 1152 }
     }
   ]
 }

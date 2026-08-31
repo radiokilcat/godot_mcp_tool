@@ -132,11 +132,44 @@ func _set_project_setting(args: Dictionary) -> Dictionary:
 	if not args.has("value"):
 		return {"error": "'value' parameter is required"}
 	var value = args.get("value")
+
+	# JSON has no integer type, so every number arrives as a float and an int setting would be
+	# written as "viewport_width=1920.0". Coerce to the type the setting already holds.
+	if ProjectSettings.has_setting(setting_path):
+		value = _coerce_numeric(value, typeof(ProjectSettings.get_setting(setting_path)))
+
 	ProjectSettings.set_setting(setting_path, value)
 	var err := ProjectSettings.save()
 	if err != OK:
 		return {"error": "Failed to save project settings: %s" % error_string(err)}
-	return {"success": true, "path": setting_path, "value": value}
+
+	# Report what the setting actually holds now rather than echoing the input: Godot omits
+	# values equal to the engine default when saving, so a call that "succeeded" may leave
+	# nothing in project.godot at all. Without the read-back the two cases look identical.
+	var effective = ProjectSettings.get_setting(setting_path)
+	var result: Dictionary = {"success": true, "path": setting_path, "value": effective}
+	if ProjectSettings.property_can_revert(setting_path) \
+			and ProjectSettings.property_get_revert(setting_path) == effective:
+		result["is_engine_default"] = true
+		result["note"] = "Value equals the engine default, so Godot does not write it to project.godot. The setting is in effect regardless."
+	return result
+
+## Convert a JSON-decoded number to the type a setting already uses. Only numeric types are
+## converted — coercing a String would silently turn a typo into 0.
+func _coerce_numeric(value: Variant, target_type: int) -> Variant:
+	if typeof(value) == target_type:
+		return value
+	match target_type:
+		TYPE_INT:
+			if value is float or value is bool:
+				return int(value)
+		TYPE_FLOAT:
+			if value is int or value is bool:
+				return float(value)
+		TYPE_BOOL:
+			if value is int or value is float:
+				return bool(value)
+	return value
 
 func _convert_uid(args: Dictionary) -> Dictionary:
 	var uid_str: String = args.get("uid", "")
