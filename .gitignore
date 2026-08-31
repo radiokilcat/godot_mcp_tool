@@ -24,6 +24,7 @@ build/
 .vscode/
 .idea/
 .opencode/
+opencode.json
 *.swp
 *.swo
 *~
