@@ -160,7 +160,10 @@ func _add_node(args: Dictionary) -> Dictionary:
 	ur.add_undo_reference(node)
 	ur.commit_action()
 
-	return {"success": true, "node_path": str(node.get_path()), "node_name": node.name}
+	# Scene-relative, not node.get_path(): inside the editor the edited scene hangs off the
+	# editor's own tree, so the absolute path is a screen-long /root/@EditorNode@19513/... that
+	# no other tool accepts. Every tool in this addon takes a path relative to the scene root.
+	return {"success": true, "node_path": str(root.get_path_to(node)), "node_name": node.name}
 
 func _delete_node(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
@@ -280,6 +283,9 @@ func _get_node_properties(args: Dictionary) -> Dictionary:
 		return {"error": "Node not found: %s" % node_path}
 
 	var include_cats: bool = args.get("include_categories", false)
+	# A bare node reports ~40 editor properties, so reading one value returns a wall of text.
+	# 'names' narrows the result to the properties actually asked for.
+	var wanted: Array = args.get("names", [])
 	var properties: Array = []
 
 	for prop in node.get_property_list():
@@ -289,6 +295,8 @@ func _get_node_properties(args: Dictionary) -> Dictionary:
 			continue
 		if prop.type == TYPE_NIL and not include_cats:
 			continue  # category separator
+		if not wanted.is_empty() and not (prop.name in wanted):
+			continue
 		var entry: Dictionary = {
 			"name": prop.name,
 			"type": type_string(prop.type),
@@ -298,11 +306,23 @@ func _get_node_properties(args: Dictionary) -> Dictionary:
 			entry["is_category"] = true
 		properties.append(entry)
 
-	return {
+	var result: Dictionary = {
 		"node_path": node_path,
 		"node_type": node.get_class(),
 		"properties": properties,
 	}
+	# A misspelled name would otherwise come back as an empty list with no explanation.
+	if not wanted.is_empty():
+		var found: Array = []
+		for entry in properties:
+			found.append(entry["name"])
+		var missing: Array = []
+		for requested in wanted:
+			if not (requested in found):
+				missing.append(requested)
+		if not missing.is_empty():
+			result["not_found"] = missing
+	return result
 
 func _value_to_json(v: Variant) -> Variant:
 	if v is Vector2:

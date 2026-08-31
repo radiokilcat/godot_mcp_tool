@@ -123,13 +123,22 @@ export const nodeTools: ToolCategory = {
 
   get_node_properties: {
     name: "get_node_properties",
-    description: "Get all editor-visible properties and their current values for a node",
+    description:
+      "Get editor-visible properties and their current values for a node. Pass 'names' to " +
+      "read specific properties — a bare node reports ~40 of them.",
     inputSchema: {
       type: "object",
       properties: {
         node_path: {
           type: "string",
           description: "Path to the node",
+        },
+        names: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Only return these properties, e.g. ['position', 'scale']. Omit for all of them. " +
+            "Names that do not match are listed back under 'not_found'.",
         },
         include_categories: {
           type: "boolean",

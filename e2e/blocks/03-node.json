@@ -10,7 +10,11 @@
       "id": "N-01",
       "tool": "add_node",
       "args": { "parent_path": ".", "node_type": "Label", "node_name": "LabelA" },
-      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "node_path", "op": "eq", "value": "LabelA" },
+        { "field": "node_path", "op": "notContains", "value": "@EditorNode" }
+      ],
       "verify": {
         "tool": "get_scene_tree",
         "args": {},
@@ -25,6 +29,23 @@
         { "field": "properties", "op": "notNull" },
         { "field": "properties", "op": "jsonContains", "value": "\"text\"" }
       ]
+    },
+    {
+      "id": "N-02b",
+      "tool": "get_node_properties",
+      "args": { "node_path": "LabelA", "names": ["text", "visible"] },
+      "asserts": [
+        { "field": "properties", "op": "jsonContains", "value": "\"text\"" },
+        { "field": "properties", "op": "jsonContains", "value": "\"visible\"" },
+        { "field": "properties", "op": "jsonNotContains", "value": "\"tooltip_text\"" },
+        { "field": "not_found", "op": "isNull" }
+      ]
+    },
+    {
+      "id": "N-02c",
+      "tool": "get_node_properties",
+      "args": { "node_path": "LabelA", "names": ["text", "no_such_property"] },
+      "asserts": [{ "field": "not_found", "op": "contains", "value": "no_such_property" }]
     },
     {
       "id": "N-03",
