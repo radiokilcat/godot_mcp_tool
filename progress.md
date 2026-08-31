@@ -91,9 +91,10 @@
 - **Effort:** 2-3 hours
 - **Completed:** 2026-06-29
 
-### [x] 3.2 - Scene Tools (9 tools)
+### [x] 3.2 - Scene Tools (10 tools)
 - [x] get_scene_tree
 - [x] create_scene
+- [x] save_scene (added 2026-08-31, see 6.6.9)
 - [x] open_scene
 - [x] delete_scene
 - [x] play_scene
@@ -587,39 +588,46 @@
 - **Priority:** HIGH
 - **Effort:** 2-3 hours
 
-### [ ] 5.4 - Create .mcp.json Template
-- [ ] Create example config file
-- [ ] Document all options
-- [ ] Add comments and explanations
-- **Priority:** HIGH
-- **Effort:** 1-2 hours
+### [ ] 5.4 - Create .mcp.json Template — mostly done already
+- [x] Create example config file — working [.mcp.json](.mcp.json) in the repo root
+- [x] Document all options — README "Point your MCP client at it" covers the absolute-path requirement and `GODOT_MCP_PORT`
+- [ ] 5.4.1 - Ship it as a copyable template rather than a live config, and document the two traps found in the field: the file must be named exactly `.mcp.json` and must sit in the directory the client is launched from (a config named otherwise, or one level down in the Godot project subfolder, is silently ignored)
+- **Priority:** LOW (downgraded — the substance exists, only packaging is left)
+- **Effort:** ~1 hour
 
 ---
 
 ## Phase 6: Testing & Quality Assurance
 
-### [ ] 6.1 - Unit Testing
-- [ ] Write tests for type parser
-- [ ] Write tests for MCP protocol
-- [ ] Write tests for each tool category
-- [ ] Achieve 80%+ coverage
+### [ ] 6.1 - Effect-level assertions (rescoped 2026-08-31, was "Unit Testing")
+Original scope was per-category unit tests plus 80% coverage. 6.4 made that largely moot for
+tool bodies — they are exercised end-to-end against a live editor. What 6.4 does **not** do is
+check that a call changed anything: it asserts the tool's *response*, and 6.6 showed the
+response is exactly what lies (6.6.1 and 6.6.8 both return `success: true` for work that never
+happened). That is the gap worth closing.
+- [x] Write tests for type parser — tests/type-parser.test.ts, 26 tests
+- [ ] 6.1.1 - Add an effect-assertion vocabulary to the E2E DSL: read the setting back, stat the file on disk, re-read the node tree after a mutation
+- [ ] 6.1.2 - Apply it to the tools that can silently no-op: `set_project_setting`, `execute_script`, `create_scene`, `save_scene`, the `add_*` family
+- [ ] 6.1.3 - Unit-test the pure server-side modules that have no editor dependency (type coercion, tool-validator, message framing) — currently 1 test file for 31 modules
 - **Priority:** HIGH
-- **Effort:** 6-8 hours
+- **Effort:** 4-6 hours
+- **Depends on:** 6.6 fixes landing first, so the assertions encode the corrected behaviour
 
-### [ ] 6.2 - Integration Testing
-- [ ] Test WebSocket communication
-- [ ] Test plugin-server interaction
-- [ ] Test undo/redo functionality
-- [ ] Test auto-reconnect
+### [x] 6.2 - Integration Testing — mostly absorbed by 6.4
+- [x] Test WebSocket communication — full MCP stack over the bridge, 191 tests
+- [x] Test plugin-server interaction — every one of 162 registered tools is called for real
+- **Remaining, moved to 6.2b below:** undo/redo and auto-reconnect are genuinely untested
 - **Priority:** HIGH
-- **Effort:** 4-5 hours
 
-### [ ] 6.3 - 2D & 3D Workflow Testing
-- [ ] Create 2D test project
-- [ ] Create 3D test project
-- [ ] Test all tools in both contexts
+### [ ] 6.2b - Untested paths left over from 6.2 (2026-08-31)
+- [ ] 6.2b.1 - **UndoRedo is asserted nowhere.** `grep -ri undo e2e/blocks/` returns nothing, yet "all mutations support Ctrl+Z" is a headline feature. Needs a block that mutates, undoes via the editor's UndoRedo, and re-reads the tree.
+- [ ] 6.2b.2 - **Auto-reconnect is not exercised.** The only retry in the suite is client-side in e2e/lib/executor.mjs; the plugin's exponential backoff (1s→60s) has never been tested. Needs a block that kills the bridge mid-run and asserts the plugin comes back.
+- **Priority:** MEDIUM
+
+### [x] 6.3 - 2D & 3D Workflow Testing — covered by 6.4
+- [x] 2D and 3D fixtures both live in the generated test project; 2D node types appear across blocks 02-09 and the 3D/physics/navigation blocks cover the 3D path
+- [x] All 162 registered tools are called in both contexts where applicable (coverage diff vs tools/list is part of the report)
 - **Priority:** HIGH
-- **Effort:** 3-4 hours
 
 ### [x] 6.4 - Autonomous E2E Test Infrastructure (design: docs/e2e_test_infrastructure.md)
 - [x] Design document: pipeline (provision → generate → launch → execute → teardown), workspace layout, assertion DSL, report format, risk register — see docs/e2e_test_infrastructure.md (2026-07-08)
@@ -661,16 +669,16 @@ confirmed against the source.
 
 **Smaller, but cost time**
 - [ ] 6.6.5 - **Compile errors carry no diagnostics.** `Script compilation failed (code 43). Check syntax.` — no line, no message (editor_tools.gd:140). `validate_syntax` has the same hole (script_tools.gd:234). A typo has to be found by eye. `GDScript.reload()` genuinely does not surface the parse message, so the fix means capturing stderr or the editor log around the probe.
-- [ ] 6.6.6 - **`create_scene` does not create directories.** scene_tools.gd:71 calls `ResourceSaver.save` straight into the path, so `res://scenes/lair/Lair.tscn` fails with "Can't open" when `lair/` is missing. Fix: `DirAccess.make_dir_recursive_absolute` on the parent first.
-- [ ] 6.6.7 - **`set_project_setting` writes ints as floats.** project_tools.gd:135 passes the JSON value through untouched, and JSON numbers arrive as `float` — `1920` lands in project.godot as `viewport_width=1920.0`. Fix: coerce to the existing setting's type (or the property-list type) before setting.
-- [ ] 6.6.8 - **A value equal to the engine default is silently not persisted.** `stretch/aspect = keep` returned `success: true` and never appeared in project.godot, because Godot omits defaults on save. The response echoes the *input* value (project_tools.gd:139) rather than reading back, so "did not apply" and "applied but not written" are indistinguishable. Fix: read the setting back and report the effective value.
-- [ ] 6.6.9 - **No scene-save tool.** `add_node` / `set_node_property` mutate the open scene but nothing commits it; the only `ResourceSaver.save` in the scene path is inside `create_scene` (scene_tools.gd:92). Saving meant calling `save_scene()` by hand inside `execute_script`. Fix: add `save_scene` (and likely `save_all_scenes`).
+- [x] 6.6.6 - **`create_scene` does not create directories.** scene_tools.gd:71 calls `ResourceSaver.save` straight into the path, so `res://scenes/lair/Lair.tscn` fails with "Can't open" when `lair/` is missing. Fix: `DirAccess.make_dir_recursive_absolute` on the parent first. **Fixed 2026-08-31:** `_ensure_dir_for()` in scene_tools.gd creates the tree before saving; used by both `create_scene` and `save_scene`. E2E S-11.
+- [x] 6.6.7 - **`set_project_setting` writes ints as floats.** project_tools.gd:135 passes the JSON value through untouched, and JSON numbers arrive as `float` — `1920` lands in project.godot as `viewport_width=1920.0`. Fix: coerce to the existing setting's type (or the property-list type) before setting. **Fixed 2026-08-31:** `_coerce_numeric()` converts to the type the setting already holds (numeric types only — coercing a String would turn a typo into 0). Note: int-vs-float is not observable over JSON, so the E2E assertion covers the read-back, not the on-disk literal — see 6.1.1.
+- [x] 6.6.8 - **A value equal to the engine default is silently not persisted.** `stretch/aspect = keep` returned `success: true` and never appeared in project.godot, because Godot omits defaults on save. The response echoes the *input* value (project_tools.gd:139) rather than reading back, so "did not apply" and "applied but not written" are indistinguishable. Fix: read the setting back and report the effective value. **Fixed 2026-08-31:** the response now reports the value read back from ProjectSettings, plus `is_engine_default: true` and an explaining note when the value matches `property_get_revert()`. E2E P-07b.
+- [x] 6.6.9 - **No scene-save tool.** `add_node` / `set_node_property` mutate the open scene but nothing commits it; the only `ResourceSaver.save` in the scene path is inside `create_scene` (scene_tools.gd:92). Saving meant calling `save_scene()` by hand inside `execute_script`. Fix: add `save_scene` (and likely `save_all_scenes`). **Fixed 2026-08-31:** added `save_scene` (optional `scene_path` acts as save-as, directories created automatically). Uses `EditorInterface.save_scene()`/`save_scene_as()` — what Ctrl+S runs; `save_scene_as` returns void, so the write is confirmed by checking the file landed. E2E S-09d, S-12.
 
 **API inconsistencies**
-- [ ] 6.6.10 - **`add_node` returns an unusable path.** node_tools.gd:163 returns `str(node.get_path())` — a screen-long `/root/@EditorNode@19513/@Panel@14/...` — while every other tool expects a scene-relative path. `_add_to_scene` in the 3D tools already does it right: `str(root.get_path_to(new_node))` (scene_3d_tools.gd:76). Fix: make node_tools match.
+- [x] 6.6.10 - **`add_node` returns an unusable path.** node_tools.gd:163 returns `str(node.get_path())` — a screen-long `/root/@EditorNode@19513/@Panel@14/...` — while every other tool expects a scene-relative path. `_add_to_scene` in the 3D tools already does it right: `str(root.get_path_to(new_node))` (scene_3d_tools.gd:76). Fix: make node_tools match. **Fixed 2026-08-31:** returns `root.get_path_to(node)`, matching `_add_to_scene`. E2E N-01 asserts the exact relative path and that `@EditorNode` is absent.
 - [ ] 6.6.11 - **`add_camera` cannot set `size`** — the one parameter that means anything for an orthographic camera. It accepts `fov`/`near`/`far` (scene_3d_tools.gd:180-213) and cheerfully returns `"fov": 75` for an orthographic camera (line 213). Fix: accept `size`, and return the projection-relevant field.
 - [ ] 6.6.12 - **`add_mesh` gives no access to the mesh resource** — only the node transform (scene_3d_tools.gd:140-176). Primitives are born at engine defaults, so worker capsules came out 2.0 m tall instead of 1.8; dimensions and materials had to be finished in a script anyway. Fix: pass through the `PrimitiveMesh` properties (radius/height/size) and an optional material.
-- [ ] 6.6.13 - **`get_node_properties` dumps ~40 properties with no filter** (node_tools.gd:273) — reading one `scale` returns a wall of text. Fix: an optional `names` / prefix filter.
+- [x] 6.6.13 - **`get_node_properties` dumps ~40 properties with no filter** (node_tools.gd:273) — reading one `scale` returns a wall of text. Fix: an optional `names` / prefix filter. **Fixed 2026-08-31:** optional `names` array filters the result; unmatched names come back under `not_found` so a typo is not a silent empty list. E2E N-02b, N-02c.
 
 **Test-suite gap:** the E2E suite is green at 191/191 across 162/162 tools, and caught none of
 these. It asserts tool *responses*, and the responses are exactly what is wrong — 6.6.1 and
@@ -779,4 +787,4 @@ would have caught them.
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-08-31 (Godot 4.7.2 verified green: 191/191 tests, 162/162 tools, no code changes needed; e2e pre-import port isolation fixed (6.4.8); server now survives a failed bind (3.28); bridge port lifecycle opened as 6.5; field report from first real-project session opened as 6.6 — 13 findings, feedback path is the weak spot)
+**Last Updated:** 2026-08-31 (6.6 cheap batch landed: 6.6.6/6.6.7/6.6.8/6.6.9/6.6.10/6.6.13 fixed, new save_scene tool. Full E2E green on 4.7.2: **196 passed / 0 failed, coverage 163/163 tools**. 6.1 rescoped to effect-level assertions; 6.2/6.3 closed as absorbed by 6.4 with undo/reconnect split out as 6.2b; 5.4 downgraded. Remaining from the field report: 6.6.1-6.6.5, 6.6.11, 6.6.12.)
