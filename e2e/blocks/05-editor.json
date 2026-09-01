@@ -24,7 +24,38 @@
     {
       "id": "E-03",
       "tool": "get_error_log",
-      "args": {}
+      "args": {},
+      "asserts": [
+        { "field": "", "op": "notEmpty" },
+        { "field": "file_logging_enabled", "op": "notNull" }
+      ]
+    },
+    {
+      "id": "E-03b",
+      "tool": "play_scene",
+      "args": { "scene_path": "res://test_editor.tscn" },
+      "requires": { "rendering": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "E-03c",
+      "tool": "stop_scene",
+      "args": {},
+      "requires": { "rendering": true },
+      "delayMs": 2000,
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "E-03d",
+      "tool": "get_error_log",
+      "args": { "last_n_lines": 20 },
+      "requires": { "rendering": true },
+      "asserts": [
+        { "field": "log_path", "op": "contains", "value": ".log" },
+        { "field": "lines", "op": "notEmpty" },
+        { "field": "lines", "op": "contains", "value": "Godot Engine v" },
+        { "field": "modified_time", "op": "gte", "value": 1 }
+      ]
     },
     {
       "id": "E-04",

@@ -31,7 +31,9 @@ export const editorTools: ToolCategory = {
 
   get_error_log: {
     name: "get_error_log",
-    description: "Get recent errors and warnings from the Godot output log",
+    description:
+      "Get recent errors and warnings from the newest Godot log file. " +
+      "The editor process writes no log — this reads what a running project logged, so play the scene first to see whether it starts clean.",
     inputSchema: {
       type: "object",
       properties: {
@@ -42,7 +44,13 @@ export const editorTools: ToolCategory = {
         filter: {
           type: "string",
           enum: ["all", "errors", "warnings"],
-          description: "Filter log entries (default: all)",
+          description:
+            "Filter log entries (default: all). 'errors' and 'warnings' keep the indented location/backtrace lines that follow each entry.",
+        },
+        log_path: {
+          type: "string",
+          description:
+            "Read this file instead of the newest log Godot wrote (res://, user:// or an absolute path).",
         },
       },
     },

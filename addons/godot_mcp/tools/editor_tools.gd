@@ -184,16 +184,64 @@ func _take_screenshot(args: Dictionary) -> Dictionary:
 		"height": image.get_height(),
 	}
 
+## Directories Godot may keep godot.log (and its rotated copies) in, newest
+## file wins. The editor process itself writes no log at all -- only a running
+## project or a --script run does -- so the project's user:// dir is the one
+## that answers "did the scene start clean?".
+func _error_log_dirs() -> Array:
+	var dirs: Array = []
+	var configured: String = str(ProjectSettings.get_setting("debug/file_logging/log_path", "user://logs/godot.log"))
+	for candidate in [
+		ProjectSettings.globalize_path(configured).get_base_dir(),
+		OS.get_user_data_dir().path_join("logs"),
+		EditorInterface.get_editor_paths().get_data_dir().path_join("logs"),
+	]:
+		if not candidate.is_empty() and not dirs.has(candidate):
+			dirs.append(candidate)
+	return dirs
+
+## Most recently modified *.log across the candidate directories.
+func _newest_log_file(dirs: Array) -> String:
+	var newest_path := ""
+	var newest_time := -1
+	for entry in dirs:
+		var dir_path: String = entry
+		var dir := DirAccess.open(dir_path)
+		if dir == null:
+			continue
+		for name in dir.get_files():
+			var file_name: String = name
+			if not file_name.ends_with(".log"):
+				continue
+			var full: String = dir_path.path_join(file_name)
+			var mtime: int = int(FileAccess.get_modified_time(full))
+			if mtime > newest_time:
+				newest_time = mtime
+				newest_path = full
+	return newest_path
+
 func _get_error_log(args: Dictionary) -> Dictionary:
 	var last_n: int = int(args.get("last_n_lines", 100))
 	var filter: String = args.get("filter", "all")
+	var log_path: String = str(args.get("log_path", ""))
 
-	# Editor logs live in the editor data dir, not the game's user:// dir
-	var log_path := EditorInterface.get_editor_paths().get_data_dir().path_join("logs/godot.log")
+	var dirs := _error_log_dirs()
+	if log_path.is_empty():
+		log_path = _newest_log_file(dirs)
+	elif log_path.begins_with("res://") or log_path.begins_with("user://"):
+		log_path = ProjectSettings.globalize_path(log_path)
 
-	var raw_lines: Array = []
+	var logging_enabled := bool(ProjectSettings.get_setting("debug/file_logging/enable_file_logging", false))
 	if log_path.is_empty() or not FileAccess.file_exists(log_path):
-		return {"lines": [], "total": 0, "note": "Log file not found. Run project with --verbose to generate logs."}
+		return {
+			"lines": [],
+			"total": 0,
+			"file_logging_enabled": logging_enabled,
+			"searched": dirs,
+			"note": ("No log file found. Note the Godot editor never writes one — only a running project does, "
+				+ "so play the scene (play_scene) and read the log afterwards. "
+				+ ("File logging is currently disabled: set debug/file_logging/enable_file_logging to true and restart the project." if not logging_enabled else "")),
+		}
 
 	var file := FileAccess.open(log_path, FileAccess.READ)
 	if file == null:
@@ -201,20 +249,31 @@ func _get_error_log(args: Dictionary) -> Dictionary:
 
 	var content := file.get_as_text()
 	file.close()
-	raw_lines = Array(content.split("\n"))
+	var raw_lines: Array = Array(content.split("\n"))
 
-	# Apply filter
+	# Apply filter. Godot writes an error's location and backtrace on the
+	# indented lines that follow it, so a filtered error keeps them -- without
+	# them the message names no file and no line.
 	var filtered: Array = []
+	var keep_continuation := false
 	for line in raw_lines:
 		if line.strip_edges().is_empty():
 			continue
+		var is_continuation: bool = line.begins_with(" ") or line.begins_with("\t")
+		if is_continuation and filter != "all":
+			if keep_continuation:
+				filtered.append(line)
+			continue
+		keep_continuation = false
 		match filter:
 			"errors":
-				if "ERROR" in line or "SCRIPT ERROR" in line:
+				if "ERROR" in line:
 					filtered.append(line)
+					keep_continuation = true
 			"warnings":
 				if "WARNING" in line or "WARN" in line:
 					filtered.append(line)
+					keep_continuation = true
 			_:
 				filtered.append(line)
 
@@ -226,6 +285,8 @@ func _get_error_log(args: Dictionary) -> Dictionary:
 		"lines": result_lines,
 		"total": result_lines.size(),
 		"log_path": log_path,
+		"modified_time": int(FileAccess.get_modified_time(log_path)),
+		"file_logging_enabled": logging_enabled,
 	}
 
 func _execute_script(args: Dictionary) -> Dictionary:
