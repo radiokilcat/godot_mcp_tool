@@ -647,10 +647,67 @@ happened). That is the gap worth closing.
 - **Priority:** HIGH
 - **Completed:** 2026-07-08 (run: `node e2e/run.mjs --godot 4.4.1`; CI exit codes 0/1/2; version matrix via `--godot 4.2.2,4.4.1` ready). Verified live on 4.4.1 (2026-07-08) and 4.7.2 (2026-08-31).
 
-### [ ] 6.5 - Bridge port lifecycle (discovered 2026-08-31)
+### [ ] 6.5 - Bridge port lifecycle & the multi-session story (discovered 2026-08-31; planned 2026-08-31)
 - [ ] 6.5.1 - **Graceful shutdown**: `GodotConnection.close()` exists but is wired to no signal, so a closing client leaves an orphaned node process holding 6505 — which then blocks every later session until it is killed by hand. Hook `SIGTERM`/`SIGINT`/`exit`.
-- [ ] 6.5.2 - **Decide the multi-session story**: each MCP client session spawns its own server process, but the bridge port is machine-wide, so two concurrent sessions cannot both reach the editor. Options: (a) auto-pick a free port plus a discovery file the plugin reads, (b) split into one long-lived broker owning 6505 and thin per-session stdio servers that attach to it. 3.28 only makes the collision legible — it does not fix it.
-- **Priority:** MEDIUM
+- [x] 6.5.2 - **Decide the multi-session story.** Original options were (a) auto-picked port + discovery file, (b) a long-lived broker owning 6505 with thin per-session stdio shims. **Decided 2026-08-31: neither — invert the transport instead (6.5.3-6.5.7).** Analysis below.
+
+**Diagnosis (source-confirmed 2026-08-31)**
+
+The transport direction is inverted relative to the lifetimes involved: the *Node server*
+listens (godot-connection.ts:28, bound in the singleton's constructor at import time —
+index.ts:39) and the *Godot plugin* dials in (websocket_client.gd:62). The machine-wide
+resource is therefore owned by the most ephemeral process in the chain. Three consequences:
+
+- **Only the first session works.** Session two hits `EADDRINUSE`, sets `_bindError`, and never
+  retries the bind (godot-connection.ts:39-46). Even after session one exits and frees the
+  port, session two stays dead until the MCP client restarts it. This is not "each session
+  runs its own server" — it is "exactly one runs, the rest are corpses with a polite message".
+- **One editor socket, last writer wins.** A new connection closes the previous one
+  (godot-connection.ts:50-53), so two open Godot projects clobber each other.
+- **Slow recovery.** Plugin reconnect backs off to 60s (plugin.gd:321-328), so after the owning
+  server dies the editor can take a minute to find its replacement.
+
+**Key enabler:** the Node server is entirely stateless. All 23 files in server/src/tools/ are
+thin proxies over `godotConnection.callTool`; a grep for module-level mutable state finds none.
+Every piece of real state (gameplay recordings, signal listeners, test reports) lives in
+GDScript. There is nothing to share on the Node side except the transport itself — which is
+what makes the inversion cheap and removes the whole point of a broker.
+
+**What sharing does and does not buy**
+
+Sharing the *connection* is correct: the shared resource is the editor, one per machine (per
+project), and it should own the channel. Sharing the *work* buys almost nothing — the editor is
+single-threaded and the plugin already serialises calls, by *rejection* rather than queueing
+(plugin.gd:255-257). Worse, editor state is global: one current scene, one selection, one
+UndoRedo stack. Two sessions driving one editor will undo each other's edits and swap scenes
+under each other. The goal is "sessions come and go without fighting over a port", not "many
+agents work in parallel".
+
+**Options considered**
+
+| | Approach | Effort | Main cost |
+|---|---|---|---|
+| A ✅ | Invert: the **Godot plugin** hosts the WS server, MCP processes are clients | ~1 day | Rewrite the transport on both sides |
+| B | Long-lived Node broker owning 6505 + thin per-session stdio shims | 2-3 days | Daemon lifecycle, zombies, version skew after a rebuild |
+| C | One process, MCP over Streamable HTTP | ~1.5 days | Client shows a broken server whenever the daemon is down |
+| D | Band-aid: retry the bind + per-project port | ~1 hour | No sharing at all; only stops the permanent breakage |
+
+**Decision: A.** It deletes the lifecycle problem instead of managing it — nobody has to "start
+the shared server", because the editor is already running and the listener dies with it. N:1
+falls out for free, each project listens on its own port (killing the cross-project clobbering
+above), and the Node side stays stdio, so `.mcp.json` does not change at all. B was rejected
+because its one real advantage — shared server-side state — does not exist here.
+
+**Implementation**
+- [ ] 6.5.3 - **Godot-side listener**: replace websocket_client.gd with a server built on `TCPServer` + `WebSocketPeer.accept_stream()`, polling a pool of peers in `_process` (~120 lines).
+- [ ] 6.5.4 - **plugin.gd for N peers**: address sends to a peer instead of the single `_send_message` path, drop the reconnect/backoff block (plugin.gd:321-328), heartbeat per peer or server-side pong only (~60 lines).
+- [ ] 6.5.5 - **Node side becomes a client**: godot-connection.ts turns into a reconnecting WS client — essentially a mirror of the logic being deleted from plugin.gd (~80 lines).
+- [ ] 6.5.6 - **Port discovery**: a project setting or a file under `res://.godot/` that the server reads, so two open projects do not collide again through a different door (~40 lines). Keep the `GODOT_MCP_PORT` override — e2e depends on it (6.4.8).
+- [ ] 6.5.7 - **Queue instead of reject**: turn `_tool_busy` (plugin.gd:255-257) into a FIFO queue; with two clients attached, rejection becomes routine rather than exceptional. Raise `TOOL_TIMEOUT_MS` (godot-connection.ts:9) accordingly — 15s now has to cover queue wait, not just execution.
+- [ ] 6.5.8 - **Multi-session semantics**: at minimum log a `client_id` on every mutation; consider an advisory lease on mutating tools. Decide this *before* shipping 6.5.3-6.5.7, not after — otherwise the failure mode is rare, timing-dependent "something undid my edit".
+- [ ] 6.5.9 - **e2e harness**: the pipeline starts the MCP server before the editor (docs/e2e_test_infrastructure.md, stage 3). With the inversion that order flips, and the server has to wait for the editor's port to appear.
+- **Priority:** MEDIUM — **deferred**, scheduled after the 6.6 blockers (6.6.1-6.6.5). 6.5.1 is independent and cheap; it can land at any time and reduces the pain until the rest ships.
+- **Effort:** ~1 day for 6.5.3-6.5.7, plus 6.5.9 on top.
 
 ### [ ] 6.6 - Field report: 3D blockout session in a real project (dragon_hoard, 2026-08-31)
 First sustained use of the toolset on real work rather than E2E fixtures. Node-graph
@@ -787,4 +844,4 @@ would have caught them.
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-08-31 (6.6 cheap batch landed: 6.6.6/6.6.7/6.6.8/6.6.9/6.6.10/6.6.13 fixed, new save_scene tool. Full E2E green on 4.7.2: **196 passed / 0 failed, coverage 163/163 tools**. 6.1 rescoped to effect-level assertions; 6.2/6.3 closed as absorbed by 6.4 with undo/reconnect split out as 6.2b; 5.4 downgraded. Remaining from the field report: 6.6.1-6.6.5, 6.6.11, 6.6.12.)
+**Last Updated:** 2026-08-31 (6.5 expanded into a decided plan: transport inversion — the Godot plugin hosts the WebSocket server, MCP processes become clients — deferred until after the 6.6 blockers. 6.6 cheap batch landed: 6.6.6/6.6.7/6.6.8/6.6.9/6.6.10/6.6.13 fixed, new save_scene tool. Full E2E green on 4.7.2: **196 passed / 0 failed, coverage 163/163 tools**. 6.1 rescoped to effect-level assertions; 6.2/6.3 closed as absorbed by 6.4 with undo/reconnect split out as 6.2b; 5.4 downgraded. Remaining from the field report: 6.6.1-6.6.5, 6.6.11, 6.6.12.)
