@@ -3,10 +3,13 @@
 **Goal:** a single command that provisions a Godot 4.x editor from scratch, runs every MCP tool against it, produces a report, and cleans up after itself.
 
 ```
+node e2e/check-syntax.mjs --godot 4.4.1   # ~6s syntax gate, run this first
 node e2e/run.mjs --godot 4.4.1
 ```
 
 Related: [mcp_test_plan.md](mcp_test_plan.md) is the test *content* (178 tests, 23 blocks); this document is the *harness* that executes it unattended.
+
+**Run the syntax gate first.** A parse error in any single plugin file makes `plugin.gd` fail to compile, so the entire tool registry disappears and the suite's only symptom is `Tool not found: <anything>` after a four-minute run. `check-syntax.mjs` loads `plugin.gd` with `--check-only`, which compiles the whole dependency graph, and prints the offending file and line in about a second (six with project generation). `--all` additionally checks each `.gd` on its own, for files nothing references yet. Exit codes: 0 clean, 1 syntax errors, 2 could not run.
 
 ---
 
@@ -183,6 +186,8 @@ godot log ±10 lines around the call: ...
 e2e/
   run.mjs                # CLI: --godot 4.4.1[,4.2.2] --headless --bridge-only
                          #      --blocks 1,2,15  --test T-03  --keep-work --purge-cache
+  check-syntax.mjs       # CLI: --godot 4.4.1 --all --keep-work
+                         #      GDScript parse gate, ~6s; run before the suite
   lib/
     provision.mjs        # URL resolve, download, unzip, cache, _sc_
     project.mjs          # template rendering, addon copy, fixtures, pre-import
