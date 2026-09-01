@@ -40,16 +40,10 @@ func _resolve_parent(root: Node, parent_path: String) -> Node:
 	return root.get_node_or_null(parent_path)
 
 func _parse_vector2(val: Variant, default_val: Vector2 = Vector2.ZERO) -> Vector2:
-	if val is Vector2: return val
-	if val is Dictionary: return Vector2(float(val.get("x", 0.0)), float(val.get("y", 0.0)))
-	if val is Array and val.size() >= 2: return Vector2(float(val[0]), float(val[1]))
-	return default_val
+	return GodotMCPTypeUtils.to_vector2(val, default_val)
 
 func _parse_vector3(val: Variant, default_val: Vector3 = Vector3.ZERO) -> Vector3:
-	if val is Vector3: return val
-	if val is Dictionary: return Vector3(float(val.get("x", 0.0)), float(val.get("y", 0.0)), float(val.get("z", 0.0)))
-	if val is Array and val.size() >= 3: return Vector3(float(val[0]), float(val[1]), float(val[2]))
-	return default_val
+	return GodotMCPTypeUtils.to_vector3(val, default_val)
 
 ## Converts an int bitmask or an array of layer numbers (1–32) to an int bitmask.
 func _parse_layers(val: Variant, default_val: int = 1) -> int:

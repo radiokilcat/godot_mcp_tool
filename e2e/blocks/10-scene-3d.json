@@ -21,7 +21,17 @@
       "id": "3D-02",
       "tool": "add_camera",
       "args": { "parent_path": ".", "node_name": "TestCam", "position": "Vector3(0, 2, 5)" },
-      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "execute_script",
+        "args": {
+          "code": "var cam = EditorInterface.get_edited_scene_root().get_node(\"TestCam\")\nreturn {\"x\": cam.position.x, \"y\": cam.position.y, \"z\": cam.position.z}"
+        },
+        "asserts": [
+          { "field": "result.y", "op": "eq", "value": 2 },
+          { "field": "result.z", "op": "eq", "value": 5 }
+        ]
+      }
     },
     {
       "id": "3D-03",
@@ -50,9 +60,56 @@
       "tool": "add_gridmap",
       "args": { "parent_path": ".", "node_name": "TestGrid", "cell_size": "Vector3(1, 1, 1)" },
       "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "3D-07",
+      "tool": "take_screenshot",
+      "args": {
+        "viewport": "camera",
+        "camera_path": "TestCam",
+        "save_path": "res://screenshot_cam3d.png",
+        "width": 320,
+        "height": 200
+      },
+      "requires": { "rendering": true },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "width", "op": "eq", "value": 320 },
+        { "field": "height", "op": "eq", "value": 200 },
+        { "field": "camera", "op": "eq", "value": "TestCam" },
+        { "field": "projection", "op": "eq", "value": "perspective" },
+        { "field": "fov", "op": "gte", "value": 1 }
+      ],
+      "verify": {
+        "tool": "list_project_files",
+        "args": { "path": "res://", "filter": ".png" },
+        "asserts": [{ "field": "files", "op": "contains", "value": "screenshot_cam3d.png" }]
+      }
+    },
+    {
+      "id": "3D-07b",
+      "tool": "execute_script",
+      "args": {
+        "code": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"res://screenshot_cam3d.png\"))\nif img == null:\n\treturn {\"loaded\": false}\nvar first = img.get_pixel(0, 0)\nvar distinct = 0\nfor x in range(0, img.get_width(), 4):\n\tfor y in range(0, img.get_height(), 4):\n\t\tif img.get_pixel(x, y) != first:\n\t\t\tdistinct += 1\nreturn {\"loaded\": true, \"w\": img.get_width(), \"h\": img.get_height(), \"distinct\": distinct}"
+      },
+      "requires": { "rendering": true },
+      "asserts": [
+        { "field": "result.loaded", "op": "eq", "value": true },
+        { "field": "result.w", "op": "eq", "value": 320 },
+        { "field": "result.h", "op": "eq", "value": 200 },
+        { "field": "result.distinct", "op": "gte", "value": 50 }
+      ]
+    },
+    {
+      "id": "3D-08",
+      "tool": "take_screenshot",
+      "args": { "viewport": "camera", "camera_path": "TestBox", "save_path": "res://screenshot_bad.png" },
+      "expectError": true,
+      "errorContains": "not a Camera3D"
     }
   ],
   "cleanup": [
+    { "tool": "execute_script", "args": { "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://screenshot_cam3d.png\"))\nEditorInterface.get_resource_filesystem().scan()" } },
     { "tool": "delete_scene", "args": { "scene_path": "res://test_3d.tscn" } }
   ]
 }

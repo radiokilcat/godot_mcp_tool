@@ -7,13 +7,15 @@ import { ToolCategory } from "../types/index.js";
 import { godotConnection } from "../godot-connection.js";
 
 const vector3Schema = {
-  type: "object",
-  description: "3D vector with x, y, z components",
-  properties: {
-    x: { type: "number" },
-    y: { type: "number" },
-    z: { type: "number" },
-  },
+  description: "3D vector: {x, y, z}, the literal 'Vector3(0, 2, 5)', or [x, y, z]",
+  anyOf: [
+    {
+      type: "object",
+      properties: { x: { type: "number" }, y: { type: "number" }, z: { type: "number" } },
+    },
+    { type: "string", description: "Godot literal, e.g. 'Vector3(0, 2, 5)'" },
+    { type: "array", items: { type: "number" }, minItems: 3, maxItems: 3 },
+  ],
 };
 
 export const scene3dTools: ToolCategory = {
