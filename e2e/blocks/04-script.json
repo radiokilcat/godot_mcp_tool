@@ -44,7 +44,7 @@
       "tool": "validate_syntax",
       "args": { "script_path": "res://test_broken.gd" },
       "expectError": true,
-      "errorContains": "yntax"
+      "errorContains": "line "
     },
     {
       "id": "SC-06",

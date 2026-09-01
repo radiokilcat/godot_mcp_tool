@@ -424,16 +424,21 @@ func _execute_script(args: Dictionary) -> Dictionary:
 	# Wrap code in an EditorScript if it doesn't declare one, and run the body
 	# under SCRIPT_ENTRY rather than _run() so it may return a value.
 	var wrapped: String
+	var header: String = ""
 	if "func _run(" in code:
-		var header := "" if "extends EditorScript" in code else "@tool\nextends EditorScript\n\n"
+		header = "" if "extends EditorScript" in code else "@tool\nextends EditorScript\n\n"
 		wrapped = header + code.replace("func _run(", "func %s(" % SCRIPT_ENTRY)
 	elif "extends EditorScript" in code:
 		wrapped = code
 	else:
 		# Auto-wrap: the caller wrote bare statements
-		wrapped = "@tool\nextends EditorScript\n\nfunc %s():\n" % SCRIPT_ENTRY
+		header = "@tool\nextends EditorScript\n\nfunc %s():\n" % SCRIPT_ENTRY
+		wrapped = header
 		for line in code.split("\n"):
 			wrapped += "\t" + line + "\n"
+	# Lines the wrapper added ahead of the caller's first line, so a reported
+	# error points at the code they actually wrote.
+	var line_offset: int = header.split("\n").size() - 1
 
 	var script := GDScript.new()
 	script.source_code = wrapped + OUTPUT_CAPTURE_BLOCK
@@ -447,7 +452,16 @@ func _execute_script(args: Dictionary) -> Dictionary:
 		script.source_code = wrapped
 		compile_err = script.reload(false)
 	if compile_err != OK:
-		return {"error": "Script compilation failed (code %d). Check syntax." % compile_err, "source": wrapped}
+		# reload() gave us a number; the parser's message only exists on stderr.
+		var diagnostics := GodotMCPScriptCheck.check_source(wrapped, line_offset)
+		var failure: Dictionary = {
+			"error": GodotMCPScriptCheck.describe(diagnostics,
+				"Script compilation failed (code %d). Check syntax." % compile_err),
+			"source": wrapped,
+		}
+		if not diagnostics.is_empty():
+			failure["diagnostics"] = diagnostics
+		return failure
 
 	var instance = script.new()
 	if not instance.has_method(SCRIPT_ENTRY):

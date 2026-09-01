@@ -169,6 +169,20 @@
       "asserts": [{ "field": "result", "op": "eq", "value": 1 }]
     },
     {
+      "id": "E-08g",
+      "tool": "execute_script",
+      "args": { "code": "var x = 1\nthis is not gdscript\n" },
+      "expectError": true,
+      "errorContains": "line 2:"
+    },
+    {
+      "id": "E-08h",
+      "tool": "execute_script",
+      "args": { "code": "func _run():\n\tvar y = 2\n\treturn y +\n" },
+      "expectError": true,
+      "errorContains": "line 3:"
+    },
+    {
       "id": "E-09",
       "tool": "execute_script",
       "args": { "code": "EditorInterface.get_editor_main_screen().show()" },

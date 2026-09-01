@@ -219,20 +219,32 @@ func _validate_syntax(args: Dictionary) -> Dictionary:
 	# its own registration, so reload() reports a parse error for otherwise valid code.
 	# That is the normal case when validating a file already in the project — retry once
 	# without the declaration so only genuine errors are reported.
+	var probe_source := source
 	var declared := _declared_class_name(source)
 	if not declared.is_empty() and _is_global_class(declared):
-		if _reload_probe(_strip_class_name(source)) == OK:
+		var without_class_name := _strip_class_name(source)
+		if _reload_probe(without_class_name) == OK:
 			return {
 				"valid": true,
 				"line_count": line_count,
 				"note": "class_name '%s' is already registered; validated without the declaration" % declared,
 			}
+		# Diagnose the same variant that was probed, or the collision would be
+		# reported as the error. Stripping keeps the line numbering intact.
+		probe_source = without_class_name
 
-	return {
+	# The error code alone never says what is wrong or where.
+	var diagnostics := GodotMCPScriptCheck.check_source(probe_source)
+	var result: Dictionary = {
 		"valid": false,
 		"error_code": err,
-		"error": "Syntax error (code %d) — open in Godot editor for details" % err,
+		"error": GodotMCPScriptCheck.describe(diagnostics,
+			"Syntax error (code %d) — open in Godot editor for details" % err),
+		"line_count": line_count,
 	}
+	if not diagnostics.is_empty():
+		result["diagnostics"] = diagnostics
+	return result
 
 ## Compile source in a throwaway GDScript and report the resulting error code.
 ## The probe is given a path under res://addons/ so the parser applies the
