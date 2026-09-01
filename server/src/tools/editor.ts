@@ -9,7 +9,9 @@ import { godotConnection } from "../godot-connection.js";
 export const editorTools: ToolCategory = {
   take_screenshot: {
     name: "take_screenshot",
-    description: "Capture a screenshot of the Godot editor viewport and save it to a file",
+    description:
+      "Capture a screenshot and save it to a file. Use viewport 'camera' to render the open scene through one of its own cameras — that is the view the player gets, and the only way to check an orthographic camera's framing. " +
+      "The running game's own window cannot be captured: it is a separate OS process.",
     inputSchema: {
       type: "object",
       properties: {
@@ -19,8 +21,28 @@ export const editorTools: ToolCategory = {
         },
         viewport: {
           type: "string",
-          enum: ["editor", "2d", "3d"],
-          description: "Which viewport to capture: 'editor' (whole window), '2d', or '3d' (default: editor)",
+          enum: ["editor", "2d", "3d", "camera"],
+          description:
+            "What to capture: 'editor' (whole window), '2d' or '3d' (the editor's own viewports), or 'camera' (render the scene through a Camera3D/Camera2D in it). Default: editor",
+        },
+        camera_path: {
+          type: "string",
+          description:
+            "viewport 'camera' only: scene-relative path of the Camera3D/Camera2D to render through. Defaults to the scene's current/enabled camera, else the first one found.",
+        },
+        width: {
+          type: "number",
+          description:
+            "viewport 'camera' only: render width in pixels (default: the project's viewport width, 16-4096).",
+        },
+        height: {
+          type: "number",
+          description:
+            "viewport 'camera' only: render height in pixels (default: the project's viewport height, 16-4096).",
+        },
+        transparent_bg: {
+          type: "boolean",
+          description: "viewport 'camera' only: render with a transparent background (default: false).",
         },
       },
     },

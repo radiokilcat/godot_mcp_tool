@@ -69,6 +69,32 @@
       ]
     },
     {
+      "id": "E-04b",
+      "tool": "take_screenshot",
+      "args": { "viewport": "camera", "save_path": "res://screenshot_nocam.png" },
+      "expectError": true,
+      "errorContains": "No Camera3D or Camera2D"
+    },
+    {
+      "id": "E-04c",
+      "tool": "add_node",
+      "args": { "parent_path": ".", "node_type": "Camera2D", "node_name": "ViewCam" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "E-04d",
+      "tool": "take_screenshot",
+      "args": { "viewport": "camera", "save_path": "res://screenshot_cam2d.png", "width": 240, "height": 160 },
+      "requires": { "rendering": true },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "width", "op": "eq", "value": 240 },
+        { "field": "height", "op": "eq", "value": 160 },
+        { "field": "camera", "op": "eq", "value": "ViewCam" },
+        { "field": "zoom.x", "op": "gte", "value": 0.001 }
+      ]
+    },
+    {
       "id": "E-05",
       "tool": "select_node_in_editor",
       "args": { "node_path": "." },
@@ -156,6 +182,7 @@
     }
   ],
   "cleanup": [
+    { "tool": "execute_script", "args": { "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://screenshot_cam2d.png\"))\nEditorInterface.get_resource_filesystem().scan()" } },
     { "tool": "delete_scene", "args": { "scene_path": "res://test_editor.tscn" } }
   ]
 }

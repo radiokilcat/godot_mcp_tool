@@ -150,13 +150,137 @@ func _json_safe(v: Variant) -> Variant:
 # Tool implementations
 # ---------------------------------------------------------------------------
 
+## First camera in the open scene, preferring one already marked current.
+func _find_scene_camera(node: Node) -> Node:
+	var fallback: Node = null
+	var queue: Array = [node]
+	while not queue.is_empty():
+		var current: Node = queue.pop_front()
+		if current is Camera3D or current is Camera2D:
+			# Camera3D marks intent with 'current', Camera2D with 'enabled'.
+			var active: Variant = current.get("current")
+			if active == null:
+				active = current.get("enabled")
+			if bool(active):
+				return current
+			if fallback == null:
+				fallback = current
+		queue.append_array(current.get_children())
+	return fallback
+
+## Copies a camera's settings onto a stand-in of the same class. Done through
+## the property list rather than field by field so the stand-in keeps working
+## on engine versions that add, drop or rename camera properties.
+func _clone_camera_settings(source: Node, target: Node) -> void:
+	var skip: Array = ["name", "owner", "script", "unique_name_in_owner", "scene_file_path"]
+	for prop in source.get_property_list():
+		var prop_name: String = prop.get("name", "")
+		var usage: int = int(prop.get("usage", 0))
+		if prop_name.is_empty() or skip.has(prop_name):
+			continue
+		if not (usage & PROPERTY_USAGE_STORAGE):
+			continue
+		target.set(prop_name, source.get(prop_name))
+
+## Renders the open scene through one of its cameras into an offscreen
+## SubViewport that shares the scene's world, which is the closest thing to
+## "what the player sees": the running game runs in its own OS process and its
+## window is not reachable from the editor.
+func _render_through_camera(args: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null:
+		return {"error": "No scene is open — open the scene whose camera you want to render through"}
+
+	var camera_path: String = str(args.get("camera_path", ""))
+	var camera: Node = null
+	if camera_path.is_empty():
+		camera = _find_scene_camera(root)
+		if camera == null:
+			return {"error": "No Camera3D or Camera2D in the open scene — add one or pass 'camera_path'"}
+	else:
+		var found = _resolve_node(camera_path)
+		if found == null:
+			return {"error": "Camera node not found: %s" % camera_path}
+		if not (found is Camera3D or found is Camera2D):
+			return {"error": "Node '%s' is a %s, not a Camera3D or Camera2D" % [camera_path, found.get_class()]}
+		camera = found
+
+	# Default to the size the player's window will have, so framing and an
+	# orthographic camera's size read the same as they will in the game.
+	var width: int = int(clamp(int(args.get("width", ProjectSettings.get_setting("display/window/size/viewport_width", 1152))), 16, 4096))
+	var height: int = int(clamp(int(args.get("height", ProjectSettings.get_setting("display/window/size/viewport_height", 648))), 16, 4096))
+
+	var sub := SubViewport.new()
+	sub.size = Vector2i(width, height)
+	sub.transparent_bg = bool(args.get("transparent_bg", false))
+	sub.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	sub.handle_input_locally = false
+
+	var stand_in: Node
+	if camera is Camera3D:
+		sub.world_3d = root.get_viewport().find_world_3d()
+		stand_in = Camera3D.new()
+	else:
+		sub.world_2d = root.get_viewport().find_world_2d()
+		stand_in = Camera2D.new()
+	_clone_camera_settings(camera, stand_in)
+	sub.add_child(stand_in)
+	EditorInterface.get_base_control().add_child(sub)
+
+	stand_in.global_transform = camera.global_transform
+	# The stand-in is a rendering probe, not scene content: a hidden Camera3D
+	# renders nothing, and the caller asked for this camera's view either way.
+	stand_in.visible = true
+	if stand_in is Camera3D:
+		stand_in.current = true
+	else:
+		stand_in.make_current()
+
+	# process_frame rather than RenderingServer.frame_post_draw: the tree is
+	# guaranteed to tick (this tool call arrived through the plugin's _process),
+	# so the wait cannot hang the bridge if the editor is not drawing.
+	var image: Image = null
+	for attempt in 2:
+		await _plugin.get_tree().process_frame
+		await _plugin.get_tree().process_frame
+		if not is_instance_valid(sub):
+			return {"error": "Render viewport was freed while capturing"}
+		image = sub.get_texture().get_image()
+		if image != null and not image.is_empty():
+			break
+
+	var info: Dictionary = {"camera": str(root.get_path_to(camera))}
+	if camera is Camera3D:
+		info["projection"] = ["perspective", "orthogonal", "frustum"][int(camera.projection)]
+		if camera.projection == Camera3D.PROJECTION_ORTHOGONAL:
+			info["size"] = camera.size
+		else:
+			info["fov"] = camera.fov
+	else:
+		info["zoom"] = {"x": camera.zoom.x, "y": camera.zoom.y}
+
+	sub.queue_free()
+
+	if image == null or image.is_empty():
+		return {"error": "Camera render came back empty — the editor may be running without rendering (--headless)"}
+	info["image"] = image
+	return info
+
 func _take_screenshot(args: Dictionary) -> Dictionary:
 	var save_path: String = args.get("save_path", "res://screenshot.png")
 	var viewport_type: String = args.get("viewport", "editor")
 
 	var image: Image
+	var extra: Dictionary = {}
 
-	if viewport_type == "editor":
+	if viewport_type == "camera":
+		var render: Dictionary = await _render_through_camera(args)
+		if render.has("error"):
+			return render
+		image = render["image"]
+		render.erase("image")
+		extra = render
+	elif viewport_type == "editor":
 		# Render the editor's own window. A desktop grab (screen_get_image) would
 		# capture whatever window happens to sit on top of the editor instead.
 		var vp := EditorInterface.get_base_control().get_viewport()
@@ -177,12 +301,14 @@ func _take_screenshot(args: Dictionary) -> Dictionary:
 		return {"error": "Failed to save screenshot: %s" % error_string(err)}
 
 	EditorInterface.get_resource_filesystem().scan()
-	return {
+	var result: Dictionary = {
 		"success": true,
 		"save_path": save_path,
 		"width": image.get_width(),
 		"height": image.get_height(),
 	}
+	result.merge(extra)
+	return result
 
 ## Directories Godot may keep godot.log (and its rotated copies) in, newest
 ## file wins. The editor process itself writes no log at all -- only a running
