@@ -85,7 +85,12 @@ export function evaluateAsserts(asserts, result) {
 }
 
 function looseEq(a, b) {
-  if (typeof a === "number" && typeof b === "number") return a === b || Math.abs(a - b) < 1e-9;
+  // Godot stores most numeric properties as 32-bit floats, so a value written
+  // as 1.8 reads back as 1.79999995231628. Compare numbers with a relative
+  // tolerance wide enough for that round trip.
+  if (typeof a === "number" && typeof b === "number") {
+    return a === b || Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
+  }
   if (a !== null && typeof a === "object") return JSON.stringify(a) === JSON.stringify(b);
   return a === b;
 }

@@ -42,6 +42,34 @@ func _resolve_parent(root: Node, parent_path: String) -> Node:
 func _parse_vector3(val: Variant, default_val: Vector3 = Vector3.ZERO) -> Vector3:
 	return GodotMCPTypeUtils.to_vector3(val, default_val)
 
+## Variant type of a property, or -1 when the object has no such property.
+func _property_type(obj: Object, prop_name: String) -> int:
+	for prop in obj.get_property_list():
+		if prop.get("name", "") == prop_name:
+			return int(prop.get("type", TYPE_NIL))
+	return -1
+
+## JSON values arrive as float/string, so a Vector3 property would otherwise be
+## assigned a number and quietly keep its old value.
+func _coerce(value: Variant, prop_type: int) -> Variant:
+	match prop_type:
+		TYPE_VECTOR3: return GodotMCPTypeUtils.to_vector3(value)
+		TYPE_VECTOR2: return GodotMCPTypeUtils.to_vector2(value)
+		TYPE_FLOAT:   return float(value)
+		TYPE_INT:     return int(value)
+		TYPE_BOOL:    return _as_bool(value)
+	return value
+
+func _as_bool(value: Variant) -> bool:
+	if value is String:
+		return value.to_lower() in ["true", "1", "yes"]
+	return bool(value)
+
+func _readable(value: Variant) -> Variant:
+	if value is Vector3: return {"x": value.x, "y": value.y, "z": value.z}
+	if value is Vector2: return {"x": value.x, "y": value.y}
+	return value
+
 func _parse_color(val: Variant, default_val: Color = Color.WHITE) -> Color:
 	if val is Color:
 		return val
@@ -138,14 +166,21 @@ func _add_mesh(args: Dictionary) -> Dictionary:
 
 	var parent_path: String = args.get("parent_path", "")
 	var node_name: String   = args.get("node_name", "MeshInstance3D")
-	var mesh_type: String   = args.get("mesh_type", "box")
+	var requested_type: String = str(args.get("mesh_type", "box"))
 
 	var parent := _resolve_parent(root, parent_path)
 	if parent == null:
 		return {"error": "Parent node not found: %s" % parent_path}
 
+	# Accept both "sphere" and "SphereMesh"; an unrecognised type used to fall
+	# through to a box, so a typo silently built the wrong shape.
+	var mesh_type := requested_type.to_lower()
+	if mesh_type.ends_with("mesh"):
+		mesh_type = mesh_type.substr(0, mesh_type.length() - 4)
+
 	var mesh: PrimitiveMesh
 	match mesh_type:
+		"box":      mesh = BoxMesh.new()
 		"sphere":   mesh = SphereMesh.new()
 		"cylinder": mesh = CylinderMesh.new()
 		"plane":    mesh = PlaneMesh.new()
@@ -154,8 +189,35 @@ func _add_mesh(args: Dictionary) -> Dictionary:
 		"quad":     mesh = QuadMesh.new()
 		"prism":    mesh = PrismMesh.new()
 		_:
-			mesh = BoxMesh.new()
-			mesh_type = "box"
+			return {"error": "Unknown mesh_type '%s'. Use box, sphere, cylinder, plane, capsule, torus, quad or prism." % requested_type}
+
+	# Primitives are otherwise born at engine defaults, so anything with a real
+	# size had to be finished off in a script afterwards.
+	var applied: Dictionary = {}
+	var unknown: Array = []
+	var mesh_properties: Dictionary = args.get("mesh_properties", {})
+	for key in mesh_properties:
+		var prop_name: String = str(key)
+		var prop_type := _property_type(mesh, prop_name)
+		if prop_type == -1:
+			unknown.append(prop_name)
+			continue
+		mesh.set(prop_name, _coerce(mesh_properties[key], prop_type))
+		applied[prop_name] = _readable(mesh.get(prop_name))
+
+	var material_note := ""
+	if args.has("material"):
+		var material_path := str(args["material"])
+		var loaded := ResourceLoader.load(material_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+		if loaded == null or not (loaded is Material):
+			return {"error": "Material not found or not a Material: %s" % material_path}
+		mesh.material = loaded
+		material_note = material_path
+	elif args.has("material_color"):
+		var standard := StandardMaterial3D.new()
+		standard.albedo_color = _parse_color(args["material_color"])
+		mesh.material = standard
+		material_note = "StandardMaterial3D albedo %s" % standard.albedo_color.to_html()
 
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
@@ -168,6 +230,13 @@ func _add_mesh(args: Dictionary) -> Dictionary:
 
 	var result := _add_to_scene(mi, parent, node_name, "Add Mesh '%s'" % node_name)
 	result["mesh_type"] = mesh_type
+	if not applied.is_empty():
+		result["mesh_properties"] = applied
+	# A misspelled property would otherwise be dropped without a word.
+	if not unknown.is_empty():
+		result["unknown_properties"] = unknown
+	if not material_note.is_empty():
+		result["material"] = material_note
 	return result
 
 
@@ -188,6 +257,8 @@ func _add_camera(args: Dictionary) -> Dictionary:
 	cam.fov  = float(args.get("fov",  75.0))
 	cam.near = float(args.get("near",  0.05))
 	cam.far  = float(args.get("far", 4000.0))
+	# The only parameter that frames an orthographic view; fov does nothing there.
+	cam.size = float(args.get("size", 1.0))
 
 	match projection_str:
 		"orthogonal": cam.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -204,8 +275,12 @@ func _add_camera(args: Dictionary) -> Dictionary:
 		cam.current = bool(args["current"])
 
 	var result := _add_to_scene(cam, parent, node_name, "Add Camera3D '%s'" % node_name)
-	result["fov"] = cam.fov
 	result["projection"] = projection_str
+	# Report the field that actually governs this projection.
+	if cam.projection == Camera3D.PROJECTION_ORTHOGONAL:
+		result["size"] = cam.size
+	else:
+		result["fov"] = cam.fov
 	return result
 
 

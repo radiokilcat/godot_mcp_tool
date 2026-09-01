@@ -51,6 +51,21 @@ export const scene3dTools: ToolCategory = {
           ...vector3Schema,
           description: "Scale (default: 1,1,1)",
         },
+        mesh_properties: {
+          type: "object",
+          description:
+            "Properties of the primitive mesh resource itself, e.g. {\"radius\": 0.35, \"height\": 1.8} for a capsule or {\"size\": \"Vector3(2, 0.2, 2)\"} for a box. Without these the mesh keeps Godot's defaults. Unknown names come back in 'unknown_properties'.",
+        },
+        material: {
+          type: "string",
+          description:
+            "res:// path to an existing Material to put on the mesh's surface (takes precedence over material_color)",
+        },
+        material_color: {
+          type: "string",
+          description:
+            "Albedo colour for a StandardMaterial3D created for this mesh, e.g. '#c0392b'",
+        },
       },
       required: [],
     },
@@ -62,7 +77,8 @@ export const scene3dTools: ToolCategory = {
   add_camera: {
     name: "add_camera",
     description:
-      "Add a Camera3D node to the current 3D scene with configurable projection, FOV, and clipping planes",
+      "Add a Camera3D node to the current 3D scene with configurable projection, FOV or orthographic size, and clipping planes. " +
+      "Use take_screenshot with viewport 'camera' to see what it frames.",
     inputSchema: {
       type: "object",
       properties: {
@@ -76,7 +92,12 @@ export const scene3dTools: ToolCategory = {
         },
         fov: {
           type: "number",
-          description: "Field of view in degrees for perspective projection (default: 75)",
+          description: "Field of view in degrees for perspective projection (default: 75). Ignored by an orthogonal camera.",
+        },
+        size: {
+          type: "number",
+          description:
+            "Height of the view in world units for an orthogonal camera (default: 1) — the only parameter that frames it. Ignored by a perspective camera.",
         },
         projection: {
           type: "string",

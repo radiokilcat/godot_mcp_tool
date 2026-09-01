@@ -34,6 +34,79 @@
       }
     },
     {
+      "id": "3D-02b",
+      "tool": "add_camera",
+      "args": {
+        "parent_path": ".",
+        "node_name": "OrthoCam",
+        "projection": "orthogonal",
+        "size": 12.5,
+        "position": { "x": 0, "y": 8, "z": 0 }
+      },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "projection", "op": "eq", "value": "orthogonal" },
+        { "field": "size", "op": "eq", "value": 12.5 },
+        { "field": "fov", "op": "isNull" }
+      ],
+      "verify": {
+        "tool": "execute_script",
+        "args": {
+          "code": "var cam = EditorInterface.get_edited_scene_root().get_node(\"OrthoCam\")\nreturn {\"size\": cam.size, \"proj\": cam.projection, \"y\": cam.position.y}"
+        },
+        "asserts": [
+          { "field": "result.size", "op": "eq", "value": 12.5 },
+          { "field": "result.proj", "op": "eq", "value": 1 },
+          { "field": "result.y", "op": "eq", "value": 8 }
+        ]
+      }
+    },
+    {
+      "id": "3D-02c",
+      "tool": "add_mesh",
+      "args": {
+        "parent_path": ".",
+        "node_name": "Worker",
+        "mesh_type": "capsule",
+        "mesh_properties": { "radius": 0.35, "height": 1.8 },
+        "material_color": "#c0392b"
+      },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "mesh_type", "op": "eq", "value": "capsule" },
+        { "field": "mesh_properties.height", "op": "eq", "value": 1.8 },
+        { "field": "unknown_properties", "op": "isNull" }
+      ],
+      "verify": {
+        "tool": "execute_script",
+        "args": {
+          "code": "var m = EditorInterface.get_edited_scene_root().get_node(\"Worker\").mesh\nreturn {\"cls\": m.get_class(), \"height\": m.height, \"radius\": m.radius, \"albedo\": m.material.albedo_color.to_html(false)}"
+        },
+        "asserts": [
+          { "field": "result.cls", "op": "eq", "value": "CapsuleMesh" },
+          { "field": "result.height", "op": "eq", "value": 1.8 },
+          { "field": "result.radius", "op": "eq", "value": 0.35 },
+          { "field": "result.albedo", "op": "eq", "value": "c0392b" }
+        ]
+      }
+    },
+    {
+      "id": "3D-02d",
+      "tool": "add_mesh",
+      "args": { "parent_path": ".", "node_name": "Typo", "mesh_type": "sphere", "mesh_properties": { "radius": 2, "raduis": 9 } },
+      "asserts": [
+        { "field": "mesh_properties.radius", "op": "eq", "value": 2 },
+        { "field": "unknown_properties", "op": "contains", "value": "raduis" }
+      ]
+    },
+    {
+      "id": "3D-02e",
+      "tool": "add_mesh",
+      "args": { "parent_path": ".", "node_name": "Bad", "mesh_type": "dodecahedron" },
+      "expectError": true,
+      "errorContains": "Unknown mesh_type"
+    },
+    {
       "id": "3D-03",
       "tool": "add_light",
       "args": { "parent_path": ".", "node_name": "TestLight", "light_type": "DirectionalLight3D" },
