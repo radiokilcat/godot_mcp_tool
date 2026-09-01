@@ -8,6 +8,69 @@ class_name GodotMCPEditorTools
 
 var _plugin: EditorPlugin
 
+## Collects mcp_print() output from an executed script and its return value.
+## The executed script talks to this object through the injected _mcp_sink var.
+class ScriptOutput extends RefCounted:
+	const LINE_LIMIT := 500
+
+	var lines: Array = []
+	var errors: Array = []
+	var dropped: int = 0
+	var done: bool = false
+	var value: Variant = null
+
+	func write(kind: String, text: String) -> void:
+		var target: Array = errors if kind == "err" else lines
+		if target.size() >= LINE_LIMIT:
+			dropped += 1
+			return
+		target.append(text)
+
+	func finish(v: Variant) -> void:
+		value = v
+		done = true
+
+## The caller's _run() is renamed to this before compiling. EditorScript._run()
+## is a void virtual, and since Godot 4.7 returning a value from an override of
+## it is a parse error ("A void function cannot return a value") -- which would
+## break the documented "return a value from _run()" convention on 4.7+.
+const SCRIPT_ENTRY := "_mcp_body"
+
+## Appended to every executed script. Gives the body a way to hand text and a
+## return value back to the caller: print() itself cannot be intercepted --
+## GDScript resolves it to the built-in utility function at parse time, so a
+## same-named method in the script is never called.
+const OUTPUT_CAPTURE_BLOCK := """
+
+# --- injected by godot_mcp ---
+var _mcp_sink = null
+
+func _mcp_main() -> void:
+	var _mcp_returned = await _mcp_body()
+	if _mcp_sink != null:
+		_mcp_sink.finish(_mcp_returned)
+
+func _mcp_write(_mcp_kind: String, _mcp_parts: Array) -> void:
+	var _mcp_text := PackedStringArray()
+	for _mcp_arg in _mcp_parts:
+		if typeof(_mcp_arg) == TYPE_STRING and _mcp_arg == "__mcp_nil_a91f__":
+			break
+		_mcp_text.append(str(_mcp_arg))
+	var _mcp_line := "".join(_mcp_text)
+	if _mcp_kind == "err":
+		printerr(_mcp_line)
+	else:
+		print(_mcp_line)
+	if _mcp_sink != null:
+		_mcp_sink.write(_mcp_kind, _mcp_line)
+
+func mcp_print(a = "__mcp_nil_a91f__", b = "__mcp_nil_a91f__", c = "__mcp_nil_a91f__", d = "__mcp_nil_a91f__", e = "__mcp_nil_a91f__", f = "__mcp_nil_a91f__", g = "__mcp_nil_a91f__", h = "__mcp_nil_a91f__") -> void:
+	_mcp_write("out", [a, b, c, d, e, f, g, h])
+
+func mcp_printerr(a = "__mcp_nil_a91f__", b = "__mcp_nil_a91f__", c = "__mcp_nil_a91f__", d = "__mcp_nil_a91f__", e = "__mcp_nil_a91f__", f = "__mcp_nil_a91f__", g = "__mcp_nil_a91f__", h = "__mcp_nil_a91f__") -> void:
+	_mcp_write("err", [a, b, c, d, e, f, g, h])
+"""
+
 func _init(plugin: EditorPlugin) -> void:
 	_plugin = plugin
 
@@ -32,6 +95,56 @@ func _resolve_node(node_path: String) -> Variant:
 	if node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
 		return root
 	return root.get_node_or_null(node_path)
+
+## Recursive JSON conversion for values a user script returns from _run() --
+## unlike the per-tool _value_to_json helpers this one descends into containers,
+## because the returned value has no schema we control.
+func _json_safe(v: Variant) -> Variant:
+	match typeof(v):
+		TYPE_DICTIONARY:
+			var out: Dictionary = {}
+			for k in v:
+				out[str(k)] = _json_safe(v[k])
+			return out
+		TYPE_ARRAY:
+			var arr: Array = []
+			for item in v:
+				arr.append(_json_safe(item))
+			return arr
+		TYPE_PACKED_BYTE_ARRAY:
+			# Mirrors resource_tools: a texture or audio buffer would otherwise
+			# arrive as a multi-megabyte number list.
+			if v.size() <= 64:
+				var bytes: Array = []
+				for b in v:
+					bytes.append(int(b))
+				return bytes
+			return {"type": "PackedByteArray", "size": v.size(), "preview_hex": v.slice(0, 16).hex_encode()}
+	if typeof(v) >= TYPE_PACKED_BYTE_ARRAY:
+		var packed: Array = []
+		for item in v:
+			packed.append(_json_safe(item))
+		return packed
+	if v is Vector2 or v is Vector2i:   return {"x": v.x, "y": v.y}
+	if v is Vector3 or v is Vector3i:   return {"x": v.x, "y": v.y, "z": v.z}
+	if v is Vector4 or v is Vector4i:   return {"x": v.x, "y": v.y, "z": v.z, "w": v.w}
+	if v is Color:       return {"r": v.r, "g": v.g, "b": v.b, "a": v.a}
+	if v is Rect2 or v is Rect2i:
+		return {"x": v.position.x, "y": v.position.y, "w": v.size.x, "h": v.size.y}
+	if v is Quaternion:  return {"x": v.x, "y": v.y, "z": v.z, "w": v.w}
+	if v is Basis:       return {"x": _json_safe(v.x), "y": _json_safe(v.y), "z": _json_safe(v.z)}
+	if v is Transform2D: return {"origin": _json_safe(v.origin), "x": _json_safe(v.x), "y": _json_safe(v.y)}
+	if v is Transform3D: return {"origin": _json_safe(v.origin), "basis": _json_safe(v.basis)}
+	if v is Node:
+		var scene_root := EditorInterface.get_edited_scene_root()
+		if scene_root != null and (v == scene_root or scene_root.is_ancestor_of(v)):
+			return str(scene_root.get_path_to(v))
+		return str(v.name)
+	if v is Object:
+		if v is Resource:
+			return v.resource_path if not v.resource_path.is_empty() else str(v)
+		return str(v)
+	return v
 
 # ---------------------------------------------------------------------------
 # Tool implementations
@@ -119,35 +232,85 @@ func _execute_script(args: Dictionary) -> Dictionary:
 	var code: String = args.get("code", "")
 	if code.is_empty():
 		return {"error": "'code' is required"}
+	var timeout: float = clampf(float(args.get("timeout", 10.0)), 0.1, 60.0)
 
-	# Wrap code in an EditorScript if it doesn't declare one
+	# Wrap code in an EditorScript if it doesn't declare one, and run the body
+	# under SCRIPT_ENTRY rather than _run() so it may return a value.
 	var wrapped: String
-	if "extends EditorScript" in code:
+	if "func _run(" in code:
+		var header := "" if "extends EditorScript" in code else "@tool\nextends EditorScript\n\n"
+		wrapped = header + code.replace("func _run(", "func %s(" % SCRIPT_ENTRY)
+	elif "extends EditorScript" in code:
 		wrapped = code
 	else:
-		# Auto-wrap: if user wrote statements, put them in _run()
-		if "func _run(" in code:
-			wrapped = "@tool\nextends EditorScript\n\n" + code
-		else:
-			wrapped = "@tool\nextends EditorScript\n\nfunc _run():\n"
-			for line in code.split("\n"):
-				wrapped += "\t" + line + "\n"
+		# Auto-wrap: the caller wrote bare statements
+		wrapped = "@tool\nextends EditorScript\n\nfunc %s():\n" % SCRIPT_ENTRY
+		for line in code.split("\n"):
+			wrapped += "\t" + line + "\n"
 
 	var script := GDScript.new()
-	script.source_code = wrapped
+	script.source_code = wrapped + OUTPUT_CAPTURE_BLOCK
 	var compile_err := script.reload(false)
+	var captured := compile_err == OK
+	if not captured:
+		# The injected helpers can collide with names the script already
+		# declares. Run it as written rather than failing on a helper the
+		# caller never asked for.
+		script = GDScript.new()
+		script.source_code = wrapped
+		compile_err = script.reload(false)
 	if compile_err != OK:
 		return {"error": "Script compilation failed (code %d). Check syntax." % compile_err, "source": wrapped}
 
 	var instance = script.new()
-	if not instance.has_method("_run"):
+	if not instance.has_method(SCRIPT_ENTRY):
 		return {"error": "Script must define func _run()"}
 
-	# EditorScript.run() returns void; capture print output via workaround not available
-	# Just call _run() and check for exceptions
-	instance._run()
+	var response: Dictionary = {"success": true}
+	var returned: Variant = null
 
-	return {"success": true, "note": "Script executed. Check Godot Output panel for any print() output."}
+	if captured:
+		var sink := ScriptOutput.new()
+		instance.set("_mcp_sink", sink)
+		# Deferred so a _run() that suspends on an await is resumed by the
+		# engine instead of being dropped on the floor; polling the sink keeps
+		# a script that awaits something that never fires from wedging the
+		# bridge (the plugin serves one tool call at a time).
+		instance.call_deferred("_mcp_main")
+		var deadline := Time.get_ticks_msec() + int(timeout * 1000.0)
+		while not sink.done and Time.get_ticks_msec() < deadline:
+			await _plugin.get_tree().create_timer(0.02).timeout
+			if not is_instance_valid(_plugin):
+				return {"error": "Plugin was disabled while the script was running"}
+		if not sink.done:
+			return {
+				"error": "Script did not finish within %.1fs — it is awaiting something that has not happened and keeps running in the background" % timeout,
+				"output": sink.lines,
+				"errors": sink.errors,
+				"partial": true,
+			}
+		returned = sink.value
+		response["output"] = sink.lines
+		if not sink.errors.is_empty():
+			response["errors"] = sink.errors
+		if sink.dropped > 0:
+			response["output_dropped"] = sink.dropped
+			response["note"] = "Output truncated at %d lines; %d more were dropped." % [ScriptOutput.LINE_LIMIT, sink.dropped]
+	else:
+		# Direct call on purpose: the VM resumes a coroutine awaited this way.
+		# The name is SCRIPT_ENTRY, spelled out because it is a call, not a string.
+		returned = await instance._mcp_body()
+		response["output_capture"] = false
+		response["note"] = "Output capture is unavailable for this script (the injected mcp_print helpers clash with a name it declares); print() output went to the Godot Output panel only."
+
+	if returned != null:
+		response["result"] = _json_safe(returned)
+
+	if not response.has("note") and response.get("output", []).is_empty() and not response.has("result") \
+			and ("print(" in code) and not ("mcp_print(" in code):
+		response["note"] = "print() writes to the Godot Output panel only. Use mcp_print(...) — same signature — to get the text back here, or return a value from _run()."
+
+	return response
 
 func _open_editor_settings(args: Dictionary) -> Dictionary:
 	var prefix: String = args.get("prefix", "")

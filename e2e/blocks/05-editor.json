@@ -60,7 +60,56 @@
       "id": "E-08",
       "tool": "execute_script",
       "args": { "code": "print(2 + 2)" },
-      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "note", "op": "contains", "value": "mcp_print" }
+      ]
+    },
+    {
+      "id": "E-08b",
+      "tool": "execute_script",
+      "args": { "code": "mcp_print(\"sum=\", 2 + 2)" },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "output", "op": "contains", "value": "sum=4" }
+      ]
+    },
+    {
+      "id": "E-08c",
+      "tool": "execute_script",
+      "args": { "code": "return {\"n\": 7, \"v\": Vector2(1, 2)}" },
+      "asserts": [
+        { "field": "result.n", "op": "eq", "value": 7 },
+        { "field": "result.v.x", "op": "eq", "value": 1 }
+      ]
+    },
+    {
+      "id": "E-08d",
+      "tool": "execute_script",
+      "args": {
+        "code": "func _run():\n\tmcp_print(\"before\")\n\tawait Engine.get_main_loop().process_frame\n\tmcp_print(\"after\")\n\treturn 42\n"
+      },
+      "asserts": [
+        { "field": "output", "op": "contains", "value": "before" },
+        { "field": "output", "op": "contains", "value": "after" },
+        { "field": "result", "op": "eq", "value": 42 }
+      ]
+    },
+    {
+      "id": "E-08e",
+      "tool": "execute_script",
+      "args": {
+        "code": "signal never_fires\nfunc _run():\n\tmcp_print(\"waiting\")\n\tawait never_fires\n",
+        "timeout": 0.5
+      },
+      "expectError": true,
+      "errorContains": "did not finish"
+    },
+    {
+      "id": "E-08f",
+      "tool": "execute_script",
+      "args": { "code": "return 1" },
+      "asserts": [{ "field": "result", "op": "eq", "value": 1 }]
     },
     {
       "id": "E-09",

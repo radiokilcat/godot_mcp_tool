@@ -53,13 +53,25 @@ export const editorTools: ToolCategory = {
 
   execute_script: {
     name: "execute_script",
-    description: "Execute a GDScript snippet in the editor context (runs as EditorScript)",
+    description:
+      "Execute a GDScript snippet in the editor context (runs as EditorScript). " +
+      "Returns whatever _run() returns as 'result', and the text passed to mcp_print(...) as 'output'. " +
+      "await is supported: the call waits for the coroutine to finish.",
     inputSchema: {
       type: "object",
       properties: {
         code: {
           type: "string",
-          description: "GDScript code to execute. Will be wrapped in func _run(): automatically if needed.",
+          description:
+            "GDScript code to execute. Wrapped in func _run(): automatically if needed. " +
+            "Use mcp_print(...) (same signature as print) to send text back in 'output' — plain print() only reaches Godot's Output panel. " +
+            "Return a value from _run() to get it back as 'result'. " +
+            "await works (e.g. await RenderingServer.frame_post_draw); the code after it runs before the tool responds.",
+        },
+        timeout: {
+          type: "number",
+          description:
+            "Seconds to wait for the script to finish (default: 10, max: 60). On timeout the tool returns the output collected so far and the script keeps running in the editor. Note the MCP client gives up after 15s regardless.",
         },
       },
       required: ["code"],
