@@ -304,23 +304,34 @@ func _send_ready_message() -> void:
 		"plugin_id": str(get_instance_id())
 	})
 
+## Send tool execution result. If result has an 'error' key, send it as error field.
 func _send_tool_result(message_id: String, result: Variant) -> void:
-	"""Send tool execution result. If result has an 'error' key, send it as error field."""
 	var msg: Dictionary = {"type": "tool_result", "id": message_id}
 	if result is Dictionary and result.has("error"):
 		msg["error"] = result.get("error", "Unknown error")
 	else:
 		msg["result"] = result
-	_send_message(msg)
 
-func _send_message(message: Dictionary) -> void:
-	"""Send a message to the server"""
-	if not is_connected or not websocket_client:
-		push_error("%s Cannot send message: not connected" % LOG_PREFIX)
+	if _send_message(msg) == OK:
 		return
 
+	# The reply did not go out -- in practice it outgrew the socket's outbound
+	# buffer. Say so in a message small enough to get through, rather than
+	# leaving the caller to wait out a timeout on a result that will never
+	# arrive and guess why.
+	var size := JSON.stringify(msg).length()
+	var reason := "Result could not be sent (%d bytes, socket buffer is %d bytes). Narrow the request: a path, a filter, a smaller max_depth or limit." % [size, GodotMCPWebSocketClient.BUFFER_SIZE]
+	push_error("%s %s" % [LOG_PREFIX, reason])
+	_send_message({"type": "tool_result", "id": message_id, "error": reason})
+
+## Send a message to the server. Returns the send error, OK on success.
+func _send_message(message: Dictionary) -> Error:
+	if not is_connected or not websocket_client:
+		push_error("%s Cannot send message: not connected" % LOG_PREFIX)
+		return ERR_UNAVAILABLE
+
 	var json_string = JSON.stringify(message)
-	websocket_client.send_message(json_string)
+	return websocket_client.send_message(json_string)
 
 # ============================================================================
 # Reconnect Logic

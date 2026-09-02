@@ -917,22 +917,38 @@ the mechanism behind three separate bug-fix rounds already recorded above.
 - **Effort:** 4-6 hours
 
 ### [ ] 9.4 - Reliability
-- [ ] 9.4.1 - **Per-tool timeouts.** godot-connection.ts:9 applies a flat `TOOL_TIMEOUT_MS = 15_000`
+- [x] 9.4.1 - **Per-tool timeouts. Done 2026-09-02.** godot-connection.ts:9 applied a flat `TOOL_TIMEOUT_MS = 15_000`
   to all 163 tools, while `listen_to_signal` allows `timeout` up to 30 s
   (runtime_tools.gd:534), `execute_script` up to 60 s (editor_tools.gd:422), and `export_project`
   runs a synchronous `OS.execute` (export_tools.gd:182) that blocks the editor's main thread for
   minutes. A legal `timeout: 20` therefore *always* fails on the server side — and the plugin
   stays `_tool_busy` (plugin.gd:255) for the remainder, so every following call answers "Another
-  tool call is already in progress" without naming the cause. Add `timeoutMs` to `ToolDefinition`
-  next to `minGodotVersion`, deriving it from the call's own `timeout` argument where one exists.
-  Coordinate with 6.5.7 (queue instead of reject), where the budget must also cover queue wait.
-- [ ] 9.4.2 - **Configure the WebSocket buffers.** websocket_client.gd never sets
+  tool call is already in progress" without naming the cause. **Fixed:** `timeoutForCall()` derives
+  the budget from the call itself — any `timeout`/`duration` argument (seconds) plus 10 s of slack
+  for scheduling and serialising, clamped to [15 s, 10 min] — with a small table for the tools that
+  are slow without saying so in their arguments (`export_project` 10 min, `run_automated_tests`,
+  `bake_navigation`, the three `replay_*` 2 min). It lives in the transport rather than on each
+  `ToolDefinition` because every one of the 163 handlers reaches the editor through this one call,
+  so a per-definition field would have meant touching 23 files to be enforced in one.
+  6.5.7 (queue instead of reject) will need to add queue wait to the same budget.
+- [x] 9.4.2 - **Configure the WebSocket buffers. Done 2026-09-02.** websocket_client.gd never set
   `inbound_buffer_size` / `outbound_buffer_size` / `max_queued_packets`, so both directions cap at
   Godot's 64 KB default. A larger reply — `get_scene_tree` on a real scene (`max_depth` defaults
   to -1, scene_tools.gd:50), `list_project_files`, `search_in_scripts`, `get_project_settings` —
   makes `send()` fail, the result vanishes into a `push_error`, and the only symptom is the
-  server's timeout. Presents as "the tools sometimes silently don't work on big projects". Raise
-  the buffers before `connect_to_url` and report a real error on a failed send.
+  server's timeout. Presented as "the tools sometimes silently don't work on big projects".
+  **Fixed:** 4 MB in both directions, set before `connect_to_url` (the peer sizes its buffers at
+  connect time), `send_message()` now returns the error instead of swallowing it, and a reply that
+  still will not fit is answered with a message small enough to get through — it names the byte
+  count, the buffer size and what to narrow — rather than leaving the caller to wait out a timeout
+  on a result that will never arrive.
+- **Both fixes carry a regression test, and both tests were verified to fail without them**
+  (e2e/blocks/05-editor.json): **E-11** pushes a 300 KB reply through the bridge — with the old
+  64 KB buffer it fails, and usefully so: `Result could not be sent (300138 bytes, socket buffer is
+  65535 bytes)`, which also exercises the new fallback path. **E-12** asks `execute_script` for a
+  17 s timeout and expects the plugin's own watchdog to answer; forced back to the flat budget it
+  fails with `Tool call timed out after 15000ms`, i.e. exactly the bug.
+- **Verified:** **218 passed / 0 failed, 163/163 tools** on 4.7.2 and 4.4.1.
 - [ ] 9.4.3 - **Make the connection lazy.** `godotConnection` is constructed at import time
   (godot-connection.ts:29) and every file in server/src/tools/ imports it, so *importing a tool
   module opens the machine-wide port* — hit while preparing this review: merely enumerating the
@@ -1112,7 +1128,9 @@ lines per run on 4.4.1, identical on 4.7.2, i.e. deterministic rather than flaky
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-09-02 (**9.2 done — ~1530 lines of dead code deleted**, 8 files plus the one unit test, which covered a module nothing imported. Verified before and after: repo-wide search over every tracked file type, `class_name` cross-check against actually declared names (which caught a false negative in the review — undo_redo_manager.gd declares `GodotMCPUndoRedo`), config/preload checks, then a clean rebuild, `check-syntax --all` over all 31 remaining scripts, and **216/216, 163/163 tools on both 4.7.2 and 4.4.1**. Next: 9.4.1/9.4.2, then 9.3 before 6.1.1.)
+**Last Updated:** 2026-09-02 (**9.4.1 and 9.4.2 done — the two remaining defects a live user could hit.** Timeouts are now derived per call from the tool's own `timeout`/`duration` argument (plus a table for the inherently slow ones), so `listen_to_signal` at 30 s and `execute_script` at 60 s can finally return; and the WebSocket buffers are 4 MB instead of Godot's 64 KB default, with an explicit "result could not be sent, narrow the request" reply if a payload still will not fit. Both carry regression tests (E-11, E-12) that were **verified to fail without the fix**. **218 passed / 0 failed, 163/163 tools** on 4.7.2 and 4.4.1. Next: 9.3 (shared tool base class) before 6.1.1.)
+
+**Previously:** 2026-09-02 (**9.2 done — ~1530 lines of dead code deleted**, 8 files plus the one unit test, which covered a module nothing imported. Verified before and after: repo-wide search over every tracked file type, `class_name` cross-check against actually declared names (which caught a false negative in the review — undo_redo_manager.gd declares `GodotMCPUndoRedo`), config/preload checks, then a clean rebuild, `check-syntax --all` over all 31 remaining scripts, and **216/216, 163/163 tools on both 4.7.2 and 4.4.1**. Next: 9.4.1/9.4.2, then 9.3 before 6.1.1.)
 
 **Previously:** 2026-09-02 (**9.8 done — the editor's error spam during tool calls is mostly gone**, 33 lines per run → 18 on 4.4.1 / 14 on 4.7.2, and what remains is the suite deliberately feeding the parser broken code. Two were real product bugs users would also hit: `execute_script` ran its body inside the deferred-call flush, so anything touching the filesystem spammed progress-dialog errors; and `create_animation` used `get_animation_library()` as an existence check, which the engine logs as a failure. 216/216 on both engines. One lesson recorded in 9.8: a zero-length SceneTreeTimer is *not* a safe substitute for `call_deferred` — a body that pumps the main loop re-fires the still-pending timer and takes the editor down with a stack overflow.)
 

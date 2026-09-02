@@ -193,6 +193,30 @@
       "tool": "open_editor_settings",
       "args": {},
       "asserts": [{ "field": "count", "op": "gte", "value": 1 }]
+    },
+    {
+      "id": "E-11",
+      "_comment": "9.4.2 regression: a reply larger than the WebSocketPeer default (64 KB per direction) used to fail to send, dropping the result and surfacing only as the server's timeout. 300 KB here.",
+      "tool": "execute_script",
+      "args": {
+        "code": "var s := \"\"\nfor i in range(30000):\n\ts += \"0123456789\"\nreturn {\"len\": s.length(), \"blob\": s}"
+      },
+      "asserts": [
+        { "field": "result.len", "op": "eq", "value": 300000 },
+        { "field": "result.blob", "op": "notEmpty" }
+      ]
+    },
+    {
+      "id": "E-12",
+      "_comment": "9.4.1 regression: the server's flat 15s budget was shorter than the 60s execute_script allows, so a call with a longer timeout could never return. Asks for 17s and expects the plugin's own watchdog to answer, not the transport to give up.",
+      "tool": "execute_script",
+      "args": {
+        "code": "signal never_fires\nfunc _run():\n\tmcp_print(\"waiting\")\n\tawait never_fires\n",
+        "timeout": 17
+      },
+      "expectError": true,
+      "errorContains": "did not finish within 17",
+      "timeoutMs": 40000
     }
   ],
   "cleanup": [

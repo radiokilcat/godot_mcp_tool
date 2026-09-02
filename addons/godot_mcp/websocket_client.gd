@@ -10,12 +10,22 @@ signal connection_closed
 signal error_received(error: String)
 signal message_received(data: String)
 
+## Godot's WebSocketPeer defaults to 64 KB in each direction, which a real
+## response outgrows silently: send() fails with ERR_OUT_OF_MEMORY, the reply is
+## dropped, and the only symptom is the server's timeout minutes later. A scene
+## tree, a project-wide file listing or a script search all pass that mark on a
+## normal project. Must be set before connect_to_url() -- the peer sizes its
+## buffers at connect time.
+const BUFFER_SIZE: int = 4 * 1024 * 1024
+
 var websocket: WebSocketPeer
 var server_url: String = ""
 var _last_state: WebSocketPeer.State = WebSocketPeer.STATE_CLOSED
 
 func _enter_tree() -> void:
 	websocket = WebSocketPeer.new()
+	websocket.inbound_buffer_size = BUFFER_SIZE
+	websocket.outbound_buffer_size = BUFFER_SIZE
 	_last_state = WebSocketPeer.STATE_CLOSED
 
 func _exit_tree() -> void:
@@ -68,9 +78,12 @@ func disconnect_from_server() -> void:
 	if websocket:
 		websocket.close()
 
-func send_message(data: String) -> void:
+## Returns the send error so the caller can react -- a dropped reply used to be
+## invisible to everything except the server's timeout.
+func send_message(data: String) -> Error:
 	if not websocket or websocket.get_ready_state() != WebSocketPeer.STATE_OPEN:
-		return
+		return ERR_UNAVAILABLE
 	var err := websocket.send(data.to_utf8_buffer(), WebSocketPeer.WRITE_MODE_TEXT)
 	if err != OK:
 		error_received.emit("Failed to send message: %s" % error_string(err))
+	return err

@@ -6,7 +6,47 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
 
-const TOOL_TIMEOUT_MS = 15_000;
+const DEFAULT_TOOL_TIMEOUT_MS = 15_000;
+// Never wait longer than this, whatever a caller asks for: the plugin clamps its
+// own waits well below it, so a larger number only strands the bridge.
+const MAX_TOOL_TIMEOUT_MS = 600_000;
+// A tool that takes a duration spends it on purpose; the budget has to cover that
+// plus scheduling the work and serialising the reply, which the caller's number
+// does not account for.
+const TIMEOUT_SLACK_MS = 10_000;
+// Arguments naming, in seconds, how long the tool will deliberately take.
+const DURATION_ARGS = ["timeout", "duration"];
+// Tools with no such argument whose work is inherently longer than a round trip.
+// Kept here rather than on each ToolDefinition because the timeout belongs to the
+// transport that enforces it, and every handler reaches the editor through this
+// one call.
+const SLOW_TOOLS: Record<string, number> = {
+  export_project: 600_000, // spawns a headless engine; a real export runs for minutes
+  run_automated_tests: 120_000,
+  bake_navigation: 120_000,
+  replay_gameplay: 120_000,
+  replay_input_sequence: 120_000,
+  replay_test: 120_000,
+};
+
+/**
+ * How long to wait for one call. A flat 15s was shorter than what several tools
+ * are documented to do — `listen_to_signal` allows 30s, `execute_script` 60s — so
+ * those calls could not succeed, and the plugin stayed busy for the remainder,
+ * answering every following call with "another tool call is already in progress".
+ */
+function timeoutForCall(tool: string, args: Record<string, unknown>): number {
+  for (const key of DURATION_ARGS) {
+    const value = args[key];
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return Math.min(
+        MAX_TOOL_TIMEOUT_MS,
+        Math.max(DEFAULT_TOOL_TIMEOUT_MS, value * 1000 + TIMEOUT_SLACK_MS)
+      );
+    }
+  }
+  return SLOW_TOOLS[tool] ?? DEFAULT_TOOL_TIMEOUT_MS;
+}
 // Overridable so test harnesses can run in parallel with a live setup on the default port
 const WS_PORT = Number(process.env.GODOT_MCP_PORT ?? "") || 6505;
 // Whatever connects here is trusted as the Godot plugin — there is no authentication
@@ -148,11 +188,12 @@ class GodotConnection {
     }
 
     const id = randomUUID();
+    const timeoutMs = timeoutForCall(tool, args);
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`Tool call timed out after ${TOOL_TIMEOUT_MS}ms: ${tool}`));
-      }, TOOL_TIMEOUT_MS);
+        reject(new Error(`Tool call timed out after ${timeoutMs}ms: ${tool}`));
+      }, timeoutMs);
 
       this.pending.set(id, { resolve, reject, timer });
       this.socket!.send(JSON.stringify({ type: "tool_call", id, tool, args }));
