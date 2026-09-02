@@ -607,7 +607,7 @@ happened). That is the gap worth closing.
 - [x] Write tests for type parser — tests/type-parser.test.ts, 26 tests
 - [ ] 6.1.1 - Add an effect-assertion vocabulary to the E2E DSL: read the setting back, stat the file on disk, re-read the node tree after a mutation
 - [ ] 6.1.2 - Apply it to the tools that can silently no-op: `set_project_setting`, `execute_script`, `create_scene`, `save_scene`, the `add_*` family
-- [ ] 6.1.3 - Unit-test the pure server-side modules that have no editor dependency (type coercion, tool-validator, message framing) — currently 1 test file for 31 modules
+- [ ] 6.1.3 - Unit-test the pure server-side modules that have no editor dependency. **Rescoped by 9.2:** the modules this named — type coercion, tool-validator, message framing — were all dead and are gone, along with the single test file that covered one of them. What is left on the server is thin proxies plus `version-utils`, so the real target is the plugin's own rules (vector/colour parsing, `_as_bool`, `_value_to_json`), best attacked after 9.3 puts them in one place. Remove `passWithNoTests` from server/vitest.config.ts when this lands.
 - **Priority:** HIGH
 - **Effort:** 4-6 hours
 - **Depends on:** 6.6 fixes landing first, so the assertions encode the corrected behaviour
@@ -839,7 +839,7 @@ between the 13 copies of `_resolve_node`.
   163/163 tools** on 4.4.1 and 4.7.2. That is the real test of 9.1.2: the handshake happens over
   the new IPv4-only bind, and every assertion parses compact JSON.
 
-### [ ] 9.2 - Delete the dead code — ~1530 lines, 10 % of the codebase
+### [x] 9.2 - Delete the dead code — ~1530 lines, 10 % of the codebase (done 2026-09-02)
 Phase 1-2 scaffolding the final architecture routed around. Nothing in the import graph reaches
 any of it (checked across every `.ts` and `.gd`).
 
@@ -856,12 +856,30 @@ any of it (checked across every `.ts` and `.gd`).
 
 The last three are a closed island referencing only each other.
 
-- [ ] 9.2.1 - Delete the eight files (a tag or branch first if they feel worth keeping).
-- [ ] 9.2.2 - **The project's only unit test covers dead code**: tests/type-parser.test.ts (26
-  tests) imports `server/src/utils/type-parser.ts`. "26/26 PASSED" in progress.md and
-  BUILD_REPORT.md therefore states nothing about the shipped code. Before deleting, diff it
-  against type_utils.gd — any parsing form it handles that the plugin does not is ready-made
-  material for 6.1.3.
+- [x] 9.2.1 - Delete the eight files. **Done 2026-09-02**, after the verification below.
+- [x] 9.2.2 - **The project's only unit test covered dead code**: tests/type-parser.test.ts (26
+  tests) imported `server/src/utils/type-parser.ts`, so "26/26 PASSED" in progress.md and
+  BUILD_REPORT.md stated nothing about the shipped code. **Deleted with it.** The capability
+  check asked for first found nothing to salvage: the TS module inferred a type from the literal
+  (`"Vector3(1,2,3)"` → Vector3), while the plugin parses *by the target property's type*, which
+  it gets from Godot's introspection — a different model the architecture does not use. If 6.1.3
+  unit-tests parsing, it should test the plugin's rules, not resurrect these. `passWithNoTests`
+  is set in server/vitest.config.ts so `npm test` does not fail on the now-empty suite; remove
+  that line when 6.1.3 lands.
+- **Verified before deleting** (the first pass had a false negative worth recording): a repo-wide
+  text search over *every tracked file*, not just source — `.gd`, `.ts`, `.cfg`, `.tscn`, `.json`,
+  `.md` — found no mention outside progress.md and the island's own files. Then each file's
+  **actually declared** `class_name` was cross-checked against its users, which is how it emerged
+  that undo_redo_manager.gd declares `GodotMCPUndoRedo`, **not** `GodotMCPUndoRedoManager` as the
+  review assumed — the original grep searched a name that does not exist and got the right answer
+  by luck. Also checked: no `preload`/`load`/`extends` by path anywhere in the plugin; plugin.cfg
+  names only plugin.gd; the e2e project template only enables plugin.cfg; no `export *` barrels on
+  the server side. Blind spot of the method, stated so it is not trusted blindly: a file reached
+  by path or config rather than by identifier looks unused this way — `plugin.gd` itself reports
+  "not used" — which is why the config and preload checks above are part of the evidence.
+- **Then verified dynamically:** clean `rm -rf dist` rebuild + eslint pass, `e2e/check-syntax.mjs --all`
+  parsing all **31** remaining plugin scripts standalone, and the full suite green on both engines —
+  **216 passed / 0 failed, 163/163 tools** on 4.7.2 and 4.4.1.
 - **Why it is not merely clutter:** e2e/check-syntax.mjs loads only plugin.gd's dependency graph,
   so the dead GDScript is never even parsed; and `undo_redo_manager.gd` reads as the intended
   UndoRedo path (progress.md 2.3 lists it as implemented), so the next author may start using it
@@ -1094,7 +1112,9 @@ lines per run on 4.4.1, identical on 4.7.2, i.e. deterministic rather than flaky
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-09-02 (**9.8 done — the editor's error spam during tool calls is mostly gone**, 33 lines per run → 18 on 4.4.1 / 14 on 4.7.2, and what remains is the suite deliberately feeding the parser broken code. Two were real product bugs users would also hit: `execute_script` ran its body inside the deferred-call flush, so anything touching the filesystem spammed progress-dialog errors; and `create_animation` used `get_animation_library()` as an existence check, which the engine logs as a failure. 216/216 on both engines. One lesson recorded in 9.8: a zero-length SceneTreeTimer is *not* a safe substitute for `call_deferred` — a body that pumps the main loop re-fires the still-pending timer and takes the editor down with a stack overflow.)
+**Last Updated:** 2026-09-02 (**9.2 done — ~1530 lines of dead code deleted**, 8 files plus the one unit test, which covered a module nothing imported. Verified before and after: repo-wide search over every tracked file type, `class_name` cross-check against actually declared names (which caught a false negative in the review — undo_redo_manager.gd declares `GodotMCPUndoRedo`), config/preload checks, then a clean rebuild, `check-syntax --all` over all 31 remaining scripts, and **216/216, 163/163 tools on both 4.7.2 and 4.4.1**. Next: 9.4.1/9.4.2, then 9.3 before 6.1.1.)
+
+**Previously:** 2026-09-02 (**9.8 done — the editor's error spam during tool calls is mostly gone**, 33 lines per run → 18 on 4.4.1 / 14 on 4.7.2, and what remains is the suite deliberately feeding the parser broken code. Two were real product bugs users would also hit: `execute_script` ran its body inside the deferred-call flush, so anything touching the filesystem spammed progress-dialog errors; and `create_animation` used `get_animation_library()` as an existence check, which the engine logs as a failure. 216/216 on both engines. One lesson recorded in 9.8: a zero-length SceneTreeTimer is *not* a safe substitute for `call_deferred` — a body that pumps the main loop re-fires the still-pending timer and takes the editor down with a stack overflow.)
 
 **Previously:** 2026-09-02 (**9.1 quick wins done** — compact tool responses, loopback-only bridge, committed lockfile, docs reconciled with the built registry, `.gitattributes`, `.mcp.json.example` (which also closes 5.4.1). Full e2e re-run on both engines after the changes: **216 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2. Next: 9.2 (delete the dead code), then 9.3 before 6.1.1.)
 
