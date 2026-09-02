@@ -23,6 +23,7 @@ class GodotConnection {
   private _godotVersion: string | null = null;
   private _pluginVersion: string | null = null;
   private _bindError: string | null = null;
+  private _closed = false;
 
   constructor() {
     this.wss = new WebSocketServer({ port: WS_PORT });
@@ -151,7 +152,29 @@ class GodotConnection {
     });
   }
 
+  /**
+   * Release the bridge port and drop the editor connection. Idempotent, and safe
+   * to call from a process 'exit' handler (everything that matters is synchronous).
+   *
+   * `wss.close()` alone is not enough: the internally created HTTP server only
+   * finishes closing once every established connection has ended, and an attached
+   * editor never ends one — the port would stay bound for the life of the process.
+   * Terminating the sockets first is what actually frees it.
+   */
   close(): void {
+    if (this._closed) return;
+    this._closed = true;
+
+    for (const [id, call] of this.pending) {
+      clearTimeout(call.timer);
+      call.reject(new Error("Godot MCP server is shutting down"));
+      this.pending.delete(id);
+    }
+
+    for (const client of this.wss.clients) {
+      client.terminate();
+    }
+    this.socket = null;
     this.wss.close();
   }
 }

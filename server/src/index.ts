@@ -155,6 +155,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 /**
+ * Wire process teardown to the bridge.
+ *
+ * The MCP client owns this process' lifetime, but nothing here noticed when it
+ * let go: the SDK's stdio transport listens for 'data' and 'error' on stdin and
+ * never for EOF, while the WebSocket server keeps the event loop alive on its
+ * own. A closed client therefore left an orphan holding the bridge port, which
+ * blocked every later session until it was killed by hand (progress.md 6.5.1).
+ */
+function installShutdownHandlers(): void {
+  let shuttingDown = false;
+
+  const shutdown = (reason: string, code = 0): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.error(`[MCP Server] Shutting down (${reason})`);
+    process.exitCode = code;
+
+    godotConnection.close();
+    void server.close().catch(() => { /* transport already gone */ });
+
+    // With the port released nothing should keep the loop alive, so the process
+    // normally exits on its own from here. This timer is unref'd: it fires only
+    // if some handle is still open, and forces the exit that would otherwise hang.
+    setTimeout(() => process.exit(code), 1_000).unref();
+  };
+
+  // The client closing its end of the pipe is the ordinary way a session ends.
+  process.stdin.on("end", () => shutdown("client closed stdin"));
+  process.stdin.on("close", () => shutdown("client closed stdin"));
+
+  // EPIPE means the client vanished without an orderly EOF (killed parent,
+  // broken pipe). Unhandled, it is also a fatal error event on stdout.
+  process.stdout.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EPIPE") shutdown("stdout pipe closed");
+    else console.error(`[MCP Server] stdout error: ${err.message}`);
+  });
+
+  const signals: NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGHUP"];
+  // SIGBREAK exists only on Windows; registering it elsewhere throws.
+  if (process.platform === "win32") signals.push("SIGBREAK");
+  for (const signal of signals) {
+    process.on(signal, () => shutdown(signal));
+  }
+
+  // Last resort for any exit path that bypasses the above (an uncaught fatal, an
+  // explicit process.exit): release the socket synchronously on the way out.
+  process.on("exit", () => godotConnection.close());
+}
+
+/**
  * Start the MCP server
  */
 async function main(): Promise<void> {
@@ -162,6 +212,7 @@ async function main(): Promise<void> {
   console.error(`[MCP Server] Initializing...`);
 
   registerAllTools();
+  installShutdownHandlers();
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
