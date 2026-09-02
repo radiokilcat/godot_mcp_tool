@@ -1,5 +1,5 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPResourceTools
 
@@ -7,11 +7,6 @@ class_name GodotMCPResourceTools
 ## save_resource, get_project_autoloads, set_autoload.
 ## All resource file operations use ResourceLoader/ResourceSaver (no UndoRedo).
 ## Autoload management uses EditorPlugin.add/remove_autoload_singleton.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("read_resource",         GodotMCPCallableTool.new(_read_resource))
@@ -24,12 +19,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _as_bool(val: Variant) -> bool:
-	if val is bool:
-		return val
-	return str(val).to_lower() == "true"
-
 func _value_to_json(val: Variant) -> Variant:
 	if val == null:          return null
 	if val is bool:          return val
@@ -258,7 +247,6 @@ func _read_resource(args: Dictionary) -> Dictionary:
 		result["resource_name"] = resource.resource_name
 	return result
 
-
 func _edit_resource(args: Dictionary) -> Dictionary:
 	var resource_path: String = args.get("resource_path", "")
 	if resource_path.is_empty():
@@ -315,7 +303,6 @@ func _edit_resource(args: Dictionary) -> Dictionary:
 	if not skipped.is_empty():
 		result["skipped"] = skipped
 	return result
-
 
 func _create_resource(args: Dictionary) -> Dictionary:
 	var resource_class: String = args.get("resource_class", "")
@@ -374,7 +361,6 @@ func _create_resource(args: Dictionary) -> Dictionary:
 		result["set_results"] = set_results
 	return result
 
-
 func _save_resource(args: Dictionary) -> Dictionary:
 	var source_path: String = args.get("source_path", "")
 	if source_path.is_empty():
@@ -401,7 +387,6 @@ func _save_resource(args: Dictionary) -> Dictionary:
 		"copied":      target != source_path,
 	}
 
-
 func _get_project_autoloads(args: Dictionary) -> Dictionary:
 	var autoloads: Array = []
 	for prop in ProjectSettings.get_property_list():
@@ -423,7 +408,6 @@ func _get_project_autoloads(args: Dictionary) -> Dictionary:
 		"autoloads": autoloads,
 		"count":     autoloads.size(),
 	}
-
 
 func _set_autoload(args: Dictionary) -> Dictionary:
 	var autoload_name: String = args.get("name", "")

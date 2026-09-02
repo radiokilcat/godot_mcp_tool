@@ -1,14 +1,9 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPScriptTools
 
 ## Implements all 8 script-level tools.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("read_script",       GodotMCPCallableTool.new(_read_script))
@@ -33,25 +28,14 @@ func _read_file(path: String) -> Variant:
 	return text
 
 func _write_file(path: String, content: String) -> Error:
-	# Ensure parent directory exists
-	var dir := path.get_base_dir()
-	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(dir)):
-		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
+	if not _ensure_dir_for(path).is_empty():
+		return ERR_CANT_CREATE
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return FileAccess.get_open_error()
 	file.store_string(content)
 	file.close()
 	return OK
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := EditorInterface.get_edited_scene_root()
-	if root == null:
-		return null
-	if node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
 func _script_template(extends_type: String, class_name_str: String) -> String:
 	var lines: Array = []
 	if not class_name_str.is_empty():

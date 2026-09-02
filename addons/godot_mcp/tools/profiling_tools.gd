@@ -1,5 +1,5 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPProfilingTools
 
@@ -14,11 +14,6 @@ class_name GodotMCPProfilingTools
 ## list_cached_resources() in get_memory_usage requires Godot 4.1+.
 ## dynamic_bytes/dynamic_memory (Performance.MEMORY_DYNAMIC) only appear on
 ## Godot 4.0-4.3, where that monitor still exists; see version_utils.gd.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("get_performance_monitors", GodotMCPCallableTool.new(_get_performance_monitors))
@@ -104,7 +99,6 @@ func _get_performance_monitors(args: Dictionary) -> Dictionary:
 
 	return {"monitors": monitors}
 
-
 func _get_memory_usage(args: Dictionary) -> Dictionary:
 	## Return a breakdown of Godot's memory consumption.
 	var include_resources: bool = true
@@ -169,10 +163,5 @@ func _get_memory_usage(args: Dictionary) -> Dictionary:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _as_bool(val: Variant) -> bool:
-	if val is bool: return val
-	return str(val).to_lower() == "true"
-
 func _round2(v: float) -> float:
 	return roundf(v * 100.0) / 100.0

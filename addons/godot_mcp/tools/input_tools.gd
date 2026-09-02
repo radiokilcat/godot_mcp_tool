@@ -1,16 +1,11 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPInputTools
 
 ## Implements all 7 input tools.
 ## simulate_* tools inject events via Input.parse_input_event().
 ## record_input_sequence is async (uses await + timer).
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("simulate_key_press",      GodotMCPCallableTool.new(_simulate_key_press))

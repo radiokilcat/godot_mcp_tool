@@ -1,5 +1,5 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPRuntimeTools
 
@@ -11,11 +11,7 @@ class_name GodotMCPRuntimeTools
 ## 4.4); see version_utils.gd for how this is detected without breaking
 ## script parsing on either engine version.
 
-var _plugin: EditorPlugin
 var _prev_time_scale: float = 1.0
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("get_game_state",         GodotMCPCallableTool.new(_get_game_state))
@@ -98,15 +94,6 @@ class GameplayRecorder extends Node:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := EditorInterface.get_edited_scene_root()
-	if root == null:
-		return null
-	if node_path == "." or node_path == root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
 func _node_runtime_dict(node: Node, depth: int, max_depth: int) -> Dictionary:
 	var d := {
 		"name": node.name,
@@ -121,25 +108,6 @@ func _node_runtime_dict(node: Node, depth: int, max_depth: int) -> Dictionary:
 		for child in node.get_children():
 			d["children"].append(_node_runtime_dict(child, depth + 1, max_depth))
 	return d
-
-func _value_to_json(v: Variant) -> Variant:
-	if v is Vector2:     return {"x": v.x, "y": v.y}
-	if v is Vector2i:    return {"x": v.x, "y": v.y}
-	if v is Vector3:     return {"x": v.x, "y": v.y, "z": v.z}
-	if v is Vector3i:    return {"x": v.x, "y": v.y, "z": v.z}
-	if v is Color:       return {"r": v.r, "g": v.g, "b": v.b, "a": v.a}
-	if v is Rect2:       return {"x": v.position.x, "y": v.position.y, "w": v.size.x, "h": v.size.y}
-	if v is Rect2i:      return {"x": v.position.x, "y": v.position.y, "w": v.size.x, "h": v.size.y}
-	if v is Quaternion:  return {"x": v.x, "y": v.y, "z": v.z, "w": v.w}
-	if v is Basis:       return {"x": _value_to_json(v.x), "y": _value_to_json(v.y), "z": _value_to_json(v.z)}
-	if v is Transform2D: return {"origin": _value_to_json(v.origin), "x": _value_to_json(v.x), "y": _value_to_json(v.y)}
-	if v is Transform3D: return {"origin": _value_to_json(v.origin), "basis": _value_to_json(v.basis)}
-	if v is Object:
-		if v is Resource:
-			return v.resource_path if not v.resource_path.is_empty() else str(v)
-		return str(v)
-	return v
-
 func _collect_resources(path: String, type_filter: String, result: Array) -> void:
 	var dir := DirAccess.open(path)
 	if dir == null:

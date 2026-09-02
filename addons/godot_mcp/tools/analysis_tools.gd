@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPAnalysisTools
 
 ## Implements 4 Analysis tools:
 ## analyze_scene_complexity, trace_signal_flow, find_unused_resources, get_code_metrics
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("analyze_scene_complexity", GodotMCPCallableTool.new(_analyze_scene_complexity))
@@ -20,11 +15,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _as_bool(val: Variant) -> bool:
-	if val is bool: return val
-	return str(val).to_lower() == "true"
-
 func _get_filesystem() -> EditorFileSystemDirectory:
 	return _plugin.get_editor_interface().get_resource_filesystem().get_filesystem()
 
@@ -115,7 +105,6 @@ func _analyze_scene_complexity(args: Dictionary) -> Dictionary:
 		"node_type_breakdown":        type_list,
 	}
 
-
 func _trace_signal_flow(args: Dictionary) -> Dictionary:
 	var resolved := _resolve_scene(args)
 	if resolved.has("error"):
@@ -157,7 +146,6 @@ func _trace_signal_flow(args: Dictionary) -> Dictionary:
 		"connections": connections,
 		"count":       connections.size(),
 	}
-
 
 func _find_unused_resources(args: Dictionary) -> Dictionary:
 	# Default to common raw asset types (not .tres/.res — those are covered by orphaned_resources).
@@ -220,7 +208,6 @@ func _find_unused_resources(args: Dictionary) -> Dictionary:
 		"total_checked": candidates.size(),
 	}
 
-
 func _get_code_metrics(args: Dictionary) -> Dictionary:
 	var script_path: String = args.get("script_path", "")
 	var directory: String = args.get("directory", "")
@@ -279,7 +266,6 @@ func _get_code_metrics(args: Dictionary) -> Dictionary:
 		"count":   analyzed_count,
 		"totals":  totals,
 	}
-
 
 func _compute_metrics(content: String, script_path: String) -> Dictionary:
 	var lines: PackedStringArray = content.split("\n")

@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPNodeTools
 
 ## Implements all 14 node-level tools.
 ## All mutations go through UndoRedo so Ctrl+Z works in the editor.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("add_node",            GodotMCPCallableTool.new(_add_node))
@@ -26,22 +21,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("get_node_groups",     GodotMCPCallableTool.new(_get_node_groups))
 	registry.register_tool("get_node_parent",     GodotMCPCallableTool.new(_get_node_parent))
 	registry.register_tool("get_node_children",   GodotMCPCallableTool.new(_get_node_children))
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-func _scene_root() -> Node:
-	return EditorInterface.get_edited_scene_root()
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := _scene_root()
-	if root == null:
-		return null
-	if node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
 func _node_summary(node: Node) -> Dictionary:
 	return {
 		"name": node.name,
@@ -83,44 +62,11 @@ func _coerce_value(node: Node, property: String, value: Variant) -> Variant:
 		break
 	return value
 
-## Pull the numbers out of a Godot type literal.
-## Only the text inside the parentheses is scanned, so digits in the type name
-## itself ("Vector2", "Rect2") are not mistaken for components.
-func _extract_floats(s: String) -> Array:
-	var body := s
-	var open := s.find("(")
-	var close := s.rfind(")")
-	if open != -1 and close > open:
-		body = s.substr(open + 1, close - open - 1)
-	var nums: Array = []
-	var re := RegEx.new()
-	re.compile(r"-?\d+(\.\d+)?")
-	for m in re.search_all(body):
-		nums.append(float(m.get_string()))
-	return nums
-
-func _parse_vector2(s: String) -> Vector2:
-	var n := _extract_floats(s)
-	return Vector2(n[0] if n.size() > 0 else 0.0, n[1] if n.size() > 1 else 0.0)
-
-func _parse_vector3(s: String) -> Vector3:
-	var n := _extract_floats(s)
-	return Vector3(n[0] if n.size() > 0 else 0.0, n[1] if n.size() > 1 else 0.0, n[2] if n.size() > 2 else 0.0)
-
-func _parse_color(s: String) -> Color:
-	if s.begins_with("#"):
-		return Color(s)
-	var n := _extract_floats(s)
-	if n.size() >= 3:
-		return Color(n[0], n[1], n[2], n[3] if n.size() > 3 else 1.0)
-	return Color.WHITE
-
 func _parse_rect2(s: String) -> Rect2:
-	var n := _extract_floats(s)
+	var n := GodotMCPTypeUtils.floats_in(s)
 	if n.size() >= 4:
 		return Rect2(n[0], n[1], n[2], n[3])
 	return Rect2()
-
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
@@ -323,28 +269,6 @@ func _get_node_properties(args: Dictionary) -> Dictionary:
 		if not missing.is_empty():
 			result["not_found"] = missing
 	return result
-
-func _value_to_json(v: Variant) -> Variant:
-	if v is Vector2:
-		return {"x": v.x, "y": v.y}
-	if v is Vector2i:
-		return {"x": v.x, "y": v.y}
-	if v is Vector3:
-		return {"x": v.x, "y": v.y, "z": v.z}
-	if v is Vector3i:
-		return {"x": v.x, "y": v.y, "z": v.z}
-	if v is Color:
-		return {"r": v.r, "g": v.g, "b": v.b, "a": v.a}
-	if v is Rect2:
-		return {"x": v.position.x, "y": v.position.y, "w": v.size.x, "h": v.size.y}
-	if v is Transform2D or v is Transform3D or v is Basis:
-		return str(v)
-	if v is Object:
-		if v is Resource:
-			return v.resource_path if not v.resource_path.is_empty() else str(v)
-		return str(v)
-	return v
-
 func _set_node_property(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	var property: String  = args.get("property", "")

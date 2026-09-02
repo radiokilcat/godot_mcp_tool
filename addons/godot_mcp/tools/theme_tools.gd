@@ -1,16 +1,11 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPThemeTools
 
 ## Implements 6 Theme/UI tools: create_theme, set_theme_color, set_theme_font,
 ## set_theme_constant, set_stylebox, get_theme_info.
 ## All tools operate on .tres Theme files via ResourceLoader/ResourceSaver.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("create_theme",       GodotMCPCallableTool.new(_create_theme))
@@ -23,33 +18,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _parse_color(val: Variant) -> Color:
-	if val is Color:
-		return val
-	if val is String:
-		var s: String = (val as String).strip_edges()
-		if s.begins_with("Color("):
-			s = s.trim_prefix("Color(").trim_suffix(")")
-			var parts: PackedStringArray = s.split(",")
-			if parts.size() >= 3:
-				return Color(float(parts[0]), float(parts[1]), float(parts[2]),
-					float(parts[3]) if parts.size() >= 4 else 1.0)
-		# Use Godot's html validator — handles '#rrggbb', '#rrggbbaa', and bare hex 'rrggbb'
-		if Color.html_is_valid(s):
-			return Color.html(s)
-		if Color.html_is_valid("#" + s):
-			return Color.html("#" + s)
-	if val is Array and val.size() >= 3:
-		return Color(float(val[0]), float(val[1]), float(val[2]),
-			float(val[3]) if val.size() >= 4 else 1.0)
-	return Color.WHITE
-
-func _as_bool(val: Variant) -> bool:
-	if val is bool:
-		return val
-	return str(val).to_lower() == "true"
-
 func _parse_vec2(val: Variant) -> Vector2:
 	if val is Vector2:
 		return val
@@ -76,7 +44,6 @@ func _save_theme(theme: Theme, theme_path: String) -> String:
 	if err != OK:
 		return "Failed to save theme to '%s' (error %d)" % [theme_path, err]
 	return ""
-
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
@@ -115,7 +82,6 @@ func _create_theme(args: Dictionary) -> Dictionary:
 		"default_font_size": theme.default_font_size,
 	}
 
-
 func _set_theme_color(args: Dictionary) -> Dictionary:
 	var theme_path: String = args.get("theme_path", "")
 	var theme_type: String = args.get("theme_type", "")
@@ -149,7 +115,6 @@ func _set_theme_color(args: Dictionary) -> Dictionary:
 		"color_name": color_name,
 		"color":      "#%s" % new_color.to_html(true),
 	}
-
 
 func _set_theme_font(args: Dictionary) -> Dictionary:
 	var theme_path: String = args.get("theme_path", "")
@@ -196,7 +161,6 @@ func _set_theme_font(args: Dictionary) -> Dictionary:
 		"font_path":  font_path,
 	}
 
-
 func _set_theme_constant(args: Dictionary) -> Dictionary:
 	var theme_path:    String = args.get("theme_path", "")
 	var theme_type:    String = args.get("theme_type", "")
@@ -230,7 +194,6 @@ func _set_theme_constant(args: Dictionary) -> Dictionary:
 		"constant_name": constant_name,
 		"value":         new_value,
 	}
-
 
 func _set_stylebox(args: Dictionary) -> Dictionary:
 	var theme_path:    String = args.get("theme_path", "")
@@ -317,7 +280,6 @@ func _set_stylebox(args: Dictionary) -> Dictionary:
 		"stylebox_name": stylebox_name,
 		"stylebox_type": stylebox_type,
 	}
-
 
 func _get_theme_info(args: Dictionary) -> Dictionary:
 	var theme_path: String = args.get("theme_path", "")

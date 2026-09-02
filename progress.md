@@ -887,7 +887,7 @@ The last three are a closed island referencing only each other.
   pays for it in tokens.
 - **Priority:** HIGH (cheap, and it removes a live trap)
 
-### [ ] 9.3 - Shared tool base class — **do this before 6.1.1**
+### [x] 9.3 - Shared tool base class (done 2026-09-02) — **6.1.1 can now be written against it**
 Duplicate helpers across addons/godot_mcp/tools/*.gd:
 
 | Helper | Copies | Note |
@@ -904,17 +904,46 @@ Duplicate helpers across addons/godot_mcp/tools/*.gd:
 Six `_resolve_node` variants means six behaviours for the same bad path from an agent — this is
 the mechanism behind three separate bug-fix rounds already recorded above.
 
-- [ ] 9.3.1 - `GodotMCPToolBase (RefCounted)` holding `_init(plugin)`, `_scene_root()`,
-  `_resolve_node()`, `_add_to_scene()`, `_as_bool()`, `_value_to_json()`, `_write_file/_read_file`;
-  vector and colour parsing goes into the existing type_utils.gd. Expect ~600-800 lines removed.
-- [ ] 9.3.2 - Collapse plugin.gd:139-189 (23 fields + 23 `new()` + 23 `register()`) into a loop
-  over a class array. This also removes the constructor inconsistency living there:
-  `GodotMCPProjectTools.new()` takes no argument while the other 22 take `self`.
-- [ ] 9.3.3 - Replace the Python-ism `"""docstrings"""` — standalone string expressions, not
-  documentation — with `##` comments: plugin.gd (20), protocol_handler.gd (8), tool_registry.gd (5).
-- **Sequencing:** before 6.1.1, so effect-level assertions are written against one implementation
-  rather than six.
-- **Effort:** 4-6 hours
+- [x] 9.3.1 - `GodotMCPToolBase (RefCounted)` — **done 2026-09-02**, addons/godot_mcp/tool_base.gd.
+  Holds `_plugin` and `_init(plugin = null)` (the default keeps `GodotMCPProjectTools.new()`
+  working), `_scene_root()`, `_resolve_node()`, `_resolve_parent()`, `_add_to_scene()`,
+  `_as_bool()`, `_value_to_json()`, `_ensure_dir_for()`, and thin `_parse_vector2/3`/`_parse_color`
+  over GodotMCPTypeUtils. All 23 tool classes now extend it. **Net −714 lines** (850 deleted).
+- **Where the copies disagreed, the union won — and two of the disagreements were bugs:**
+  `_as_bool` in 8 of 9 files recognised only the literal string `"true"`, so a client sending `1`
+  got `false`; the ninth (scene_3d) handled all three forms and is what the base does now.
+  `_parse_color` in particle/scene_3d passed a `"Color(1, 0, 0)"` string straight to
+  `Color(String)`, which expects HTML and pushes an engine error — the project's own documented
+  shorthand failed in one tool and worked in another, the same shape of defect as 6.6.14. The new
+  `GodotMCPTypeUtils.to_color()` takes Color, Dictionary, Array, `"Color(...)"`, `#rrggbb`, bare
+  hex and a loose `"1, 0, 0"`. `_ensure_dir_for` folds in the 3.17b fix that had been applied to
+  one of three copies: script_tools and scene_tools still called
+  `DirAccess.make_dir_recursive_absolute()`, which does not exist before Godot 4.1, while the
+  project targets 4.0+.
+- [x] 9.3.2 - **Done.** plugin.gd registers from a list of classes in a loop — 69 lines of
+  boilerplate became 8, and the `GodotMCPProjectTools.new()` / `.new(self)` inconsistency is gone.
+  The list is a local `var`, not a `const`: an Array literal is not a constant expression in
+  GDScript. **The syntax gate (6.6.15) caught that in 6 seconds** — `plugin.gd:19 Assigned value
+  for constant "TOOL_CLASSES" isn't a constant expression` — instead of a 4-minute E2E run
+  reporting "Tool not found" for all 163 tools.
+- [x] 9.3.3 - **Done.** 23 Python-style `"""docstrings"""` (standalone string expressions, not
+  documentation) became `##` comments in plugin.gd, tool_registry.gd and heartbeat.gd.
+  protocol_handler.gd's 8 went with the file itself in 9.2.
+- **Deliberately not merged, so the next reader does not re-open it:**
+  - `_write_file`/`_read_file` (script_tools vs shader_tools) return different things by design —
+    `Error`/`null` versus a message string / `{"error": ...}` — and their 13 call sites branch on
+    that. Unifying means rewriting all 13 for no behavioural gain; the part that *was* shared and
+    buggy (directory creation) is now `_ensure_dir_for` on the base.
+  - `_value_to_json` in resource_tools stays an override: it is a serializer with an inverse
+    (`_parse_prop_value` must read its output back), not a display conversion, and it summarises
+    PackedByteArray rather than dumping megabytes (3.18b).
+  - `_coerce_value` in animation vs node tools share a name but not a job: one coerces by the
+    literal's shape, the other by the target property's Variant type.
+  - `_get_filesystem` and `_collect_files_by_ext` (analysis vs batch, ~30 lines) are still
+    duplicated — small, and untangling them was not worth extending an already large diff.
+- **Verified after every stage:** `check-syntax --all` over all 32 scripts, then the full suite —
+  **218 passed / 0 failed, 163/163 tools** on 4.7.2 and 4.4.1, and the plugin logs
+  `Registered 163 tools from 23 categories`.
 
 ### [ ] 9.4 - Reliability
 - [x] 9.4.1 - **Per-tool timeouts. Done 2026-09-02.** godot-connection.ts:9 applied a flat `TOOL_TIMEOUT_MS = 15_000`
@@ -1128,7 +1157,9 @@ lines per run on 4.4.1, identical on 4.7.2, i.e. deterministic rather than flaky
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-09-02 (**9.4.1 and 9.4.2 done — the two remaining defects a live user could hit.** Timeouts are now derived per call from the tool's own `timeout`/`duration` argument (plus a table for the inherently slow ones), so `listen_to_signal` at 30 s and `execute_script` at 60 s can finally return; and the WebSocket buffers are 4 MB instead of Godot's 64 KB default, with an explicit "result could not be sent, narrow the request" reply if a payload still will not fit. Both carry regression tests (E-11, E-12) that were **verified to fail without the fix**. **218 passed / 0 failed, 163/163 tools** on 4.7.2 and 4.4.1. Next: 9.3 (shared tool base class) before 6.1.1.)
+**Last Updated:** 2026-09-02 (**9.3 done — the 23 tool classes now share one base**, `GodotMCPToolBase`. Net **−714 lines**, and `_resolve_node` is one implementation instead of 6 across 13 files. Two of the disagreements between the old copies turned out to be bugs: `_as_bool` answered `false` for a numeric `1` in 8 of 9 files, and `_parse_color` in two files pushed an engine error for the project's own `"Color(1, 0, 0)"` shorthand. The 4.0-incompatible `make_dir_recursive_absolute` that 3.17b fixed in one of three places is gone from the other two. 218/218 on 4.7.2 and 4.4.1 after every stage. Next: 6.1.1 effect assertions, or 9.5+6.5.3 (auth + transport inversion) as one piece.)
+
+**Previously:** 2026-09-02 (**9.4.1 and 9.4.2 done — the two remaining defects a live user could hit.** Timeouts are now derived per call from the tool's own `timeout`/`duration` argument (plus a table for the inherently slow ones), so `listen_to_signal` at 30 s and `execute_script` at 60 s can finally return; and the WebSocket buffers are 4 MB instead of Godot's 64 KB default, with an explicit "result could not be sent, narrow the request" reply if a payload still will not fit. Both carry regression tests (E-11, E-12) that were **verified to fail without the fix**. **218 passed / 0 failed, 163/163 tools** on 4.7.2 and 4.4.1. Next: 9.3 (shared tool base class) before 6.1.1.)
 
 **Previously:** 2026-09-02 (**9.2 done — ~1530 lines of dead code deleted**, 8 files plus the one unit test, which covered a module nothing imported. Verified before and after: repo-wide search over every tracked file type, `class_name` cross-check against actually declared names (which caught a false negative in the review — undo_redo_manager.gd declares `GodotMCPUndoRedo`), config/preload checks, then a clean rebuild, `check-syntax --all` over all 31 remaining scripts, and **216/216, 163/163 tools on both 4.7.2 and 4.4.1**. Next: 9.4.1/9.4.2, then 9.3 before 6.1.1.)
 

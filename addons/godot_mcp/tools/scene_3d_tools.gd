@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCP3DSceneTools
 
 ## Implements 6 3D Scene tools: add_mesh, add_camera, add_light,
 ## set_environment, add_gridmap, get_3d_scene_info.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("add_mesh",          GodotMCPCallableTool.new(_add_mesh))
@@ -18,31 +13,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("set_environment",   GodotMCPCallableTool.new(_set_environment))
 	registry.register_tool("add_gridmap",       GodotMCPCallableTool.new(_add_gridmap))
 	registry.register_tool("get_3d_scene_info", GodotMCPCallableTool.new(_get_3d_scene_info))
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-func _scene_root() -> Node:
-	return EditorInterface.get_edited_scene_root()
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := _scene_root()
-	if root == null:
-		return null
-	if node_path.is_empty() or node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
-func _resolve_parent(root: Node, parent_path: String) -> Node:
-	if parent_path.is_empty() or parent_path == "." or parent_path == root.name:
-		return root
-	return root.get_node_or_null(parent_path)
-
-func _parse_vector3(val: Variant, default_val: Vector3 = Vector3.ZERO) -> Vector3:
-	return GodotMCPTypeUtils.to_vector3(val, default_val)
-
-## Variant type of a property, or -1 when the object has no such property.
 func _property_type(obj: Object, prop_name: String) -> int:
 	for prop in obj.get_property_list():
 		if prop.get("name", "") == prop_name:
@@ -59,46 +29,10 @@ func _coerce(value: Variant, prop_type: int) -> Variant:
 		TYPE_INT:     return int(value)
 		TYPE_BOOL:    return _as_bool(value)
 	return value
-
-func _as_bool(value: Variant) -> bool:
-	if value is String:
-		return value.to_lower() in ["true", "1", "yes"]
-	return bool(value)
-
 func _readable(value: Variant) -> Variant:
 	if value is Vector3: return {"x": value.x, "y": value.y, "z": value.z}
 	if value is Vector2: return {"x": value.x, "y": value.y}
 	return value
-
-func _parse_color(val: Variant, default_val: Color = Color.WHITE) -> Color:
-	if val is Color:
-		return val
-	if val is String and not val.is_empty():
-		return Color(val)
-	if val is Dictionary:
-		return Color(float(val.get("r", 1.0)), float(val.get("g", 1.0)), float(val.get("b", 1.0)), float(val.get("a", 1.0)))
-	return default_val
-
-## Adds node to scene via UndoRedo and returns a base result dict.
-## Caller must set node properties before invoking this helper.
-func _add_to_scene(new_node: Node, parent: Node, node_name: String, action_name: String) -> Dictionary:
-	var root := _scene_root()
-	new_node.name = node_name
-	var ur := _plugin.get_undo_redo()
-	ur.create_action(action_name)
-	ur.add_do_method(parent, "add_child", new_node, true)
-	ur.add_do_property(new_node, "owner", root)
-	ur.add_do_reference(new_node)
-	ur.add_undo_method(parent, "remove_child", new_node)
-	ur.add_undo_reference(new_node)
-	ur.commit_action()
-	return {
-		"success": true,
-		"node_name": new_node.name,
-		"node_path": str(root.get_path_to(new_node)),
-	}
-
-## DFS search for first WorldEnvironment in subtree.
 func _find_world_environment(node: Node) -> WorldEnvironment:
 	if node is WorldEnvironment:
 		return node as WorldEnvironment
@@ -154,7 +88,6 @@ func _collect_3d_nodes(node: Node, root: Node, out: Array, depth: int) -> void:
 		# Non-3D organizer node: traverse children without spending depth budget.
 		for child in node.get_children():
 			_collect_3d_nodes(child, root, out, depth)
-
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
@@ -239,7 +172,6 @@ func _add_mesh(args: Dictionary) -> Dictionary:
 		result["material"] = material_note
 	return result
 
-
 func _add_camera(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
 	if root == null:
@@ -282,7 +214,6 @@ func _add_camera(args: Dictionary) -> Dictionary:
 	else:
 		result["fov"] = cam.fov
 	return result
-
 
 func _add_light(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
@@ -327,7 +258,6 @@ func _add_light(args: Dictionary) -> Dictionary:
 	var result := _add_to_scene(light, parent, node_name, "Add Light3D '%s'" % node_name)
 	result["light_type"] = light_type
 	return result
-
 
 func _set_environment(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
@@ -411,7 +341,6 @@ func _set_environment(args: Dictionary) -> Dictionary:
 		"background_mode": bg_mode if not bg_mode.is_empty() else "unchanged",
 	}
 
-
 func _add_gridmap(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
 	if root == null:
@@ -442,7 +371,6 @@ func _add_gridmap(args: Dictionary) -> Dictionary:
 	var result := _add_to_scene(gm, parent, node_name, "Add GridMap '%s'" % node_name)
 	result["cell_size"] = {"x": gm.cell_size.x, "y": gm.cell_size.y, "z": gm.cell_size.z}
 	return result
-
 
 func _get_3d_scene_info(args: Dictionary) -> Dictionary:
 	var root := _scene_root()

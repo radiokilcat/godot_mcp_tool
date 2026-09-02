@@ -14,30 +14,10 @@ var websocket_client: GodotMCPWebSocketClient
 var heartbeat: GodotMCPHeartbeat
 var tool_registry: GodotMCPToolRegistry
 
-# Tool handler instances — must be held here to prevent RefCounted GC
-var _tool_project: GodotMCPProjectTools
-var _tool_scene: GodotMCPSceneTools
-var _tool_node: GodotMCPNodeTools
-var _tool_script: GodotMCPScriptTools
-var _tool_editor: GodotMCPEditorTools
-var _tool_input: GodotMCPInputTools
-var _tool_runtime: GodotMCPRuntimeTools
-var _tool_animation: GodotMCPAnimationTools
-var _tool_animation_tree: GodotMCPAnimationTreeTools
-var _tool_scene_3d: GodotMCP3DSceneTools
-var _tool_physics: GodotMCPPhysicsTools
-var _tool_particles: GodotMCPParticleTools
-var _tool_navigation: GodotMCPNavigationTools
-var _tool_audio: GodotMCPAudioTools
-var _tool_tilemap: GodotMCPTileMapTools
-var _tool_theme: GodotMCPThemeTools
-var _tool_shader: GodotMCPShaderTools
-var _tool_resource: GodotMCPResourceTools
-var _tool_batch: GodotMCPBatchTools
-var _tool_analysis: GodotMCPAnalysisTools
-var _tool_testing: GodotMCPTestingTools
-var _tool_profiling: GodotMCPProfilingTools
-var _tool_export: GodotMCPExportTools
+## The instances must be held for the life of the plugin: they are RefCounted,
+## and when they were temporaries inside _register_tools() the GC freed them the
+## moment registration returned, leaving every tool bound to a null instance (3.25).
+var _tools: Array = []
 
 # Configuration
 # 127.0.0.1, not "localhost": the server binds IPv4 loopback, while "localhost"
@@ -55,18 +35,18 @@ var is_connected: bool = false
 var reconnect_attempts: int = 0
 var _tool_busy: bool = false
 
+## Called when plugin is enabled
 func _enter_tree() -> void:
-	"""Called when plugin is enabled"""
 	print_log("Loading Godot MCP v%s" % VERSION)
 	_initialize_plugin()
 
+## Called when plugin is disabled
 func _exit_tree() -> void:
-	"""Called when plugin is disabled"""
 	print_log("Unloading Godot MCP")
 	_shutdown_plugin()
 
+## Initialize all plugin components
 func _initialize_plugin() -> void:
-	"""Initialize all plugin components"""
 	if is_initialized:
 		return
 
@@ -106,8 +86,8 @@ func _initialize_plugin() -> void:
 	if auto_connect:
 		_connect_to_server()
 
+## Shutdown all plugin components
 func _shutdown_plugin() -> void:
-	"""Shutdown all plugin components"""
 	if not is_initialized:
 		return
 
@@ -121,13 +101,14 @@ func _shutdown_plugin() -> void:
 		websocket_client.disconnect_from_server()
 		websocket_client = null
 
+	_tools.clear()
 	tool_registry = null
 	is_initialized = false
 	is_connected = false
 	print_log("Plugin shutdown complete")
 
+## Connect to MCP server
 func _connect_to_server() -> void:
-	"""Connect to MCP server"""
 	if not is_initialized:
 		return
 
@@ -137,67 +118,53 @@ func _connect_to_server() -> void:
 	print_log("Connecting to MCP server at %s:%d" % [server_host, server_port])
 	websocket_client.connect_to_server()
 
+## Disconnect from MCP server
 func _disconnect_from_server() -> void:
-	"""Disconnect from MCP server"""
 	if not is_connected:
 		return
 
 	websocket_client.disconnect_from_server()
 
+## Register all available tools. The categories are listed as classes rather than
+## as 23 fields plus 23 constructor calls plus 23 register() calls, so adding one
+## is a single line. Local rather than a const because an Array literal is not a
+## constant expression in GDScript.
 func _register_tools() -> void:
-	"""Register all available tools"""
-	_tool_project = GodotMCPProjectTools.new()
-	_tool_scene = GodotMCPSceneTools.new(self)
-	_tool_node = GodotMCPNodeTools.new(self)
-	_tool_script = GodotMCPScriptTools.new(self)
-	_tool_editor = GodotMCPEditorTools.new(self)
-	_tool_input = GodotMCPInputTools.new(self)
-	_tool_runtime = GodotMCPRuntimeTools.new(self)
-	_tool_animation = GodotMCPAnimationTools.new(self)
-	_tool_animation_tree = GodotMCPAnimationTreeTools.new(self)
-	_tool_scene_3d = GodotMCP3DSceneTools.new(self)
-	_tool_physics = GodotMCPPhysicsTools.new(self)
-	_tool_particles = GodotMCPParticleTools.new(self)
-	_tool_navigation = GodotMCPNavigationTools.new(self)
-	_tool_audio = GodotMCPAudioTools.new(self)
-	_tool_tilemap = GodotMCPTileMapTools.new(self)
-	_tool_theme = GodotMCPThemeTools.new(self)
-	_tool_shader = GodotMCPShaderTools.new(self)
-	_tool_resource = GodotMCPResourceTools.new(self)
-	_tool_batch = GodotMCPBatchTools.new(self)
-	_tool_analysis = GodotMCPAnalysisTools.new(self)
-	_tool_testing = GodotMCPTestingTools.new(self)
-	_tool_profiling = GodotMCPProfilingTools.new(self)
-	_tool_export = GodotMCPExportTools.new(self)
+	var tool_classes: Array = [
+		GodotMCPProjectTools,
+		GodotMCPSceneTools,
+		GodotMCPNodeTools,
+		GodotMCPScriptTools,
+		GodotMCPEditorTools,
+		GodotMCPInputTools,
+		GodotMCPRuntimeTools,
+		GodotMCPAnimationTools,
+		GodotMCPAnimationTreeTools,
+		GodotMCP3DSceneTools,
+		GodotMCPPhysicsTools,
+		GodotMCPParticleTools,
+		GodotMCPNavigationTools,
+		GodotMCPAudioTools,
+		GodotMCPTileMapTools,
+		GodotMCPThemeTools,
+		GodotMCPShaderTools,
+		GodotMCPResourceTools,
+		GodotMCPBatchTools,
+		GodotMCPAnalysisTools,
+		GodotMCPTestingTools,
+		GodotMCPProfilingTools,
+		GodotMCPExportTools,
+	]
+	_tools.clear()
+	for tool_class in tool_classes:
+		var instance: GodotMCPToolBase = tool_class.new(self)
+		_tools.append(instance)
+		instance.register(tool_registry)
 
-	_tool_project.register(tool_registry)
-	_tool_scene.register(tool_registry)
-	_tool_node.register(tool_registry)
-	_tool_script.register(tool_registry)
-	_tool_editor.register(tool_registry)
-	_tool_input.register(tool_registry)
-	_tool_runtime.register(tool_registry)
-	_tool_animation.register(tool_registry)
-	_tool_animation_tree.register(tool_registry)
-	_tool_scene_3d.register(tool_registry)
-	_tool_physics.register(tool_registry)
-	_tool_particles.register(tool_registry)
-	_tool_navigation.register(tool_registry)
-	_tool_audio.register(tool_registry)
-	_tool_tilemap.register(tool_registry)
-	_tool_theme.register(tool_registry)
-	_tool_shader.register(tool_registry)
-	_tool_resource.register(tool_registry)
-	_tool_batch.register(tool_registry)
-	_tool_analysis.register(tool_registry)
-	_tool_testing.register(tool_registry)
-	_tool_profiling.register(tool_registry)
-	_tool_export.register(tool_registry)
+	print_log("Registered %d tools from %d categories" % [tool_registry.get_tool_count(), _tools.size()])
 
-	print_log("Registered %d tools" % tool_registry.get_tool_count())
-
+## Handle a tool call from the server
 func _handle_tool_call(tool_name: String, args: Dictionary) -> Variant:
-	"""Handle a tool call from the server"""
 	var tool = tool_registry.get_tool(tool_name)
 	if tool == null:
 		push_error("%s Tool not found: %s" % [LOG_PREFIX, tool_name])
@@ -210,8 +177,8 @@ func _handle_tool_call(tool_name: String, args: Dictionary) -> Variant:
 # WebSocket Event Handlers
 # ============================================================================
 
+## Handle WebSocket connection established
 func _on_websocket_connected() -> void:
-	"""Handle WebSocket connection established"""
 	is_connected = true
 	reconnect_attempts = 0
 	reconnect_delay = 1.0
@@ -224,8 +191,8 @@ func _on_websocket_connected() -> void:
 	# Notify that we're ready
 	_send_ready_message()
 
+## Handle WebSocket connection closed
 func _on_websocket_disconnected() -> void:
-	"""Handle WebSocket connection closed"""
 	if is_connected:
 		print_log("Disconnected from MCP server")
 	is_connected = false
@@ -238,12 +205,12 @@ func _on_websocket_disconnected() -> void:
 	if auto_connect:
 		_schedule_reconnect()
 
+## Handle WebSocket error
 func _on_websocket_error(error: String) -> void:
-	"""Handle WebSocket error"""
 	push_error("%s WebSocket error: %s" % [LOG_PREFIX, error])
 
+## Handle message received from WebSocket
 func _on_websocket_message(data: String) -> void:
-	"""Handle message received from WebSocket"""
 	var message = JSON.parse_string(data)
 	if message == null:
 		push_error("%s Failed to parse message" % LOG_PREFIX)
@@ -273,8 +240,8 @@ func _on_websocket_message(data: String) -> void:
 		_:
 			print_log("Unknown message type: %s" % msg_type)
 
+## Handle heartbeat ping timeout
 func _on_ping_timeout() -> void:
-	"""Handle heartbeat ping timeout"""
 	print_log("Ping timeout - reconnecting")
 	_disconnect_from_server()
 
@@ -282,12 +249,12 @@ func _on_ping_timeout() -> void:
 # Heartbeat Handlers
 # ============================================================================
 
+## Handle ping from server
 func _handle_ping() -> void:
-	"""Handle ping from server"""
 	_send_message({"type": "pong"})
 
+## Handle pong response from server
 func _handle_pong() -> void:
-	"""Handle pong response from server"""
 	if heartbeat:
 		heartbeat.on_pong_received()
 
@@ -295,8 +262,8 @@ func _handle_pong() -> void:
 # Message Sending
 # ============================================================================
 
+## Send ready message to server
 func _send_ready_message() -> void:
-	"""Send ready message to server"""
 	_send_message({
 		"type": "ready",
 		"godot_version": Engine.get_version_info().get("string", ""),
@@ -337,8 +304,8 @@ func _send_message(message: Dictionary) -> Error:
 # Reconnect Logic
 # ============================================================================
 
+## Schedule a reconnection attempt
 func _schedule_reconnect() -> void:
-	"""Schedule a reconnection attempt"""
 	reconnect_attempts += 1
 	var delay = min(reconnect_delay * pow(2, reconnect_attempts - 1), max_reconnect_delay)
 	print_log("Scheduling reconnect in %.1f seconds (attempt %d)" % [delay, reconnect_attempts])
@@ -350,8 +317,8 @@ func _schedule_reconnect() -> void:
 # Utility Functions
 # ============================================================================
 
+## Print log message with plugin prefix
 func print_log(message: String) -> void:
-	"""Print log message with plugin prefix"""
 	print("%s %s" % [LOG_PREFIX, message])
 
 ## Get the current connection status

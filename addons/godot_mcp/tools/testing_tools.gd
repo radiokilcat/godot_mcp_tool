@@ -1,13 +1,11 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPTestingTools
 
 ## Implements 6 Testing/QA tools:
 ## run_automated_tests, assert_node_state, compare_screenshots,
 ## record_test, replay_test, get_test_report
-
-var _plugin: EditorPlugin
 
 # In-memory test recording state
 var _recording: bool = false
@@ -16,9 +14,6 @@ var _recording_name: String = ""
 
 # Last test report
 var _last_report: Dictionary = {}
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("run_automated_tests",  GodotMCPCallableTool.new(_run_automated_tests))
@@ -31,27 +26,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _as_bool(val: Variant) -> bool:
-	if val is bool: return val
-	return str(val).to_lower() == "true"
-
-func _get_editor_interface() -> EditorInterface:
-	return _plugin.get_editor_interface()
-
-func _get_scene_root() -> Node:
-	return _get_editor_interface().get_edited_scene_root()
-
-## Resolve a node by path from the edited scene root.
-func _resolve_node(node_path: String) -> Variant:
-	var root: Node = _get_scene_root()
-	if root == null:
-		return null
-	if node_path.is_empty() or node_path == ".":
-		return root
-	return root.get_node_or_null(NodePath(node_path))
-
-## Compare two Image objects and return a pixel-difference ratio [0.0, 1.0].
 func _image_diff_ratio(img_a: Image, img_b: Image) -> float:
 	if img_a.get_size() != img_b.get_size():
 		return 1.0
@@ -171,7 +145,6 @@ func _run_automated_tests(args: Dictionary) -> Dictionary:
 	_last_report = report
 	return report
 
-
 func _assert_node_state(args: Dictionary) -> Dictionary:
 	## Check that a node property (or a set of properties) matches expected values.
 	## Returns {passed: bool, assertions: [...]} with per-check details.
@@ -236,7 +209,6 @@ func _assert_node_state(args: Dictionary) -> Dictionary:
 		"assertions": assertion_results,
 	}
 
-
 func _compare_screenshots(args: Dictionary) -> Dictionary:
 	## Compare two screenshot files and report the pixel-difference ratio.
 	## Optionally fail if the ratio exceeds a threshold.
@@ -283,7 +255,6 @@ func _compare_screenshots(args: Dictionary) -> Dictionary:
 		"threshold":  threshold,
 		"passed":     passed,
 	}
-
 
 func _record_test(args: Dictionary) -> Dictionary:
 	## Start or stop recording a test sequence.
@@ -341,7 +312,6 @@ func _record_test(args: Dictionary) -> Dictionary:
 
 		_:
 			return {"error": "Unknown action '%s'. Use 'start', 'stop', 'add_event', or 'status'." % action}
-
 
 func _replay_test(args: Dictionary) -> Dictionary:
 	## Replay a list of recorded test events.
@@ -422,7 +392,6 @@ func _replay_test(args: Dictionary) -> Dictionary:
 		"errors":      errors,
 		"status":      "pass" if errors.is_empty() else "partial",
 	}
-
 
 func _get_test_report(args: Dictionary) -> Dictionary:
 	## Return the most recent test report produced by run_automated_tests.

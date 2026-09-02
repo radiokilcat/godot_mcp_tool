@@ -1,5 +1,5 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPProjectTools
 

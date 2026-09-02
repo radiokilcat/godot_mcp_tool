@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPAnimationTreeTools
 
 ## Implements all 8 AnimationTree tools.
 ## Covers StateMachine states/transitions, BlendTree, BlendSpace 1D/2D.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("create_animation_tree",      GodotMCPCallableTool.new(_create_animation_tree))
@@ -20,22 +15,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("get_state_machine_info",     GodotMCPCallableTool.new(_get_state_machine_info))
 	registry.register_tool("edit_blend_space",           GodotMCPCallableTool.new(_edit_blend_space))
 	registry.register_tool("delete_animation_tree_node", GodotMCPCallableTool.new(_delete_animation_tree_node))
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-func _scene_root() -> Node:
-	return EditorInterface.get_edited_scene_root()
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := _scene_root()
-	if root == null:
-		return null
-	if node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
 func _get_animation_tree(node_path: String) -> Variant:
 	var node := _resolve_node(node_path)
 	if node == null:

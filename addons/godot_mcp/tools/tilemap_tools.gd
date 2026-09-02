@@ -1,5 +1,5 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPTileMapTools
 
@@ -11,11 +11,6 @@ class_name GodotMCPTileMapTools
 ## has no `layer` argument on its cell methods and represents a single layer;
 ## pass layer 0 (default) or omit it. See _is_layer_node() and version_utils.gd.
 
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
-
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("set_tile_cell",    GodotMCPCallableTool.new(_set_tile_cell))
 	registry.register_tool("fill_tiles",       GodotMCPCallableTool.new(_fill_tiles))
@@ -23,22 +18,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("get_tileset_info", GodotMCPCallableTool.new(_get_tileset_info))
 	registry.register_tool("erase_tile_cell",  GodotMCPCallableTool.new(_erase_tile_cell))
 	registry.register_tool("get_tilemap_info", GodotMCPCallableTool.new(_get_tilemap_info))
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-func _scene_root() -> Node:
-	return EditorInterface.get_edited_scene_root()
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := _scene_root()
-	if root == null:
-		return null
-	if node_path.is_empty() or node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
 func _parse_vec2i(val: Variant, default_val: Vector2i = Vector2i.ZERO) -> Vector2i:
 	if val is Vector2i:
 		return val
@@ -155,7 +134,6 @@ func _set_tile_cell(args: Dictionary) -> Dictionary:
 		"alternative":  alt,
 	}
 
-
 func _fill_tiles(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if not args.has("from_coords"):
@@ -227,7 +205,6 @@ func _fill_tiles(args: Dictionary) -> Dictionary:
 		"to_coords":    {"x": max_x, "y": max_y},
 	}
 
-
 func _query_tile_cell(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if not args.has("coords"):
@@ -268,7 +245,6 @@ func _query_tile_cell(args: Dictionary) -> Dictionary:
 				info["source_name"] = src.resource_name
 
 	return info
-
 
 func _get_tileset_info(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
@@ -311,7 +287,6 @@ func _get_tileset_info(args: Dictionary) -> Dictionary:
 		"sources":      sources,
 	}
 
-
 func _erase_tile_cell(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if not args.has("coords"):
@@ -353,7 +328,6 @@ func _erase_tile_cell(args: Dictionary) -> Dictionary:
 		"coords":    {"x": coords.x, "y": coords.y},
 		"was_empty": old_src == -1,
 	}
-
 
 func _get_tilemap_info(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")

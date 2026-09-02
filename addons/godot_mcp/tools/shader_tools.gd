@@ -1,5 +1,5 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPShaderTools
 
@@ -7,11 +7,6 @@ class_name GodotMCPShaderTools
 ## set_shader_param, get_shader_info, validate_shader.
 ## File-based tools (create/edit) write to disk without UndoRedo.
 ## Node-mutation tools (assign_material, set_shader_param) use EditorUndoRedo.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("create_shader",    GodotMCPCallableTool.new(_create_shader))
@@ -24,12 +19,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _as_bool(val: Variant) -> bool:
-	if val is bool:
-		return val
-	return str(val).to_lower() == "true"
-
 static func _skeleton_for_type(t: String) -> String:
 	match t:
 		"spatial":
@@ -103,16 +92,9 @@ func _uniform_list(shader: Shader) -> Array:
 	return out
 
 func _write_file(path: String, content: String) -> String:
-	var parent := path.get_base_dir()
-	if not parent.is_empty() and DirAccess.open(parent) == null:
-		# Use instance-based make_dir_recursive for Godot 4.0 compatibility
-		# (DirAccess.make_dir_recursive_absolute was added in Godot 4.1)
-		var root := DirAccess.open("res://")
-		if root == null:
-			return "Cannot access res:// directory"
-		var err := root.make_dir_recursive(parent.trim_prefix("res://"))
-		if err != OK:
-			return "Failed to create directory '%s' (error %d)" % [parent, err]
+	var dir_err := _ensure_dir_for(path)
+	if not dir_err.is_empty():
+		return dir_err
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return "Failed to open '%s' for writing (error %d)" % [path, FileAccess.get_open_error()]
@@ -230,7 +212,6 @@ func _create_shader(args: Dictionary) -> Dictionary:
 		"material_path": material_path if not material_path.is_empty() else null,
 	}
 
-
 func _edit_shader(args: Dictionary) -> Dictionary:
 	var shader_path: String = args.get("shader_path", "")
 	if shader_path.is_empty():
@@ -259,7 +240,6 @@ func _edit_shader(args: Dictionary) -> Dictionary:
 		"shader_path": shader_path,
 		"code_length": new_code.length(),
 	}
-
 
 func _assign_material(args: Dictionary) -> Dictionary:
 	var node_path: String     = args.get("node_path", "")
@@ -327,7 +307,6 @@ func _assign_material(args: Dictionary) -> Dictionary:
 		"surface_index": surface_idx if node is GeometryInstance3D else null,
 	}
 
-
 func _set_shader_param(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if node_path.is_empty():
@@ -369,7 +348,6 @@ func _set_shader_param(args: Dictionary) -> Dictionary:
 		"old_value":  str(old_val),
 		"new_value":  str(parsed_val),
 	}
-
 
 func _get_shader_info(args: Dictionary) -> Dictionary:
 	var shader_path: String   = args.get("shader_path", "")
@@ -426,7 +404,6 @@ func _get_shader_info(args: Dictionary) -> Dictionary:
 			param_values[pname] = str(mat.get_shader_parameter(pname))
 		result["param_values"] = param_values
 	return result
-
 
 func _validate_shader(args: Dictionary) -> Dictionary:
 	var shader_path: String = args.get("shader_path", "")

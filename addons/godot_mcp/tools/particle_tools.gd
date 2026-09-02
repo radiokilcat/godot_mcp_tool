@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPParticleTools
 
 ## Implements 5 Particle tools: create_particle_system, set_particle_material,
 ## set_particle_gradient, load_particle_preset, get_particle_info.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("create_particle_system", GodotMCPCallableTool.new(_create_particle_system))
@@ -17,60 +12,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("set_particle_gradient",  GodotMCPCallableTool.new(_set_particle_gradient))
 	registry.register_tool("load_particle_preset",   GodotMCPCallableTool.new(_load_particle_preset))
 	registry.register_tool("get_particle_info",      GodotMCPCallableTool.new(_get_particle_info))
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-func _scene_root() -> Node:
-	return EditorInterface.get_edited_scene_root()
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := _scene_root()
-	if root == null:
-		return null
-	if node_path.is_empty() or node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
-func _resolve_parent(root: Node, parent_path: String) -> Node:
-	if parent_path.is_empty() or parent_path == "." or parent_path == root.name:
-		return root
-	return root.get_node_or_null(parent_path)
-
-func _parse_vector2(val: Variant, default_val: Vector2 = Vector2.ZERO) -> Vector2:
-	return GodotMCPTypeUtils.to_vector2(val, default_val)
-
-func _parse_vector3(val: Variant, default_val: Vector3 = Vector3.ZERO) -> Vector3:
-	return GodotMCPTypeUtils.to_vector3(val, default_val)
-
-func _parse_color(val: Variant, default_val: Color = Color.WHITE) -> Color:
-	if val is Color:
-		return val
-	if val is String and not val.is_empty():
-		return Color(val)
-	if val is Dictionary:
-		return Color(float(val.get("r", 1.0)), float(val.get("g", 1.0)), float(val.get("b", 1.0)), float(val.get("a", 1.0)))
-	return default_val
-
-func _add_to_scene(new_node: Node, parent: Node, node_name: String, action_name: String) -> Dictionary:
-	var root := _scene_root()
-	new_node.name = node_name
-	var ur := _plugin.get_undo_redo()
-	ur.create_action(action_name)
-	ur.add_do_method(parent, "add_child", new_node, true)
-	ur.add_do_property(new_node, "owner", root)
-	ur.add_do_reference(new_node)
-	ur.add_undo_method(parent, "remove_child", new_node)
-	ur.add_undo_reference(new_node)
-	ur.commit_action()
-	return {
-		"success":   true,
-		"node_name": new_node.name,
-		"node_path": str(root.get_path_to(new_node)),
-	}
-
-## Returns true when the node is a GPU particle node (2D or 3D).
 func _is_particle_node(node: Node) -> bool:
 	return node is GPUParticles3D or node is GPUParticles2D
 
@@ -96,7 +37,6 @@ func _apply_emission_shape(mat: ParticleProcessMaterial, shape_str: String) -> v
 		"box":            mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 		"ring":           mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
 		_:                mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINT
-
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
@@ -149,7 +89,6 @@ func _create_particle_system(args: Dictionary) -> Dictionary:
 	result["amount"]    = amount
 	result["lifetime"]  = lifetime
 	return result
-
 
 func _set_particle_material(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
@@ -209,7 +148,6 @@ func _set_particle_material(args: Dictionary) -> Dictionary:
 		"emission_shape":  _emission_shape_name(mat.emission_shape),
 	}
 
-
 func _set_particle_gradient(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if node_path.is_empty():
@@ -266,7 +204,6 @@ func _set_particle_gradient(args: Dictionary) -> Dictionary:
 		"gradient_type":  gradient_property,
 		"point_count":    gradient.get_point_count(),
 	}
-
 
 func _load_particle_preset(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
@@ -400,7 +337,6 @@ func _load_particle_preset(args: Dictionary) -> Dictionary:
 		"lifetime":  new_lifetime,
 		"one_shot":  new_one_shot,
 	}
-
 
 func _get_particle_info(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")

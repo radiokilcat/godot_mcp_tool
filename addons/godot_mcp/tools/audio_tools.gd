@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPAudioTools
 
 ## Implements 6 Audio tools: add_audio_player, load_audio_file, play_audio,
 ## stop_audio, configure_bus, add_audio_effect.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("add_audio_player", GodotMCPCallableTool.new(_add_audio_player))
@@ -18,51 +13,8 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("stop_audio",       GodotMCPCallableTool.new(_stop_audio))
 	registry.register_tool("configure_bus",    GodotMCPCallableTool.new(_configure_bus))
 	registry.register_tool("add_audio_effect", GodotMCPCallableTool.new(_add_audio_effect))
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-func _scene_root() -> Node:
-	return EditorInterface.get_edited_scene_root()
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := _scene_root()
-	if root == null:
-		return null
-	if node_path.is_empty() or node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
-func _resolve_parent(root: Node, parent_path: String) -> Node:
-	if parent_path.is_empty() or parent_path == "." or parent_path == root.name:
-		return root
-	return root.get_node_or_null(parent_path)
-
 func _is_audio_player(node: Node) -> bool:
 	return node is AudioStreamPlayer or node is AudioStreamPlayer2D or node is AudioStreamPlayer3D
-
-func _add_to_scene(new_node: Node, parent: Node, node_name: String, action_name: String) -> Dictionary:
-	var root := _scene_root()
-	new_node.name = node_name
-	var ur := _plugin.get_undo_redo()
-	ur.create_action(action_name)
-	ur.add_do_method(parent, "add_child", new_node, true)
-	ur.add_do_property(new_node, "owner", root)
-	ur.add_do_reference(new_node)
-	ur.add_undo_method(parent, "remove_child", new_node)
-	ur.add_undo_reference(new_node)
-	ur.commit_action()
-	return {
-		"success":   true,
-		"node_name": new_node.name,
-		"node_path": str(root.get_path_to(new_node)),
-	}
-
-# ---------------------------------------------------------------------------
-# Tool implementations
-# ---------------------------------------------------------------------------
-
 func _add_audio_player(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
 	if root == null:
@@ -105,7 +57,6 @@ func _add_audio_player(args: Dictionary) -> Dictionary:
 	result["volume_db"]   = volume_db
 	return result
 
-
 func _load_audio_file(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	var file_path: String = args.get("file_path", "")
@@ -142,7 +93,6 @@ func _load_audio_file(args: Dictionary) -> Dictionary:
 		"stream_type": stream.get_class(),
 	}
 
-
 func _play_audio(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if node_path.is_empty():
@@ -168,7 +118,6 @@ func _play_audio(args: Dictionary) -> Dictionary:
 
 	return {"success": true, "node_path": node_path, "playing": true}
 
-
 func _stop_audio(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if node_path.is_empty():
@@ -192,7 +141,6 @@ func _stop_audio(args: Dictionary) -> Dictionary:
 	ur.commit_action()
 
 	return {"success": true, "node_path": node_path, "was_playing": was_playing}
-
 
 func _configure_bus(args: Dictionary) -> Dictionary:
 	var bus_name: String = args.get("bus_name", "")
@@ -256,7 +204,6 @@ func _configure_bus(args: Dictionary) -> Dictionary:
 		"solo":      AudioServer.is_bus_solo(bus_idx),
 		"send":      str(AudioServer.get_bus_send(bus_idx)),
 	}
-
 
 func _add_audio_effect(args: Dictionary) -> Dictionary:
 	var bus_name:    String = args.get("bus_name", "")

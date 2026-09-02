@@ -1,14 +1,9 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPSceneTools
 
 ## Implements all 10 scene-level tools.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("get_scene_tree",    GodotMCPCallableTool.new(_get_scene_tree))
@@ -25,22 +20,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-## ResourceSaver does not create intermediate directories, so saving into a folder that
-## does not exist yet fails with a bare "Can't open". Create the tree first.
-## Returns "" on success, or an error message.
-func _ensure_dir_for(res_path: String) -> String:
-	var dir_path := res_path.get_base_dir()
-	if dir_path.is_empty():
-		return ""
-	var abs_dir := ProjectSettings.globalize_path(dir_path)
-	if DirAccess.dir_exists_absolute(abs_dir):
-		return ""
-	var err := DirAccess.make_dir_recursive_absolute(abs_dir)
-	if err != OK:
-		return "Failed to create directory %s: %s" % [dir_path, error_string(err)]
-	return ""
-
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------

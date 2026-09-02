@@ -1,14 +1,9 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPAnimationTools
 
 ## Implements all 6 animation tools for AnimationPlayer.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("create_animation",    GodotMCPCallableTool.new(_create_animation))
@@ -21,15 +16,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := EditorInterface.get_edited_scene_root()
-	if root == null:
-		return null
-	if node_path == "." or node_path == root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
 func _get_player(node_path: String) -> Variant:
 	var node := _resolve_node(node_path)
 	if node == null:
@@ -98,18 +84,6 @@ func _coerce_value(raw: Variant) -> Variant:
 		return int(s)
 
 	return raw
-
-func _value_to_json(v: Variant) -> Variant:
-	if v is Vector2:  return {"x": v.x, "y": v.y}
-	if v is Vector3:  return {"x": v.x, "y": v.y, "z": v.z}
-	if v is Color:    return {"r": v.r, "g": v.g, "b": v.b, "a": v.a}
-	if v is Rect2:    return {"x": v.position.x, "y": v.position.y, "w": v.size.x, "h": v.size.y}
-	if v is Object:
-		if v is Resource:
-			return v.resource_path if not v.resource_path.is_empty() else str(v)
-		return str(v)
-	return v
-
 func _track_type_name(t: int) -> String:
 	match t:
 		Animation.TYPE_VALUE:     return "value"

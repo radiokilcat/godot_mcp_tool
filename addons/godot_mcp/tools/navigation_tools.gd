@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPNavigationTools
 
 ## Implements 6 Navigation tools: add_navigation_region, add_navigation_agent,
 ## bake_navigation, set_navigation_layer, get_navigation_path, get_navigation_info.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("add_navigation_region", GodotMCPCallableTool.new(_add_navigation_region))
@@ -18,34 +13,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("set_navigation_layer",  GodotMCPCallableTool.new(_set_navigation_layer))
 	registry.register_tool("get_navigation_path",   GodotMCPCallableTool.new(_get_navigation_path))
 	registry.register_tool("get_navigation_info",   GodotMCPCallableTool.new(_get_navigation_info))
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-func _scene_root() -> Node:
-	return EditorInterface.get_edited_scene_root()
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := _scene_root()
-	if root == null:
-		return null
-	if node_path.is_empty() or node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
-func _resolve_parent(root: Node, parent_path: String) -> Node:
-	if parent_path.is_empty() or parent_path == "." or parent_path == root.name:
-		return root
-	return root.get_node_or_null(parent_path)
-
-func _parse_vector2(val: Variant, default_val: Vector2 = Vector2.ZERO) -> Vector2:
-	return GodotMCPTypeUtils.to_vector2(val, default_val)
-
-func _parse_vector3(val: Variant, default_val: Vector3 = Vector3.ZERO) -> Vector3:
-	return GodotMCPTypeUtils.to_vector3(val, default_val)
-
-## Converts an int bitmask or an array of layer numbers (1–32) to an int bitmask.
 func _parse_layers(val: Variant, default_val: int = 1) -> int:
 	if val is int:   return val
 	if val is float: return int(val)
@@ -57,24 +24,6 @@ func _parse_layers(val: Variant, default_val: int = 1) -> int:
 				mask |= (1 << (n - 1))
 		return mask
 	return default_val
-
-func _add_to_scene(new_node: Node, parent: Node, node_name: String, action_name: String) -> Dictionary:
-	var root := _scene_root()
-	new_node.name = node_name
-	var ur := _plugin.get_undo_redo()
-	ur.create_action(action_name)
-	ur.add_do_method(parent, "add_child", new_node, true)
-	ur.add_do_property(new_node, "owner", root)
-	ur.add_do_reference(new_node)
-	ur.add_undo_method(parent, "remove_child", new_node)
-	ur.add_undo_reference(new_node)
-	ur.commit_action()
-	return {
-		"success":   true,
-		"node_name": new_node.name,
-		"node_path": str(root.get_path_to(new_node)),
-	}
-
 func _is_navigation_node(node: Node) -> bool:
 	return (node is NavigationRegion3D or node is NavigationRegion2D or
 			node is NavigationAgent3D   or node is NavigationAgent2D)
@@ -118,7 +67,6 @@ func _add_navigation_region(args: Dictionary) -> Dictionary:
 	result["dimension"]         = dimension
 	result["navigation_layers"] = nav_layers
 	return result
-
 
 func _add_navigation_agent(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
@@ -166,7 +114,6 @@ func _add_navigation_agent(args: Dictionary) -> Dictionary:
 	result["navigation_layers"] = nav_layers
 	return result
 
-
 func _bake_navigation(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if node_path.is_empty():
@@ -199,7 +146,6 @@ func _bake_navigation(args: Dictionary) -> Dictionary:
 	else:
 		return {"error": "Node '%s' is not a NavigationRegion (got %s). Provide a path to NavigationRegion3D or NavigationRegion2D." % [node_path, node.get_class()]}
 
-
 func _set_navigation_layer(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if node_path.is_empty():
@@ -227,7 +173,6 @@ func _set_navigation_layer(args: Dictionary) -> Dictionary:
 		"node_path":         node_path,
 		"navigation_layers": new_layers,
 	}
-
 
 func _get_navigation_path(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
@@ -273,7 +218,6 @@ func _get_navigation_path(args: Dictionary) -> Dictionary:
 			"point_count": points.size(),
 			"path":        points,
 		}
-
 
 func _get_navigation_info(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")

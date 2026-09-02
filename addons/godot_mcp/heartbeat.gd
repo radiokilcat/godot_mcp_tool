@@ -41,8 +41,8 @@ func stop() -> void:
 	if timer:
 		timer.stop()
 
+## Called when pong response is received
 func on_pong_received() -> void:
-	"""Called when pong response is received"""
 	last_ping_time = 0.0  # Reset timeout
 
 func _on_timer_timeout() -> void:

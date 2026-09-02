@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPPhysicsTools
 
 ## Implements 6 Physics tools: add_rigid_body, add_collision_shape,
 ## set_collision_layer, set_collision_mask, add_raycast, get_physics_info.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("add_rigid_body",      GodotMCPCallableTool.new(_add_rigid_body))
@@ -18,35 +13,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("set_collision_mask",  GodotMCPCallableTool.new(_set_collision_mask))
 	registry.register_tool("add_raycast",         GodotMCPCallableTool.new(_add_raycast))
 	registry.register_tool("get_physics_info",    GodotMCPCallableTool.new(_get_physics_info))
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-func _scene_root() -> Node:
-	return EditorInterface.get_edited_scene_root()
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := _scene_root()
-	if root == null:
-		return null
-	if node_path.is_empty() or node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
-func _resolve_parent(root: Node, parent_path: String) -> Node:
-	if parent_path.is_empty() or parent_path == "." or parent_path == root.name:
-		return root
-	return root.get_node_or_null(parent_path)
-
-func _parse_vector2(val: Variant, default_val: Vector2 = Vector2.ZERO) -> Vector2:
-	return GodotMCPTypeUtils.to_vector2(val, default_val)
-
-func _parse_vector3(val: Variant, default_val: Vector3 = Vector3.ZERO) -> Vector3:
-	return GodotMCPTypeUtils.to_vector3(val, default_val)
-
-## Convert to collision layer/mask int.
-## Accepts: int (raw bitmask), float (cast), or Array of 1-based layer numbers.
 func _parse_layer_mask(val: Variant) -> int:
 	if val is int:
 		return val
@@ -68,28 +34,6 @@ func _mask_to_layers(mask: int) -> Array:
 		if mask & (1 << i):
 			layers.append(i + 1)
 	return layers
-
-func _add_to_scene(new_node: Node, parent: Node, node_name: String, action_name: String) -> Dictionary:
-	var root := _scene_root()
-	new_node.name = node_name
-	var ur := _plugin.get_undo_redo()
-	ur.create_action(action_name)
-	ur.add_do_method(parent, "add_child", new_node, true)
-	ur.add_do_property(new_node, "owner", root)
-	ur.add_do_reference(new_node)
-	ur.add_undo_method(parent, "remove_child", new_node)
-	ur.add_undo_reference(new_node)
-	ur.commit_action()
-	return {
-		"success":   true,
-		"node_name": new_node.name,
-		"node_path": str(root.get_path_to(new_node)),
-	}
-
-# ---------------------------------------------------------------------------
-# Tool implementations
-# ---------------------------------------------------------------------------
-
 func _add_rigid_body(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
 	if root == null:
@@ -176,7 +120,6 @@ func _add_rigid_body(args: Dictionary) -> Dictionary:
 	result["body_type"] = body_type
 	result["dimension"] = dimension
 	return result
-
 
 func _add_collision_shape(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
@@ -270,7 +213,6 @@ func _add_collision_shape(args: Dictionary) -> Dictionary:
 	result["dimension"]  = dimension
 	return result
 
-
 func _set_collision_layer(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if node_path.is_empty():
@@ -302,7 +244,6 @@ func _set_collision_layer(args: Dictionary) -> Dictionary:
 		"active_layers": _mask_to_layers(new_layer),
 	}
 
-
 func _set_collision_mask(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")
 	if node_path.is_empty():
@@ -333,7 +274,6 @@ func _set_collision_mask(args: Dictionary) -> Dictionary:
 		"collision_mask": new_mask,
 		"active_layers":  _mask_to_layers(new_mask),
 	}
-
 
 func _add_raycast(args: Dictionary) -> Dictionary:
 	var root := _scene_root()
@@ -379,7 +319,6 @@ func _add_raycast(args: Dictionary) -> Dictionary:
 	result["enabled"]        = enabled
 	result["collision_mask"] = col_mask
 	return result
-
 
 func _get_physics_info(args: Dictionary) -> Dictionary:
 	var node_path: String = args.get("node_path", "")

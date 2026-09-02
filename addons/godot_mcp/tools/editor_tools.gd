@@ -1,12 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPEditorTools
 
 ## Implements 8 editor-level tools.
 ## (reload_scripts lives in script_tools.gd to avoid duplication)
-
-var _plugin: EditorPlugin
 
 ## Collects mcp_print() output from an executed script and its return value.
 ## The executed script talks to this object through the injected _mcp_sink var.
@@ -79,9 +77,6 @@ func mcp_printerr(a = "__mcp_nil_a91f__", b = "__mcp_nil_a91f__", c = "__mcp_nil
 	_mcp_write("err", [a, b, c, d, e, f, g, h])
 """
 
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
-
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("take_screenshot",      GodotMCPCallableTool.new(_take_screenshot))
 	registry.register_tool("get_error_log",        GodotMCPCallableTool.new(_get_error_log))
@@ -95,18 +90,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _resolve_node(node_path: String) -> Variant:
-	var root := EditorInterface.get_edited_scene_root()
-	if root == null:
-		return null
-	if node_path == "." or node_path == root.name or node_path == "/root/" + root.name:
-		return root
-	return root.get_node_or_null(node_path)
-
-## Recursive JSON conversion for values a user script returns from _run() --
-## unlike the per-tool _value_to_json helpers this one descends into containers,
-## because the returned value has no schema we control.
 func _json_safe(v: Variant) -> Variant:
 	match typeof(v):
 		TYPE_DICTIONARY:
@@ -133,26 +116,15 @@ func _json_safe(v: Variant) -> Variant:
 		for item in v:
 			packed.append(_json_safe(item))
 		return packed
-	if v is Vector2 or v is Vector2i:   return {"x": v.x, "y": v.y}
-	if v is Vector3 or v is Vector3i:   return {"x": v.x, "y": v.y, "z": v.z}
-	if v is Vector4 or v is Vector4i:   return {"x": v.x, "y": v.y, "z": v.z, "w": v.w}
-	if v is Color:       return {"r": v.r, "g": v.g, "b": v.b, "a": v.a}
-	if v is Rect2 or v is Rect2i:
-		return {"x": v.position.x, "y": v.position.y, "w": v.size.x, "h": v.size.y}
-	if v is Quaternion:  return {"x": v.x, "y": v.y, "z": v.z, "w": v.w}
-	if v is Basis:       return {"x": _json_safe(v.x), "y": _json_safe(v.y), "z": _json_safe(v.z)}
-	if v is Transform2D: return {"origin": _json_safe(v.origin), "x": _json_safe(v.x), "y": _json_safe(v.y)}
-	if v is Transform3D: return {"origin": _json_safe(v.origin), "basis": _json_safe(v.basis)}
+	# A Node means more to the caller as a path than as an address, and only this
+	# path knows the value came out of a script they wrote against the open scene.
 	if v is Node:
 		var scene_root := EditorInterface.get_edited_scene_root()
 		if scene_root != null and (v == scene_root or scene_root.is_ancestor_of(v)):
 			return str(scene_root.get_path_to(v))
 		return str(v.name)
-	if v is Object:
-		if v is Resource:
-			return v.resource_path if not v.resource_path.is_empty() else str(v)
-		return str(v)
-	return v
+	# Everything scalar is the shared conversion on the base class.
+	return _value_to_json(v)
 
 # ---------------------------------------------------------------------------
 # Tool implementations

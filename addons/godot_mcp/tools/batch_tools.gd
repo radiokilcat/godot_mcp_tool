@@ -1,5 +1,5 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPBatchTools
 
@@ -9,11 +9,6 @@ class_name GodotMCPBatchTools
 ## Scene-scanning tools read SceneState (no instantiation).
 ## Scene-modifying tools (cross_scene_update, bulk_rename all_scenes, refactor_signals)
 ## instantiate scenes, modify, re-pack, and save — bypassing UndoRedo.
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("find_by_node_type",    GodotMCPCallableTool.new(_find_by_node_type))
@@ -28,11 +23,6 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-func _as_bool(val: Variant) -> bool:
-	if val is bool: return val
-	return str(val).to_lower() == "true"
-
 func _get_filesystem() -> EditorFileSystemDirectory:
 	return _plugin.get_editor_interface().get_resource_filesystem().get_filesystem()
 
@@ -120,7 +110,6 @@ func _find_by_node_type(args: Dictionary) -> Dictionary:
 		"truncated": results.size() >= max_results,
 	}
 
-
 func _find_by_script(args: Dictionary) -> Dictionary:
 	var script_path: String = args.get("script_path", "")
 	if script_path.is_empty():
@@ -163,7 +152,6 @@ func _find_by_script(args: Dictionary) -> Dictionary:
 		"truncated": results.size() >= max_results,
 	}
 
-
 func _find_by_group(args: Dictionary) -> Dictionary:
 	var group_name: String = args.get("group_name", "")
 	if group_name.is_empty():
@@ -200,7 +188,6 @@ func _find_by_group(args: Dictionary) -> Dictionary:
 		"count":     results.size(),
 		"truncated": results.size() >= max_results,
 	}
-
 
 func _bulk_rename(args: Dictionary) -> Dictionary:
 	var match_str: String = args.get("match", "")
@@ -324,7 +311,6 @@ func _bulk_rename(args: Dictionary) -> Dictionary:
 	else:
 		return {"error": "Unknown scope '%s'. Valid values: 'current_scene', 'all_scenes'" % scope}
 
-
 func _cross_scene_update(args: Dictionary) -> Dictionary:
 	var node_type: String = args.get("node_type", "")
 	var property: String = args.get("property", "")
@@ -407,7 +393,6 @@ func _cross_scene_update(args: Dictionary) -> Dictionary:
 		"scene_count":  updated_scenes.size(),
 	}
 
-
 func _find_dependencies(args: Dictionary) -> Dictionary:
 	var resource_path: String = args.get("resource_path", "")
 	if resource_path.is_empty():
@@ -448,7 +433,6 @@ func _find_dependencies(args: Dictionary) -> Dictionary:
 		"count":         all_deps.size(),
 		"recursive":     true,
 	}
-
 
 func _orphaned_resources(args: Dictionary) -> Dictionary:
 	var check_extensions: Array = args.get("extensions", [".tres", ".res", ".gdshader"])
@@ -506,7 +490,6 @@ func _orphaned_resources(args: Dictionary) -> Dictionary:
 		"count":          orphans.size(),
 		"total_checked":  candidates.size(),
 	}
-
 
 func _refactor_signals(args: Dictionary) -> Dictionary:
 	var old_method: String = args.get("old_method", "")

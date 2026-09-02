@@ -1,15 +1,10 @@
 @tool
-extends RefCounted
+extends GodotMCPToolBase
 
 class_name GodotMCPExportTools
 
 ## Implements 3 Export tools:
 ## list_export_presets, export_project, get_template_info
-
-var _plugin: EditorPlugin
-
-func _init(plugin: EditorPlugin) -> void:
-	_plugin = plugin
 
 func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("list_export_presets", GodotMCPCallableTool.new(_list_export_presets))
@@ -55,7 +50,6 @@ func _list_export_presets(_args: Dictionary) -> Dictionary:
 
 	return {"presets": presets, "count": presets.size()}
 
-
 func _export_project(args: Dictionary) -> Dictionary:
 	## Export the project using godot --headless --export-release/debug.
 	## Note: OS.execute() is synchronous — the editor main thread is blocked
@@ -96,7 +90,6 @@ func _export_project(args: Dictionary) -> Dictionary:
 		return {"error": "No output_path provided and preset has no export_path configured."}
 
 	return _run_export(preset_name, resolved_path, debug)
-
 
 func _get_template_info(_args: Dictionary) -> Dictionary:
 	## Return information about installed export templates.
@@ -206,7 +199,3 @@ func _run_export(preset_name: String, output_path: String, debug: bool) -> Dicti
 		"debug":       debug,
 		"output":      output_text,
 	}
-
-func _as_bool(val: Variant) -> bool:
-	if val is bool: return val
-	return str(val).to_lower() == "true"
