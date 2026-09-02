@@ -791,6 +791,191 @@ would have caught them.
 
 ---
 
+## Phase 9: Tech debt (whole-repo review, 2026-09-02)
+
+First review of the repository as a whole rather than of a feature: reliability, portability,
+security, and the token cost every future session pays. Scope was deliberately shallow per tool —
+6.6 already went through the tool bodies — and instead followed the import graph, duplicate
+helpers, and a handful of live measurements.
+
+**Measured, not inferred** (the rest is source reading): the bridge's bind address, the
+`tools/list` payload, the pretty-print overhead, the import-time socket, and the divergence
+between the 13 copies of `_resolve_node`.
+
+### [ ] 9.1 - Quick wins — ~1 hour total, each independent
+- [ ] 9.1.1 - **Stop pretty-printing tool responses.** index.ts:146 is
+  `JSON.stringify(result, null, 2)`; the reader is a model, not a human. Measured on a deep scene
+  tree (short keys, heavy nesting — the shape agents request most): compact 10 273 chars vs pretty
+  34 178, **+233 %**. Flat payloads cost tens of percent instead. Consider `GODOT_MCP_PRETTY=1`
+  for hand debugging.
+- [ ] 9.1.2 - **Bind the bridge to `127.0.0.1`.** `new WebSocketServer({ port })`
+  (godot-connection.ts:29) binds `::` — verified: `{"address":"::","family":"IPv6"}` — i.e. every
+  interface, LAN included. One-line fix; the authentication half is 9.5.
+- [ ] 9.1.3 - **Commit `package-lock.json`** (currently in .gitignore). `@modelcontextprotocol/sdk: ^1.0.0`
+  and `ws: ^8.18.0` are ranges, so another machine builds a different server — and the e2e suite
+  runs the production `dist`, which makes a green run non-reproducible. Use `npm ci` in CI.
+- [ ] 9.1.4 - **Reconcile the docs with reality.** README says 191/191 tests and 162/162 tools
+  against the actual 216 and 163/163, and says 163 tools in one place and 162 in another; the
+  compatibility block still reads "verified on 4.4.1" although 4.7.2 passed too. docs/mcp_test_plan.md
+  (1715 lines) is called stale *here* but says nothing about it *in the file* — an agent that
+  finds it by search will believe it. Banner it or delete it (e2e/blocks/*.json replaced it).
+- [ ] 9.1.5 - **`.gitattributes`** with `* text=auto eol=lf` and `*.gd text eol=lf` — git already
+  warns on every TS commit and GDScript is unprotected.
+- [ ] 9.1.6 - **Ship `.mcp.json` as `.mcp.json.example`** — the committed one hardcodes
+  `C:/Users/User/development/...`, which both breaks a clone and leaks the username. Same work as 5.4.1.
+
+### [ ] 9.2 - Delete the dead code — ~1530 lines, 10 % of the codebase
+Phase 1-2 scaffolding the final architecture routed around. Nothing in the import graph reaches
+any of it (checked across every `.ts` and `.gd`).
+
+| File | Lines | Referenced by |
+|---|---|---|
+| server/src/utils/type-parser.ts | 360 | nobody — type parsing happens in the plugin |
+| server/src/tools/tool-validator.ts | 295 | nobody |
+| server/src/protocol/mcp-protocol.ts | 189 | nobody — the SDK owns the protocol |
+| server/src/types/tool-schema.ts | 126 | nobody — `types/index.ts` is the live one |
+| addons/godot_mcp/undo_redo_manager.gd | 196 | **nobody** — all 54 call sites use `get_undo_redo()` directly |
+| addons/godot_mcp/error_handler.gd | 171 | only protocol_handler.gd |
+| addons/godot_mcp/protocol_handler.gd | 118 | nobody — plugin.gd parses JSON inline |
+| addons/godot_mcp/message_serializer.gd | 75 | only protocol_handler.gd |
+
+The last three are a closed island referencing only each other.
+
+- [ ] 9.2.1 - Delete the eight files (a tag or branch first if they feel worth keeping).
+- [ ] 9.2.2 - **The project's only unit test covers dead code**: tests/type-parser.test.ts (26
+  tests) imports `server/src/utils/type-parser.ts`. "26/26 PASSED" in progress.md and
+  BUILD_REPORT.md therefore states nothing about the shipped code. Before deleting, diff it
+  against type_utils.gd — any parsing form it handles that the plugin does not is ready-made
+  material for 6.1.3.
+- **Why it is not merely clutter:** e2e/check-syntax.mjs loads only plugin.gd's dependency graph,
+  so the dead GDScript is never even parsed; and `undo_redo_manager.gd` reads as the intended
+  UndoRedo path (progress.md 2.3 lists it as implemented), so the next author may start using it
+  in parallel with the real practice. Every future grep for `_parse_color`, `serialize` or `error`
+  pays for it in tokens.
+- **Priority:** HIGH (cheap, and it removes a live trap)
+
+### [ ] 9.3 - Shared tool base class — **do this before 6.1.1**
+Duplicate helpers across addons/godot_mcp/tools/*.gd:
+
+| Helper | Copies | Note |
+|---|---|---|
+| `_resolve_node` | 13 | **6 distinct implementations** (hashed normalized bodies) |
+| `_as_bool` | 9 | introduced in 3.16b, spread by copy-paste |
+| `_scene_root` | 8 | |
+| `_parse_vector3` / `_parse_vector2` | 5 / 4 | 6.6.14 fixed exactly this class of bug in four files at once |
+| `_add_to_scene` | 5 | |
+| `_value_to_json` | 4 | fixed twice independently, in 3.7b and 3.18b |
+| `_parse_color` | 4 | |
+| `_write_file` / `_read_file` | 2 | 3.17b fixed `make_dir_recursive` in one copy only |
+
+Six `_resolve_node` variants means six behaviours for the same bad path from an agent — this is
+the mechanism behind three separate bug-fix rounds already recorded above.
+
+- [ ] 9.3.1 - `GodotMCPToolBase (RefCounted)` holding `_init(plugin)`, `_scene_root()`,
+  `_resolve_node()`, `_add_to_scene()`, `_as_bool()`, `_value_to_json()`, `_write_file/_read_file`;
+  vector and colour parsing goes into the existing type_utils.gd. Expect ~600-800 lines removed.
+- [ ] 9.3.2 - Collapse plugin.gd:139-189 (23 fields + 23 `new()` + 23 `register()`) into a loop
+  over a class array. This also removes the constructor inconsistency living there:
+  `GodotMCPProjectTools.new()` takes no argument while the other 22 take `self`.
+- [ ] 9.3.3 - Replace the Python-ism `"""docstrings"""` — standalone string expressions, not
+  documentation — with `##` comments: plugin.gd (20), protocol_handler.gd (8), tool_registry.gd (5).
+- **Sequencing:** before 6.1.1, so effect-level assertions are written against one implementation
+  rather than six.
+- **Effort:** 4-6 hours
+
+### [ ] 9.4 - Reliability
+- [ ] 9.4.1 - **Per-tool timeouts.** godot-connection.ts:9 applies a flat `TOOL_TIMEOUT_MS = 15_000`
+  to all 163 tools, while `listen_to_signal` allows `timeout` up to 30 s
+  (runtime_tools.gd:534), `execute_script` up to 60 s (editor_tools.gd:422), and `export_project`
+  runs a synchronous `OS.execute` (export_tools.gd:182) that blocks the editor's main thread for
+  minutes. A legal `timeout: 20` therefore *always* fails on the server side — and the plugin
+  stays `_tool_busy` (plugin.gd:255) for the remainder, so every following call answers "Another
+  tool call is already in progress" without naming the cause. Add `timeoutMs` to `ToolDefinition`
+  next to `minGodotVersion`, deriving it from the call's own `timeout` argument where one exists.
+  Coordinate with 6.5.7 (queue instead of reject), where the budget must also cover queue wait.
+- [ ] 9.4.2 - **Configure the WebSocket buffers.** websocket_client.gd never sets
+  `inbound_buffer_size` / `outbound_buffer_size` / `max_queued_packets`, so both directions cap at
+  Godot's 64 KB default. A larger reply — `get_scene_tree` on a real scene (`max_depth` defaults
+  to -1, scene_tools.gd:50), `list_project_files`, `search_in_scripts`, `get_project_settings` —
+  makes `send()` fail, the result vanishes into a `push_error`, and the only symptom is the
+  server's timeout. Presents as "the tools sometimes silently don't work on big projects". Raise
+  the buffers before `connect_to_url` and report a real error on a failed send.
+- [ ] 9.4.3 - **Make the connection lazy.** `godotConnection` is constructed at import time
+  (godot-connection.ts:29) and every file in server/src/tools/ imports it, so *importing a tool
+  module opens the machine-wide port* — hit while preparing this review: merely enumerating the
+  schemas raced a live server on 6505. This directly blocks 6.1.3 (unit tests of server modules).
+  Lazy `getConnection()` or injection into a category factory; 6.5.5 has to construct the
+  transport explicitly anyway.
+- [ ] 9.4.4 - **Bound the enumerating responses.** `limit` with a sane default plus `truncated: true`
+  on `get_scene_tree` / `list_project_files` / `search_in_scripts`, generalizing what 6.6.13 did
+  for `get_node_properties`. Also removes part of the 9.4.2 exposure.
+- [ ] 9.4.5 - Minor: `.gitignore` has a blanket `*.js` with `!tests/**/*.js`, so any helper `.js`
+  added to the repo silently will not be committed (e2e survives only by using `.mjs`). And
+  plugin.gd:321-328 leaves a `create_timer` reconnect pending after `_exit_tree` — harmless
+  thanks to the `is_initialized` guard, and it disappears with 6.5.4.
+- **Priority:** MEDIUM-HIGH (9.4.1 and 9.4.2 are user-visible today)
+
+### [ ] 9.5 - Bridge authentication — **precondition for 6.5.3, decide inside 6.5.8**
+The bridge authenticates nobody: whoever opens the socket is treated as the plugin, and
+godot-connection.ts:50-53 evicts the previous connection ("last writer wins").
+
+Today's blast radius is bounded by direction — a connector *receives* `tool_call`s, so it can
+return **fabricated results**, i.e. lie to the agent about the project's state, and steal the
+session from the real editor. Unpleasant (the agent acts on forged data) but not RCE.
+
+**After 6.5.3 it becomes RCE**: the plugin listens, and `execute_script` runs arbitrary GDScript
+in the editor. Note that WebSocket is exempt from same-origin/CORS, so **any web page open in the
+developer's browser can reach `ws://localhost:<port>`** — binding to loopback (9.1.2) does not
+cover this.
+
+- [ ] 9.5.1 - Shared secret checked at handshake, stored beside the port file from 6.5.6.
+- [ ] 9.5.2 - Reject connections that carry an `Origin` header — the real plugin never sends one,
+  a browser always does.
+- [ ] 9.5.3 - Lower priority: unify the `res://` prefix check on the write paths. It appears 10
+  times across the 6 files that write to disk (scene/script/resource/shader/theme/batch tools),
+  i.e. inconsistently. One `_safe_write_path()` on the 9.3 base class. Not a containment boundary —
+  `execute_script` is arbitrary by design; that is what 9.5.1 protects.
+- **Sequencing:** decide before 6.5.3-6.5.7 ships, not after.
+
+### [ ] 9.6 - Platform layer for e2e
+The suite is Windows-only by construction, not merely untested elsewhere: provision.mjs downloads
+`Godot_v{ver}-stable_win64` and unpacks via `powershell.exe Expand-Archive`, godot-process.mjs:38
+kills the editor with `taskkill /T /F`, and everything keys off `*_console.exe`. So CI on GitHub
+Actions is impossible and no outside contributor can run it, while the README promises
+cross-platform support.
+- [ ] 9.6.1 - Split into `platform/{win32,linux,darwin}.mjs` (archive name, extraction, kill-tree)
+  — roughly 100 lines, and it opens CI.
+- **Priority:** MEDIUM
+
+### [ ] 9.7 - Token budget
+- [ ] 9.7.1 - **`tools/list` costs ~29k tokens in every session.** Measured against the built
+  `dist`: 163 tools, **104 448 characters**, loaded into context before the user asks anything.
+  Median tool is 528 chars; the heaviest are `add_collision_shape` (2709),
+  `set_particle_material` (2655), `add_rigid_body` (2165), `add_mesh` (2130), `add_camera` (1827).
+  This is the substance of Phase 4 — but the saving comes from the schemas, not from counting to
+  76: (a) compact the 10-15 heaviest descriptions, where long lists of allowed values duplicate
+  the `enum`; (b) make lite/full a `GODOT_MCP_PROFILE` filter in `registerAllTools` rather than a
+  separate build; (c) fold rarely used categories (particles, navigation, theme, export,
+  profiling) behind one dispatcher tool with an `action` field, removing ~40 top-level
+  definitions. Re-run e2e afterwards — the 163/163 coverage diff proves nothing was lost.
+- [ ] 9.7.2 - **Split this file.** progress.md is 860+ lines and is read whole at the start of
+  nearly every session (this review's own session began that way), of which ~90 % is closed
+  Phases 1-3. Keep open work and current status here, move the history to docs/changelog.md.
+  Saves ~20k characters per session with no information lost.
+- **Priority:** MEDIUM
+
+### Not worth changing (recorded so it is not re-litigated)
+- **Thin stateless server + all logic in GDScript** — confirmed by the 6.5 analysis; it is what
+  makes the transport inversion cheap. Keep.
+- **`execute_script` as arbitrary execution** — a feature, not a hole: 6.6 showed it carries every
+  scenario the typed tools miss. Close the channel (9.5), do not narrow the tool.
+- **The `{"success": true, ...}` response shape** — consistent across 102 sites, with no return
+  lacking `success`/`error`. 6.6's problem was that `success` sometimes lies, which effect
+  assertions (6.1.1) fix; the shape itself is fine.
+- **JSON e2e blocks** — the declarative format has paid off (23 blocks, 216 tests). Do not port to code.
+
+---
+
 ## Summary Statistics
 
 - **Total Planned Tasks:** ~100+
@@ -852,7 +1037,9 @@ would have caught them.
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-09-02 (**6.5.1 done — the orphaned bridge process is gone.** The server now shuts down when the client closes the pipe (stdin EOF / stdout EPIPE), on the usual signals, and on any other exit path; `close()` terminates the editor socket before closing the server, without which the port stayed bound regardless. Verified end-to-end: exit 0 and port free ~13 ms after EOF, with a connected editor. Next: 6.1.1 effect assertions, then 6.5.3-6.5.9 transport inversion, 6.2b undo/reconnect, Phases 4-5 packaging.)
+**Last Updated:** 2026-09-02 (**whole-repo tech-debt review → new Phase 9**, 9.1-9.7 above.) Headlines: the bridge listens on every interface and authenticates nobody (a hard precondition for 6.5.3, not a standalone nicety); tool responses are pretty-printed at +233 % characters; `tools/list` costs ~29k tokens per session; ~1530 lines are dead, including the one module the project's only unit test covers; `_resolve_node` exists in 6 different implementations across 13 files. Suggested order: the 9.1 quick wins (~1 h), then 9.2, then 9.3 **before** 6.1.1, with 9.5 decided before 6.5.3 ships.)
+
+**Previously:** 2026-09-02 (**6.5.1 done — the orphaned bridge process is gone.** The server now shuts down when the client closes the pipe (stdin EOF / stdout EPIPE), on the usual signals, and on any other exit path; `close()` terminates the editor socket before closing the server, without which the port stayed bound regardless. Verified end-to-end: exit 0 and port free ~13 ms after EOF, with a connected editor. Next: 6.1.1 effect assertions, then 6.5.3-6.5.9 transport inversion, 6.2b undo/reconnect, Phases 4-5 packaging.)
 
 **Previously:** 2026-09-01 (**the 6.6 field report is fully closed — 6.6.1 through 6.6.15.** Last in: `add_camera` takes an orthographic `size`, `add_mesh` shapes its primitive and takes a material, an unknown `mesh_type` is an error rather than a silent box (6.6.11/6.6.12); `node e2e/check-syntax.mjs` is a 6-second parse gate that names file and line (6.6.15); E2E number comparison is float32-tolerant. **216 passed / 0 failed, coverage 163/163** on 4.7.2 and 4.4.1. Next: 6.5 transport inversion, 6.1.1 effect assertions, 6.2b undo/reconnect, and Phases 4-5 packaging.)
 
