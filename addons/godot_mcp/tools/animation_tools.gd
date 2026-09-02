@@ -177,8 +177,12 @@ func _create_animation(args: Dictionary) -> Dictionary:
 	if player.has_animation(anim_name):
 		return {"error": "Animation already exists: '%s'" % anim_name}
 
-	var anim_lib := player.get_animation_library("")
-	var needs_new_lib := anim_lib == null
+	# Ask before fetching: get_animation_library() on a name the player does not
+	# have is an ERR_FAIL_COND inside the engine, so using it as an existence
+	# probe printed "Method/function failed. Returning: Ref<AnimationLibrary>()"
+	# into the Output panel on every first animation added to a player.
+	var needs_new_lib := not player.has_animation_library("")
+	var anim_lib: AnimationLibrary = null if needs_new_lib else player.get_animation_library("")
 	if needs_new_lib:
 		anim_lib = AnimationLibrary.new()
 
@@ -436,9 +440,10 @@ func _delete_animation(args: Dictionary) -> Dictionary:
 		lib_name = anim_name.left(sep)
 		pure_anim_name = anim_name.substr(sep + 1)
 
-	var anim_lib := player.get_animation_library(lib_name)
-	if anim_lib == null:
+	# has_ before get_, for the same reason as in _create_animation
+	if not player.has_animation_library(lib_name):
 		return {"error": "Animation library '%s' not found" % lib_name}
+	var anim_lib := player.get_animation_library(lib_name)
 
 	var anim_copy: Animation = player.get_animation(anim_name)
 

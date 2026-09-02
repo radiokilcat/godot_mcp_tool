@@ -196,7 +196,7 @@
     }
   ],
   "cleanup": [
-    { "tool": "execute_script", "args": { "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://screenshot_cam2d.png\"))\nEditorInterface.get_resource_filesystem().scan()" } },
+    { "tool": "execute_script", "args": { "code": "for p in [\"res://screenshot_cam2d.png\"]:\n\tDirAccess.remove_absolute(ProjectSettings.globalize_path(p))\n\tDirAccess.remove_absolute(ProjectSettings.globalize_path(p + \".import\"))\n\tEditorInterface.get_resource_filesystem().update_file(p)\nEditorInterface.get_resource_filesystem().scan()" } },
     { "tool": "delete_scene", "args": { "scene_path": "res://test_editor.tscn" } }
   ]
 }

@@ -46,6 +46,14 @@ const OUTPUT_CAPTURE_BLOCK := """
 var _mcp_sink = null
 
 func _mcp_main() -> void:
+	# Step off the deferred-call flush before running the body: the editor
+	# refuses to open a progress dialog while the message queue is flushing, so
+	# a body that scans the filesystem or reimports would spam "Do not use
+	# progress dialog (task) while flushing the message queue" and cancel its
+	# own tasks. One frame, taken by an await that resumes exactly once -- a
+	# signal connection would fire again if the body re-enters the main loop,
+	# which is what a filesystem scan does.
+	await Engine.get_main_loop().process_frame
 	var _mcp_returned = await _mcp_body()
 	if _mcp_sink != null:
 		_mcp_sink.finish(_mcp_returned)
@@ -476,7 +484,8 @@ func _execute_script(args: Dictionary) -> Dictionary:
 		# Deferred so a _run() that suspends on an await is resumed by the
 		# engine instead of being dropped on the floor; polling the sink keeps
 		# a script that awaits something that never fires from wedging the
-		# bridge (the plugin serves one tool call at a time).
+		# bridge (the plugin serves one tool call at a time). _mcp_main steps
+		# off the deferred flush itself, on its first line -- see the block.
 		instance.call_deferred("_mcp_main")
 		var deadline := Time.get_ticks_msec() + int(timeout * 1000.0)
 		while not sink.done and Time.get_ticks_msec() < deadline:

@@ -69,7 +69,8 @@
     {
       "tool": "execute_script",
       "args": {
-        "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://screenshot_a.png\"))\nDirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://screenshot_qa.png\"))\nEditorInterface.get_resource_filesystem().scan()"
+        "_comment": "Remove the .import sidecar with the image: an orphaned sidecar makes the scan below try to reimport a file that is gone, which the editor reports as an error.",
+        "code": "for p in [\"res://screenshot_a.png\", \"res://screenshot_qa.png\"]:\n\tDirAccess.remove_absolute(ProjectSettings.globalize_path(p))\n\tDirAccess.remove_absolute(ProjectSettings.globalize_path(p + \".import\"))\n\tEditorInterface.get_resource_filesystem().update_file(p)\nEditorInterface.get_resource_filesystem().scan()"
       }
     }
   ]

@@ -979,6 +979,48 @@ cross-platform support.
   Saves ~20k characters per session with no information lost.
 - **Priority:** MEDIUM
 
+### [x] 9.8 - Editor error spam during tool calls (asked 2026-09-02, fixed same day)
+The Output panel filled with engine errors during every e2e run. Triaged from the captured
+editor log — note it is **append-only since July**, so a naive grep mixes in bugs closed back in
+3.27; only the last `===== editor launch =====` section describes the current build. 33 error
+lines per run on 4.4.1, identical on 4.7.2, i.e. deterministic rather than flaky.
+
+- [x] 9.8.1 - **Progress-dialog cascade (12 of the 33 lines).** `Do not use progress dialog (task)
+  while flushing the message queue or using call_deferred!` followed by eight
+  `Condition "!tasks.has(p_task)" is true`. Since 6.6.1 the executed body starts through
+  `call_deferred`, so it runs *during* the message-queue flush, where the editor refuses to open a
+  progress task — and a body that scans the filesystem or reimports needs one. Not a test-only
+  problem: any user script calling `EditorInterface.get_resource_filesystem().scan()` hit it.
+  **Fixed:** the injected `_mcp_main` awaits one `process_frame` before calling the body, so the
+  body runs off the flush. Costs nothing measurable — the watchdog loop already waits a frame.
+- **The obvious fix crashed the editor, and the reason is worth keeping.** Starting the body from
+  `create_timer(0.0).timeout.connect(...)` instead looked equivalent and took the editor down with
+  a 1023-frame stack overflow (`_mcp_main` → `_mcp_body` → `_mcp_main` …, exit 0xC0000374). A
+  SceneTreeTimer is removed from the tree's list only *after* its `timeout` returns, and a
+  filesystem scan pumps the main loop from inside the callback — so the re-entrant pass finds the
+  same timer still pending and fires it again, recursively. **Any callback that may re-enter the
+  main loop must be started by something that consumes itself before running**: an `await`
+  (resumes exactly once) or `call_deferred` (the message is popped before dispatch), never a
+  signal connection that outlives its own emission.
+- [x] 9.8.2 - **`create_animation` printed an engine error every time.**
+  animation_tools.gd used `get_animation_library("")` as an existence probe, but that is an
+  `ERR_FAIL_COND` inside the engine — `Method/function failed. Returning: Ref<AnimationLibrary>()`
+  landed in the Output panel of every user adding a first animation. **Fixed:** `has_animation_library()`
+  first, here and in `_delete_animation`.
+- [x] 9.8.3 - **Screenshot cleanup raced the importer** (4 lines): the blocks deleted a PNG and
+  immediately forced a scan, so the editor tried to import a file that was already gone.
+  **Fixed** in blocks 05/10/21: remove the `.import` sidecar with the image and call
+  `update_file()` before scanning.
+- **Result: 33 → 18 lines on 4.4.1 and → 14 on 4.7.2, of which 13-16 are deliberate** — the suite
+  feeds the parser broken code on purpose (E-08g/h, `validate_syntax`, `test_broken.gd`), and
+  GDScript has no quiet compile: an engine error *is* the evidence the negative test reached its
+  branch. One cosmetic line survives (`Can't find file 'res://screenshot_qa.png' during file
+  reimport`) — the importer had queued the file before `update_file` could withdraw it.
+- **Not a leak, in case it looks like one:** `res://addons/.godot_mcp_syntax_probe_*.gd` in the log
+  is a *virtual* `resource_path` on an in-memory GDScript (script_tools.gd:254-258), chosen so the
+  parser applies the addons warning opt-out. No such file is ever written.
+- **Verified:** 216/216 on both 4.4.1 and 4.7.2 after the changes.
+
 ### Not worth changing (recorded so it is not re-litigated)
 - **Thin stateless server + all logic in GDScript** — confirmed by the 6.5 analysis; it is what
   makes the transport inversion cheap. Keep.
@@ -1052,7 +1094,9 @@ cross-platform support.
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-09-02 (**9.1 quick wins done** — compact tool responses, loopback-only bridge, committed lockfile, docs reconciled with the built registry, `.gitattributes`, `.mcp.json.example` (which also closes 5.4.1). Full e2e re-run on both engines after the changes: **216 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2. Next: 9.2 (delete the dead code), then 9.3 before 6.1.1.)
+**Last Updated:** 2026-09-02 (**9.8 done — the editor's error spam during tool calls is mostly gone**, 33 lines per run → 18 on 4.4.1 / 14 on 4.7.2, and what remains is the suite deliberately feeding the parser broken code. Two were real product bugs users would also hit: `execute_script` ran its body inside the deferred-call flush, so anything touching the filesystem spammed progress-dialog errors; and `create_animation` used `get_animation_library()` as an existence check, which the engine logs as a failure. 216/216 on both engines. One lesson recorded in 9.8: a zero-length SceneTreeTimer is *not* a safe substitute for `call_deferred` — a body that pumps the main loop re-fires the still-pending timer and takes the editor down with a stack overflow.)
+
+**Previously:** 2026-09-02 (**9.1 quick wins done** — compact tool responses, loopback-only bridge, committed lockfile, docs reconciled with the built registry, `.gitattributes`, `.mcp.json.example` (which also closes 5.4.1). Full e2e re-run on both engines after the changes: **216 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2. Next: 9.2 (delete the dead code), then 9.3 before 6.1.1.)
 
 **Previously:** 2026-09-02 (**whole-repo tech-debt review → new Phase 9**, 9.1-9.7 above.) Headlines: the bridge listens on every interface and authenticates nobody (a hard precondition for 6.5.3, not a standalone nicety); tool responses are pretty-printed at +233 % characters; `tools/list` costs ~29k tokens per session; ~1530 lines are dead, including the one module the project's only unit test covers; `_resolve_node` exists in 6 different implementations across 13 files. Suggested order: the 9.1 quick wins (~1 h), then 9.2, then 9.3 **before** 6.1.1, with 9.5 decided before 6.5.3 ships.)
 
