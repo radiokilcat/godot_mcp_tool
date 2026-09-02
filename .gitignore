@@ -7,11 +7,12 @@ export_presets.cfg
 .import/
 
 # Node.js
+# package-lock.json is deliberately NOT ignored: the e2e suite runs the production
+# build, so a green run has to be reproducible from a pinned dependency tree.
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
 yarn.lock
 
 # Build output
@@ -19,6 +20,10 @@ dist/
 build/
 *.js
 !tests/**/*.js
+
+# Local MCP client config — it holds an absolute path to this checkout.
+# The committed template is .mcp.json.example
+.mcp.json
 
 # IDEs
 .vscode/

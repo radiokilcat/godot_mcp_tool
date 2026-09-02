@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "Copy this file to .mcp.json and replace the path with your own checkout.",
+    "Two traps found in the field:",
+    "  1. The file must be named exactly .mcp.json — any other name is ignored silently.",
+    "  2. It must sit in the directory the MCP client is launched from. A copy one level",
+    "     down (e.g. inside the Godot project subfolder) is never read.",
+    "The path in args must be absolute — the client does not resolve it against this file.",
+    "Optional env: GODOT_MCP_PORT to move the bridge off 6505, GODOT_MCP_PRETTY=1 to",
+    "indent tool responses while debugging by hand."
+  ],
+  "mcpServers": {
+    "godot-mcp": {
+      "command": "node",
+      "args": ["/absolute/path/to/godot_mcp_tool/server/dist/index.js"],
+      "env": {}
+    }
+  }
+}

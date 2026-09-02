@@ -40,7 +40,10 @@ var _tool_profiling: GodotMCPProfilingTools
 var _tool_export: GodotMCPExportTools
 
 # Configuration
-var server_host: String = "localhost"
+# 127.0.0.1, not "localhost": the server binds IPv4 loopback, while "localhost"
+# resolves to ::1 first on Windows — the connection would go to an address the
+# bridge is not listening on. Set GODOT_MCP_HOST on the server to move both ends.
+var server_host: String = "127.0.0.1"
 var server_port: int = 6505
 var auto_connect: bool = true
 var reconnect_delay: float = 1.0  # Start at 1 second
@@ -71,6 +74,11 @@ func _initialize_plugin() -> void:
 	var env_port := OS.get_environment("GODOT_MCP_PORT")
 	if env_port.is_valid_int():
 		server_port = int(env_port)
+
+	# Same override the server reads, so both ends stay on one address
+	var env_host := OS.get_environment("GODOT_MCP_HOST")
+	if not env_host.is_empty():
+		server_host = env_host
 
 	# Create WebSocket client
 	websocket_client = GodotMCPWebSocketClient.new()

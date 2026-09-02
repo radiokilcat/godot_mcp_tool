@@ -42,6 +42,11 @@ import { ToolDefinition } from "./types/index.js";
 
 const VERSION = "1.0.0";
 
+// Tool results are read by a model, not a human, and indentation is pure cost:
+// on a deep scene tree pretty-printing more than triples the payload. Set
+// GODOT_MCP_PRETTY=1 when reading raw responses by hand.
+const PRETTY_RESULTS = process.env.GODOT_MCP_PRETTY === "1";
+
 // Initialize MCP Server
 const server = new Server(
   {
@@ -143,7 +148,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [
         {
           type: "text",
-          text: JSON.stringify(result, null, 2),
+          text: PRETTY_RESULTS ? JSON.stringify(result, null, 2) : JSON.stringify(result),
         },
       ],
     };

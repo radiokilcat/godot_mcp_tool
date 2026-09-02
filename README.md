@@ -6,8 +6,8 @@ An MCP server that lets AI assistants (Claude and other MCP clients) drive the G
 Editor through **163 tools across 23 categories** — scenes, nodes, scripts, animation,
 3D, physics, shaders, runtime inspection, automated testing, and more.
 
-Every release is exercised by a **191-test end-to-end suite that boots a real Godot
-editor** and runs all 162 registered tools against it — see [Testing](#testing).
+Every release is exercised by a **216-test end-to-end suite that boots a real Godot
+editor** and runs all 163 registered tools against it — see [Testing](#testing).
 
 ## Architecture
 
@@ -24,10 +24,10 @@ Godot Editor Plugin (GDScript)
 | Category | Tools | Focus |
 |----------|-------|-------|
 | **Project** | 7 | Project info, file search, settings, UID conversion |
-| **Scene** | 9 | Scene tree, create/open/delete, play/stop, instancing |
+| **Scene** | 10 | Scene tree, create/open/save/delete, play/stop, instancing |
 | **Node** | 14 | Add/delete/duplicate, properties, signals, groups |
 | **Script** | 8 | Read/create/edit, attach, validate syntax, search |
-| **Editor** | 9 | Screenshots, error log, execute scripts, reload |
+| **Editor** | 8 | Screenshots, error log, execute scripts, editor state |
 | **Input** | 7 | Key/mouse/action simulation, sequences, input mapping |
 | **Runtime** | 19 | Game inspection, recording/replay, navigate, UI click |
 | **Animation** | 6 | Create animations, tracks, keyframes, easing |
@@ -129,7 +129,8 @@ generated project for debugging). Exit codes are CI-friendly: `0` all pass, `1` 
 failures, `2` infrastructure error.
 
 Design and internals: [docs/e2e_test_infrastructure.md](docs/e2e_test_infrastructure.md).
-Human-readable test spec: [docs/mcp_test_plan.md](docs/mcp_test_plan.md).
+The executable spec is `e2e/blocks/*.json`; [docs/mcp_test_plan.md](docs/mcp_test_plan.md) is
+the original prose plan, kept for background and stale in places.
 
 ## Project structure
 
@@ -164,7 +165,7 @@ planned for clients with tool-count limits — see [progress.md](progress.md).
 
 - All 163 tools implemented (23 categories)
 - Godot 4.4.1 and 4.7.2 compatibility verified — plugin loads clean, all tools registered
-- End-to-end suite green: **191/191 tests, 162/162 tools covered** on both 4.4.1 and 4.7.2
+- End-to-end suite green: **216/216 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
 - Planned: Lite Mode, expanded API docs, and npm packaging — see [progress.md](progress.md)
 
 ## Troubleshooting
@@ -172,6 +173,11 @@ planned for clients with tool-count limits — see [progress.md](progress.md).
 **Connection issues** — confirm the editor is open with the plugin enabled, that
 WebSocket port `6505` is free (or set `GODOT_MCP_PORT`), and check the Godot Output
 panel for `[Godot MCP]` log lines.
+
+**The bridge is loopback-only** — it binds `127.0.0.1`, because anything that connects is
+trusted as the plugin and there is no authentication yet. To attach an editor on another
+machine, set `GODOT_MCP_HOST` for both the server and the editor process, and only on a
+network you control.
 
 **Tool not found** — verify the plugin is enabled and the server built successfully
 (`server/dist/index.js` exists).

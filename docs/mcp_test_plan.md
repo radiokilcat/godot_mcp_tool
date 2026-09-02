@@ -1,5 +1,14 @@
 # MCP Tool Test Plan — Godot MCP v1.0.0
 
+> ⚠️ **HISTORICAL — DO NOT TRUST THE ARGUMENTS OR RESPONSES BELOW.**
+> This is the original prose plan, written before the tools existed. The executable
+> spec is **`e2e/blocks/*.json`** (23 blocks, 216 tests, run by `node e2e/run.mjs`);
+> where the two disagree, the blocks are right — they run against a real editor.
+> Known drift found while porting: `set_project_setting` takes `setting_path`, not
+> `setting`; `get_editor_version` returns Godot's version dict (`string`/`build`/`major`),
+> not `version`/`is_official`. The plan is kept for background and coverage rationale
+> only. See progress.md 6.4.6 and 9.1.4.
+
 **Purpose:** Step-by-step test plan for AI agents.  
 **Format:** tool call → assert → (optional) cleanup.  
 **Test project:** `res://` = `C:/Users/User/Documents/test_mcp`  

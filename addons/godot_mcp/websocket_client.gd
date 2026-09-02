@@ -57,7 +57,7 @@ func connect_to_server() -> void:
 
 	var url := server_url
 	if url.is_empty():
-		url = "ws://localhost:6505"
+		url = "ws://127.0.0.1:6505"
 
 	var err := websocket.connect_to_url(url)
 	if err != OK:

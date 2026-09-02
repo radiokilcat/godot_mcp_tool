@@ -9,6 +9,13 @@ import { randomUUID } from "crypto";
 const TOOL_TIMEOUT_MS = 15_000;
 // Overridable so test harnesses can run in parallel with a live setup on the default port
 const WS_PORT = Number(process.env.GODOT_MCP_PORT ?? "") || 6505;
+// Whatever connects here is trusted as the Godot plugin — there is no authentication
+// yet (progress.md 9.5) — so the bridge must not be reachable from the network. Node
+// binds every interface when no host is given. Loopback is pinned to IPv4 because the
+// plugin dials 127.0.0.1: binding "localhost" can resolve to ::1 on Windows and leave
+// the editor knocking on an address nobody is listening to. Override only to attach an
+// editor running on another machine, and only on a network you control.
+const WS_HOST = process.env.GODOT_MCP_HOST || "127.0.0.1";
 
 interface PendingCall {
   resolve: (value: unknown) => void;
@@ -26,12 +33,12 @@ class GodotConnection {
   private _closed = false;
 
   constructor() {
-    this.wss = new WebSocketServer({ port: WS_PORT });
+    this.wss = new WebSocketServer({ port: WS_PORT, host: WS_HOST });
     this.wss.on("connection", (ws) => this._onConnection(ws));
     // Only announce the port once the bind actually succeeded — listen() is async,
     // so logging in the constructor claims success before it is known.
     this.wss.on("listening", () => {
-      console.error(`[Godot] WebSocket server listening on ws://localhost:${WS_PORT}`);
+      console.error(`[Godot] WebSocket server listening on ws://${WS_HOST}:${WS_PORT}`);
     });
     // Without this handler a failed bind surfaces as an unhandled 'error' event and
     // kills the process before the MCP handshake completes, so the client reports

@@ -588,12 +588,11 @@
 - **Priority:** HIGH
 - **Effort:** 2-3 hours
 
-### [ ] 5.4 - Create .mcp.json Template — mostly done already
+### [x] 5.4 - Create .mcp.json Template — closed by 9.1.6 (2026-09-02)
 - [x] Create example config file — working [.mcp.json](.mcp.json) in the repo root
 - [x] Document all options — README "Point your MCP client at it" covers the absolute-path requirement and `GODOT_MCP_PORT`
-- [ ] 5.4.1 - Ship it as a copyable template rather than a live config, and document the two traps found in the field: the file must be named exactly `.mcp.json` and must sit in the directory the client is launched from (a config named otherwise, or one level down in the Godot project subfolder, is silently ignored)
-- **Priority:** LOW (downgraded — the substance exists, only packaging is left)
-- **Effort:** ~1 hour
+- [x] 5.4.1 - Ship it as a copyable template rather than a live config, and document the two traps found in the field: the file must be named exactly `.mcp.json` and must sit in the directory the client is launched from (a config named otherwise, or one level down in the Godot project subfolder, is silently ignored) — **done as 9.1.6**: `.mcp.json.example` committed with both traps in the header, the live `.mcp.json` untracked and gitignored
+- **Completed:** 2026-09-02
 
 ---
 
@@ -802,27 +801,43 @@ helpers, and a handful of live measurements.
 `tools/list` payload, the pretty-print overhead, the import-time socket, and the divergence
 between the 13 copies of `_resolve_node`.
 
-### [ ] 9.1 - Quick wins — ~1 hour total, each independent
-- [ ] 9.1.1 - **Stop pretty-printing tool responses.** index.ts:146 is
+### [x] 9.1 - Quick wins — done 2026-09-02
+- [x] 9.1.1 - **Stop pretty-printing tool responses.** index.ts:146 was
   `JSON.stringify(result, null, 2)`; the reader is a model, not a human. Measured on a deep scene
   tree (short keys, heavy nesting — the shape agents request most): compact 10 273 chars vs pretty
-  34 178, **+233 %**. Flat payloads cost tens of percent instead. Consider `GODOT_MCP_PRETTY=1`
-  for hand debugging.
-- [ ] 9.1.2 - **Bind the bridge to `127.0.0.1`.** `new WebSocketServer({ port })`
-  (godot-connection.ts:29) binds `::` — verified: `{"address":"::","family":"IPv6"}` — i.e. every
-  interface, LAN included. One-line fix; the authentication half is 9.5.
-- [ ] 9.1.3 - **Commit `package-lock.json`** (currently in .gitignore). `@modelcontextprotocol/sdk: ^1.0.0`
-  and `ws: ^8.18.0` are ranges, so another machine builds a different server — and the e2e suite
-  runs the production `dist`, which makes a green run non-reproducible. Use `npm ci` in CI.
-- [ ] 9.1.4 - **Reconcile the docs with reality.** README says 191/191 tests and 162/162 tools
-  against the actual 216 and 163/163, and says 163 tools in one place and 162 in another; the
-  compatibility block still reads "verified on 4.4.1" although 4.7.2 passed too. docs/mcp_test_plan.md
-  (1715 lines) is called stale *here* but says nothing about it *in the file* — an agent that
-  finds it by search will believe it. Banner it or delete it (e2e/blocks/*.json replaced it).
-- [ ] 9.1.5 - **`.gitattributes`** with `* text=auto eol=lf` and `*.gd text eol=lf` — git already
-  warns on every TS commit and GDScript is unprotected.
-- [ ] 9.1.6 - **Ship `.mcp.json` as `.mcp.json.example`** — the committed one hardcodes
-  `C:/Users/User/development/...`, which both breaks a clone and leaks the username. Same work as 5.4.1.
+  34 178, **+233 %**. Flat payloads cost tens of percent instead. **Done:** compact by default,
+  `GODOT_MCP_PRETTY=1` restores indentation for reading responses by hand.
+- [x] 9.1.2 - **Bind the bridge to `127.0.0.1`.** `new WebSocketServer({ port })`
+  (godot-connection.ts:29) bound `::` — verified: `{"address":"::","family":"IPv6"}` — i.e. every
+  interface, LAN included. **Done:** binds loopback, now verified as
+  `{"address":"127.0.0.1","family":"IPv4"}`, with `GODOT_MCP_HOST` as a deliberate escape hatch
+  for a remote editor. **Not a one-line change after all:** the plugin dialled `ws://localhost`,
+  which resolves to `::1` first on Windows, so an IPv4-only bind would have left the editor
+  knocking on an address nobody listens to. Both ends now say `127.0.0.1` (plugin.gd, and the
+  fallback URL in websocket_client.gd), and the plugin reads `GODOT_MCP_HOST` the same way it
+  already read `GODOT_MCP_PORT`. The authentication half is 9.5 — this only closes the network.
+- [x] 9.1.3 - **Commit `package-lock.json`.** `@modelcontextprotocol/sdk: ^1.0.0` and `ws: ^8.18.0`
+  are ranges, so another machine built a different server — and the e2e suite runs the production
+  `dist`, which made a green run non-reproducible. **Done:** un-ignored and committed
+  (lockfileVersion 3, 368 packages, pinning sdk 1.29.0 and ws 8.21.0 — what the green runs
+  actually used). CI should use `npm ci`.
+- [x] 9.1.4 - **Reconcile the docs with reality.** **Done:** README now says 216/216 tests and
+  163/163 tools (was 191 and 162, and it disagreed with itself on 163 vs 162). The category table
+  was also wrong in two rows — counted against the built registry: Scene is 10 (save_scene, 6.6.9),
+  Editor is 8 (reload_scripts lives in Script). Sum reconciles to 163. docs/mcp_test_plan.md now
+  carries a HISTORICAL banner naming `e2e/blocks/*.json` as the executable spec and listing the
+  known drift, so an agent that finds it by search cannot mistake it for current.
+- [x] 9.1.5 - **`.gitattributes`** with `* text=auto eol=lf`, explicit `eol=lf` for `.gd/.tscn/.tres/.cfg/.gdshader`,
+  and binary markers. **Done.** `git add --renormalize .` produced no changes — the index was
+  already LF throughout, so this is purely preventive and cost no churn.
+- [x] 9.1.6 - **Ship `.mcp.json` as `.mcp.json.example`** — the committed one hardcoded
+  `C:/Users/User/development/...`, breaking a clone and leaking the username. **Done:** untracked
+  via `git rm --cached` (the working file stays on disk, so the live setup is untouched) and
+  gitignored; the committed template carries the two field traps from 5.4.1 — the file must be
+  named exactly `.mcp.json`, and must sit in the directory the client launches from. Closes 5.4.1.
+- **Verified:** full e2e on **both** engines after the changes — **216 passed / 0 failed,
+  163/163 tools** on 4.4.1 and 4.7.2. That is the real test of 9.1.2: the handshake happens over
+  the new IPv4-only bind, and every assertion parses compact JSON.
 
 ### [ ] 9.2 - Delete the dead code — ~1530 lines, 10 % of the codebase
 Phase 1-2 scaffolding the final architecture routed around. Nothing in the import graph reaches
@@ -1037,7 +1052,9 @@ cross-platform support.
 - Track blockers and dependencies
 - Document any architectural decisions
 
-**Last Updated:** 2026-09-02 (**whole-repo tech-debt review → new Phase 9**, 9.1-9.7 above.) Headlines: the bridge listens on every interface and authenticates nobody (a hard precondition for 6.5.3, not a standalone nicety); tool responses are pretty-printed at +233 % characters; `tools/list` costs ~29k tokens per session; ~1530 lines are dead, including the one module the project's only unit test covers; `_resolve_node` exists in 6 different implementations across 13 files. Suggested order: the 9.1 quick wins (~1 h), then 9.2, then 9.3 **before** 6.1.1, with 9.5 decided before 6.5.3 ships.)
+**Last Updated:** 2026-09-02 (**9.1 quick wins done** — compact tool responses, loopback-only bridge, committed lockfile, docs reconciled with the built registry, `.gitattributes`, `.mcp.json.example` (which also closes 5.4.1). Full e2e re-run on both engines after the changes: **216 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2. Next: 9.2 (delete the dead code), then 9.3 before 6.1.1.)
+
+**Previously:** 2026-09-02 (**whole-repo tech-debt review → new Phase 9**, 9.1-9.7 above.) Headlines: the bridge listens on every interface and authenticates nobody (a hard precondition for 6.5.3, not a standalone nicety); tool responses are pretty-printed at +233 % characters; `tools/list` costs ~29k tokens per session; ~1530 lines are dead, including the one module the project's only unit test covers; `_resolve_node` exists in 6 different implementations across 13 files. Suggested order: the 9.1 quick wins (~1 h), then 9.2, then 9.3 **before** 6.1.1, with 9.5 decided before 6.5.3 ships.)
 
 **Previously:** 2026-09-02 (**6.5.1 done — the orphaned bridge process is gone.** The server now shuts down when the client closes the pipe (stdin EOF / stdout EPIPE), on the usual signals, and on any other exit path; `close()` terminates the editor socket before closing the server, without which the port stayed bound regardless. Verified end-to-end: exit 0 and port free ~13 ms after EOF, with a connected editor. Next: 6.1.1 effect assertions, then 6.5.3-6.5.9 transport inversion, 6.2b undo/reconnect, Phases 4-5 packaging.)
 
