@@ -13,7 +13,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
   | | Command | Covers | Time |
   |---|---|---|---|
-  | Unit (server) | `npm test` in `server/` | version-utils, timeout policy, bridge seam, 163 tool schemas | ~1 s |
+  | Unit (server) | `npm test` in `server/` | version-utils, timeout policy, bridge seam, 163 tool schemas, e2e platform layer | ~1 s |
   | Unit (plugin) | `node e2e/unit.mjs` | vector/colour parsing, `_as_bool`, `_max_results`, `_value_to_json` | ~2 s |
   | Parse gate | `node e2e/check-syntax.mjs` | every plugin script compiles, named file and line | ~6 s |
   | E2E | `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
@@ -21,8 +21,10 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   Run all four before calling a change done; the first three cost about 10 seconds together.
 
 - **E2E: 230 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
-  514 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+  527 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md.
+- **CI runs all four layers** (.github/workflows/ci.yml): the fast three on Linux, Windows and
+  macOS, the headless suite on Linux and Windows. Windows is the only host verified locally.
 - **The suite now checks effects, not just responses** (6.1.1/6.1.2): `verify` re-reads through a
   second tool call, `expectFiles` asserts what landed on disk. That is what a tool answering
   `success: true` for work it did not do cannot survive — it caught two such bugs on its first run.
@@ -400,15 +402,70 @@ cover this.
   `execute_script` is arbitrary by design; that is what 9.5.1 protects.
 - **Sequencing:** decide before 6.5.3-6.5.7 ships, not after.
 
-### [ ] 9.6 - Platform layer for e2e
+### [x] 9.6 - Platform layer for e2e — closed 2026-09-03
 The suite is Windows-only by construction, not merely untested elsewhere: provision.mjs downloads
 `Godot_v{ver}-stable_win64` and unpacks via `powershell.exe Expand-Archive`, godot-process.mjs:38
 kills the editor with `taskkill /T /F`, and everything keys off `*_console.exe`. So CI on GitHub
 Actions is impossible and no outside contributor can run it, while the README promises
 cross-platform support.
-- [ ] 9.6.1 - Split into `platform/{win32,linux,darwin}.mjs` (archive name, extraction, kill-tree)
-  — roughly 100 lines, and it opens CI.
-- **Priority:** MEDIUM
+- [x] 9.6.1 - **Platform layer. Done 2026-09-03.** `e2e/lib/platform/{index,win32,linux,darwin}.mjs`;
+  each module answers the same five questions — archive name, binary location, where the `_sc_`
+  marker goes, how to unpack, how to kill the editor with everything it spawned. `provision.mjs`
+  and `godot-process.mjs` became the flow around it, and `consoleExe` was renamed `binary` at its
+  four call sites (the console variant is a Windows-only quirk, not a concept).
+  - **Details that are not interchangeable:** Windows needs `_console.exe` because the plain .exe
+    detaches from the console and the harness would capture nothing; macOS ships an .app bundle,
+    so both the binary and `_sc_` live at `Godot.app/Contents/MacOS/` — writing the marker beside
+    the bundle would silently leave self-contained mode off and let the run read and write the
+    developer's real editor settings. Extraction is `Expand-Archive` / `unzip` / `ditto` (the last
+    preserves the bundle's signature, which an unsigned Godot.app would fail Gatekeeper without).
+    Killing is `taskkill /T` on Windows and `process.kill(-pid)` on POSIX, which is why the two
+    POSIX modules spawn the editor `detached` — without its own process group there is nothing to
+    signal, and a game started by `play_scene` would survive teardown.
+  - **The cache directory name is unchanged on Windows**, so existing checkouts do not re-download.
+  - **13 unit tests** in `server/tests/e2e-platform.test.ts` (the repo's only JS runner). The
+    load-bearing one asserts all three modules implement the same interface: the harness runs on
+    one host at a time, so two modules are always untested by simply running the suite.
+  - **All seven archive URLs verified live** by HTTP HEAD against the GitHub release assets —
+    win64/linux.x86_64/linux.arm64 on 4.4.1 and macos.universal plus the 4.7.2 variants. A name
+    typo is otherwise a 404 after the download has begun.
+- [x] 9.6.2 - **CI actually runs it now** (.github/workflows/ci.yml). Three jobs matching the test
+  layers: `check` (no Godot, ubuntu, node 18/20), `godot-fast` (parse gate + GDScript unit tests on
+  **ubuntu, windows and macos**), `e2e` (headless suite on ubuntu and windows). macOS is in the
+  fast job rather than e2e deliberately — it is the cheapest run that still downloads, unpacks and
+  executes a Godot binary, which is what keeps the darwin module from being dead code. Also fixed
+  along the way: the workflow still used `npm install` with a comment claiming package-lock.json
+  was gitignored, which 9.1.3 changed; it is `npm ci` now.
+- **Honest status: Windows is verified here, Linux and macOS are implemented and unexercised.**
+  I cannot run them on this machine; the first CI run is their real test. What *is* verified for
+  them: the release URLs resolve, and the interface/shape tests pass.
+- **Priority:** DONE
+
+### [x] 9.6b - Two product bugs the first headless run exposed (2026-09-03)
+CI runs the suite `--headless`, which had never been tried. It came back 187 passed / **1 failed**,
+and the failure was not the harness.
+
+- [x] 9.6b.1 - **`EditorFileSystem.scan()` is asynchronous, so tools read a stale index.** Every
+  write path called `get_resource_filesystem().scan()`, which *queues* a rescan and returns
+  immediately — the file is still missing from the index when the next tool call arrives. Anything
+  reading that index answers zero results with `success: true`: **the whole batch and analysis
+  category**. So "create a scene, then refactor across scenes" silently skipped the scene just
+  created. Windowed runs hid it because the idle scan usually won the race.
+  **Fixed:** `_notify_file_changed()` on the 9.3 base class calls `update_file()` — which registers
+  the one path synchronously — and then scans for whatever else moved. Applied to `create_scene`,
+  `save_scene`, `delete_scene` (update_file on a vanished path drops it, which is what delete
+  wants), `create_script`, `attach_script`'s created file, and `take_screenshot`. Caught by BR-08b,
+  the `refactor_signals` write-path test added the same day for 6.1.2.
+- [x] 9.6b.2 - **`get_error_log` failed hard on a log it could not open.** It picked the newest
+  `*.log` and errored out if `FileAccess.open` returned null — and the newest is exactly the one at
+  risk, because the documented flow is `play_scene` → `get_error_log` (6.6.4), so the tool runs
+  moments after the game exited and on Windows the file the departing process was writing can still
+  refuse to open. Reproduced as an intermittent failure of E-03d across back-to-back runs; a known
+  flake would have undermined the CI this task exists to enable. **Fixed:** the candidates are now
+  ranked newest-first and tried in turn; only if none open does it error, naming the newest, the
+  open error and how many it tried.
+- **Both are products of running the suite a way it had never been run.** Neither is
+  platform-specific, and neither would have surfaced from the Windows windowed runs alone.
 
 ### [ ] 9.7 - Token budget
 - [ ] 9.7.1 - **`tools/list` costs ~29k tokens in every session.** Measured against the built

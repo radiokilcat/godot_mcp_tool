@@ -110,8 +110,8 @@ Four layers, fastest first. The first three together cost about ten seconds and 
 editor, so run them before reaching for the suite:
 
 ```bash
-cd server && npm test              # ~1 s   514 tests: version/timeout/bridge logic, all 163 tool schemas
-node e2e/unit.mjs                  # ~2 s   78 checks: plugin coercion rules, headless GDScript
+cd server && npm test              # ~1 s   527 tests: version/timeout/bridge logic, 163 tool schemas, platform layer
+node e2e/unit.mjs                  # ~2 s   80 checks: plugin coercion rules, headless GDScript
 node e2e/check-syntax.mjs          # ~6 s   every plugin script compiles, names file and line
 node e2e/run.mjs --godot 4.4.1     # ~4 min the full suite below
 ```
@@ -132,6 +132,10 @@ Useful flags: `--blocks 3,9` (run specific blocks), `--test AT-03` (single test)
 matrix), `--port 6510` (isolate from a live setup on 6505), `--keep-work` (keep the
 generated project for debugging). Exit codes are CI-friendly: `0` all pass, `1` test
 failures, `2` infrastructure error.
+
+Runs on Windows, Linux and macOS — the platform differences (release archive, extraction,
+killing the editor's process tree) live in `e2e/lib/platform/`. CI exercises the fast layers
+on all three and the headless suite on Linux and Windows.
 
 Design and internals: [docs/e2e_test_infrastructure.md](docs/e2e_test_infrastructure.md).
 The executable spec is `e2e/blocks/*.json`; [docs/mcp_test_plan.md](docs/mcp_test_plan.md) is
@@ -156,7 +160,7 @@ cd server
 npm run build      # compile TypeScript
 npm run watch      # compile in watch mode
 npm run lint       # ESLint
-npm test           # 514 unit tests (vitest), ~1 s
+npm test           # 527 unit tests (vitest), ~1 s
 ```
 
 The four test layers are described under [Testing](#testing).

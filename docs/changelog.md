@@ -12,7 +12,23 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-03 (**9.4.5 done, closing all of 9.4.** The blanket `*.js` is out of
+**Last Updated:** 2026-09-03 (**9.6 done — the e2e suite is no longer Windows-only, and CI runs
+it.** `e2e/lib/platform/{win32,linux,darwin}.mjs` answer the same five questions each — archive
+name, binary location, where `_sc_` goes, how to unpack, how to kill the editor with everything it
+spawned — and provision/godot-process became the flow around them. All seven release URLs verified
+live by HTTP HEAD. CI now has three jobs matching the test layers: no-Godot checks on Linux, the
+fast Godot layers on Linux + Windows + **macOS** (the cheapest run that still executes a Godot
+binary, which is what keeps the darwin module from being dead code), and the headless suite on
+Linux and Windows. **Windows is the only host verified locally; the first CI run is Linux's and
+macOS's real test.** Running headless for the first time immediately found two product bugs, both
+platform-independent: `EditorFileSystem.scan()` is asynchronous, so every write path left the index
+stale and the entire batch/analysis category answered zero results with `success: true` for a file
+the caller had just created — now `update_file()` registers it synchronously; and `get_error_log`
+errored out on a log it could not open, which is exactly the newest one right after `play_scene` →
+`get_error_log` released it — now it falls through to the next candidate. E2E **230/230** windowed
+and **188 passed / 42 skipped** headless, on 4.4.1 and 4.7.2.)
+
+**Previously:** 2026-09-03 (**9.4.5 done, closing all of 9.4.** The blanket `*.js` is out of
 .gitignore — redundant with `dist/`, and it silently swallowed any helper `.js` added to the repo,
 with an exception pointing at a directory 9.2 deleted. And the pending reconnect in plugin.gd was
 more than the "harmless" the note claimed: `await` on a SceneTreeTimer holds a reference to the
