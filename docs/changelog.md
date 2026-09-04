@@ -12,7 +12,21 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-03 (**9.4.4 done — the enumerating tools are bounded.** `get_scene_tree`,
+**Last Updated:** 2026-09-03 (**9.4.5 done, closing all of 9.4.** The blanket `*.js` is out of
+.gitignore — redundant with `dist/`, and it silently swallowed any helper `.js` added to the repo,
+with an exception pointing at a directory 9.2 deleted. And the pending reconnect in plugin.gd was
+more than the "harmless" the note claimed: `await` on a SceneTreeTimer holds a reference to the
+awaiting object, so a plugin disabled mid-backoff stayed alive for up to a minute — a control run
+with the fix removed prints `WARNING: ObjectDB instances leaked at exit`. `_shutdown_plugin` now
+zeroes the timer's `time_left` so the coroutine resumes and lets go on the next frame, and clears
+`is_initialized` first, before anything that could emit a disconnect and re-arm what it just
+cancelled. The e2e suite structurally cannot cover this — its teardown kills the editor, so
+`_exit_tree` never runs — so the mechanism is asserted in the GDScript unit harness instead. That
+in turn sharpened the unit runner: it treated only `SCRIPT ERROR` as a defect and so swallowed the
+leak, which Godot reports as a plain WARNING; it now fails on any engine ERROR **or** WARNING, and
+a clean run emits neither. E2E **230 passed / 0 failed, 163/163 tools** on both engines.)
+
+**Previously:** 2026-09-03 (**9.4.4 done — the enumerating tools are bounded.** `get_scene_tree`,
 `list_project_files`, `search_in_scripts` and `search_files` take `max_results` (default 500,
 negative for none) and answer `truncated: true` with a note on how to narrow. Measured against HEAD
 on the *test* project, which is tiny: `search_in_scripts` for `func` returned **400 matches**,

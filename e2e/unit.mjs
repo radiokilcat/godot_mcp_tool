@@ -72,12 +72,17 @@ try {
   );
 
   const output = `${r.stdout ?? ""}${r.stderr ?? ""}`;
-  // Print the engine's own output: a failing check names the case, the expected
-  // value and the actual one, and a parse error is the other thing worth seeing.
+  // Warnings count, not just errors. The leak this suite exists to catch —
+  // "ObjectDB instances leaked at exit", i.e. an object still referenced by a
+  // suspended coroutine — is reported by Godot as a WARNING, and an earlier
+  // version matching only SCRIPT ERROR swallowed it, leaving nothing on screen but
+  // its orphaned "at: cleanup (core/object/object.cpp)" location line. A clean run
+  // prints neither, so matching both costs nothing.
+  const isEngineDiagnostic = (line) => /\b(ERROR|WARNING):/.test(line);
   for (const line of output.split("\n")) {
-    const text = line.trimEnd();
-    if (text.includes("[gdunit]") || text.includes("SCRIPT ERROR") || text.trim().startsWith("at: ")) {
-      log(`  ${text.trim()}`);
+    const text = line.trim();
+    if (text.includes("[gdunit]") || isEngineDiagnostic(text) || text.startsWith("at: ")) {
+      log(`  ${text}`);
     }
   }
 
@@ -92,9 +97,9 @@ try {
   // any pushed error is a defect even when every assertion passed. This is how
   // `bool(null)` in _as_bool was found: the checks were green and the engine was
   // printing "Nonexistent 'bool' constructor" on every call.
-  const engineErrors = output.split("\n").filter((l) => l.includes("SCRIPT ERROR"));
+  const engineErrors = output.split("\n").filter(isEngineDiagnostic);
   if (engineErrors.length > 0) {
-    log(`[gdunit] ${engineErrors.length} engine error(s) during a run that asked for none`);
+    log(`[gdunit] ${engineErrors.length} engine diagnostic(s) during a run that asked for none`);
     exitCode = 1;
   }
 

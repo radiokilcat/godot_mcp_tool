@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_as_bool()
 	_test_max_results()
 	_test_value_to_json()
+	await _test_timer_cancellation()
 
 	print("[gdunit] %d passed / %d failed" % [_passed, _failures.size()])
 	for f in _failures:
@@ -185,6 +186,31 @@ func _test_max_results() -> void:
 	check("_max_results falls back on a dictionary", base._max_results({"max_results": {}}), 500)
 	check("_max_results falls back on an array", base._max_results({"max_results": []}), 500)
 	check("_max_results honours a caller's own fallback", base._max_results({}, 10), 10)
+
+## The mechanism plugin.gd's _shutdown_plugin relies on (9.4.5). `await` on a
+## SceneTreeTimer holds a reference to the awaiting object until the timer fires,
+## so a plugin disabled mid-backoff stayed alive for up to 60 seconds. Zeroing
+## time_left is what releases it promptly — this asserts that actually happens,
+## since the e2e suite cannot: its teardown kills the editor process outright, so
+## _exit_tree never runs there.
+func _test_timer_cancellation() -> void:
+	var timer := create_timer(600.0)
+	var state := {"resumed": false}
+	_resume_when(timer, state)
+
+	check("the timer has not fired on its own", state["resumed"], false)
+
+	timer.time_left = 0.0
+	# Two frames: one for the timer to reach zero and emit, one for the coroutine
+	# it resumed to run to completion.
+	await process_frame
+	await process_frame
+
+	check("zeroing time_left releases the awaiting coroutine", state["resumed"], true)
+
+func _resume_when(timer: SceneTreeTimer, state: Dictionary) -> void:
+	await timer.timeout
+	state["resumed"] = true
 
 func _test_value_to_json() -> void:
 	var base := GodotMCPToolBase.new()

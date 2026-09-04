@@ -8,20 +8,20 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 ## Where the project stands
 
 - **163 tools across 23 categories, all implemented** (Phases 1-3, closed — see the changelog).
-- **Three test layers, fastest first** — run them in this order, each is a superset of the
+- **Four test layers, fastest first** — run them in this order, each is a superset of the
   previous one's cost:
 
   | | Command | Covers | Time |
   |---|---|---|---|
   | Unit (server) | `npm test` in `server/` | version-utils, timeout policy, bridge seam, 163 tool schemas | ~1 s |
-  | Unit (plugin) | `node e2e/unit.mjs` | vector/colour parsing, `_as_bool`, `_value_to_json` | ~2 s |
+  | Unit (plugin) | `node e2e/unit.mjs` | vector/colour parsing, `_as_bool`, `_max_results`, `_value_to_json` | ~2 s |
   | Parse gate | `node e2e/check-syntax.mjs` | every plugin script compiles, named file and line | ~6 s |
   | E2E | `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
 
   Run all four before calling a change done; the first three cost about 10 seconds together.
 
 - **E2E: 230 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
-  514 server unit tests and 78 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+  514 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md.
 - **The suite now checks effects, not just responses** (6.1.1/6.1.2): `verify` re-reads through a
   second tool call, `expectFiles` asserts what landed on disk. That is what a tool answering
@@ -295,7 +295,7 @@ helpers, and a handful of live measurements.
 `tools/list` payload, the pretty-print overhead, the import-time socket, and the divergence
 between the 13 copies of `_resolve_node`.
 
-### [ ] 9.4 - Reliability
+### [x] 9.4 - Reliability — closed 2026-09-03 (9.4.1-9.4.5)
 
 - [x] 9.4.3 - **Make the connection lazy. Done 2026-09-03.** `godotConnection` was constructed at
   import time (godot-connection.ts:29) and every file in server/src/tools/ imports it, so
@@ -346,11 +346,37 @@ between the 13 copies of `_resolve_node`.
 - **Verified:** e2e **230 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2 (was 223), 78
   GDScript unit checks, 514 server ones. The seven new e2e tests were confirmed to fail against
   HEAD — except P-03c, which asserts the *absence* of truncation and correctly passes both ways.
-- [ ] 9.4.5 - Minor: `.gitignore` has a blanket `*.js` with `!tests/**/*.js`, so any helper `.js`
-  added to the repo silently will not be committed (e2e survives only by using `.mjs`). And
-  plugin.gd:321-328 leaves a `create_timer` reconnect pending after `_exit_tree` — harmless
-  thanks to the `is_initialized` guard, and it disappears with 6.5.4.
-- **Priority:** LOW — only 9.4.5, the two minor items, is left.
+- [x] 9.4.5 - **Both minor items. Done 2026-09-03.**
+  - **`.gitignore`:** the blanket `*.js` is gone, with its `!tests/**/*.js` exception pointing at
+    the directory 9.2 deleted. It was entirely redundant — `tsc` emits only into `server/dist`
+    (`outDir` in tsconfig.json) and `dist/` was already ignored one line above — while silently
+    swallowing any helper `.js` added anywhere in the repo. Purely preventive: `git status` after
+    the change shows nothing newly trackable.
+  - **The pending reconnect (plugin.gd) turned out to be more than harmless.** The note said the
+    `is_initialized` guard made it a non-event, and for *correctness* it does. But `await` on a
+    SceneTreeTimer holds a reference to the awaiting object until the timer fires, so a plugin
+    disabled mid-backoff stayed alive for up to `max_reconnect_delay` — a full minute at the top
+    of the curve. **Confirmed, not inferred:** a control run with the fix removed prints
+    `WARNING: ObjectDB instances leaked at exit`. `_shutdown_plugin` now zeroes the timer's
+    `time_left`, so it fires on the next frame and the coroutine resumes, sees the plugin is down,
+    and releases it.
+  - `_shutdown_plugin` also clears `is_initialized` **first**, before anything that could emit.
+    Closing the socket signals a disconnect and a disconnect schedules a reconnect; today that
+    emission is deferred to the client's `_process`, which no longer runs, but a shutdown relying
+    on that is one refactor away from re-arming the timer it just cancelled.
+- **The e2e suite cannot cover this**: its teardown kills the editor with `taskkill`, so
+  `_exit_tree` never runs there — the last launch section of both engine logs contains zero
+  "Plugin shutdown" lines. The mechanism is covered in the GDScript unit harness instead, and
+  verified both ways: with the cancellation removed, the awaiting coroutine stays suspended and
+  the engine reports the leak.
+- **This sharpened the unit runner too.** It only treated `SCRIPT ERROR` as a defect, so it
+  swallowed the plain `WARNING: ObjectDB instances leaked…` and printed nothing but that message's
+  orphaned `at: cleanup (core/object/object.cpp:2378)` location line. It now fails on any engine
+  `ERROR:` **or** `WARNING:` — a clean run emits neither, so the wider match costs nothing and
+  catches the whole class.
+- **Verified:** e2e **230 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2, 80 GDScript unit
+  checks (was 78), 514 server ones, parse gate clean over all 32 scripts.
+- **Priority:** DONE — all five items are closed. The closed writeups for 9.4.1/9.4.2 are in the changelog.
 
 ### [ ] 9.5 - Bridge authentication — **precondition for 6.5.3, decide inside 6.5.8**
 The bridge authenticates nobody: whoever opens the socket is treated as the plugin, and
