@@ -74,7 +74,13 @@ func _add_to_scene(new_node: Node, parent: Node, node_name: String, action_name:
 ## `bool("false")` is true in GDScript -- any non-empty string is -- which is why
 ## this exists at all (3.16b). Eight of the nine copies only recognised the
 ## literal string "true" and answered false for 1; this one takes all three forms.
+## An explicit JSON null must be handled before bool(): `bool(null)` is not a
+## valid constructor call in GDScript, so it answers false *and* pushes
+## "Invalid call. Nonexistent 'bool' constructor" into the Output panel — the
+## same kind of engine-error spam 9.8 went through the tools to remove.
 func _as_bool(value: Variant) -> bool:
+	if value == null:
+		return false
 	if value is String:
 		return value.to_lower() in ["true", "1", "yes"]
 	return bool(value)
