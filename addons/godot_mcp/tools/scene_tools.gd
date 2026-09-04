@@ -120,8 +120,7 @@ func _create_scene(args: Dictionary) -> Dictionary:
 	if err != OK:
 		return {"error": "Failed to save scene to %s: %s" % [save_path, error_string(err)]}
 
-	# Refresh filesystem
-	EditorInterface.get_resource_filesystem().scan()
+	_notify_file_changed(save_path)
 
 	if open_after:
 		EditorInterface.open_scene_from_path(save_path)
@@ -159,7 +158,7 @@ func _save_scene(args: Dictionary) -> Dictionary:
 		if not FileAccess.file_exists(ProjectSettings.globalize_path(target)):
 			return {"error": "Failed to save scene to %s" % target}
 
-	EditorInterface.get_resource_filesystem().scan()
+	_notify_file_changed(target)
 	return {"success": true, "scene_path": target}
 
 func _create_node_by_type(type_name: String) -> Node:
@@ -211,7 +210,7 @@ func _delete_scene(args: Dictionary) -> Dictionary:
 	if FileAccess.file_exists(uid_path):
 		DirAccess.remove_absolute(uid_path)
 
-	EditorInterface.get_resource_filesystem().scan()
+	_notify_file_changed(scene_path)
 	return {"success": true, "deleted_path": scene_path}
 
 func _play_scene(args: Dictionary) -> Dictionary:

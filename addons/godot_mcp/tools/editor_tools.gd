@@ -280,7 +280,7 @@ func _take_screenshot(args: Dictionary) -> Dictionary:
 	if err != OK:
 		return {"error": "Failed to save screenshot: %s" % error_string(err)}
 
-	EditorInterface.get_resource_filesystem().scan()
+	_notify_file_changed(save_path)
 	var result: Dictionary = {
 		"success": true,
 		"save_path": save_path,
@@ -306,10 +306,15 @@ func _error_log_dirs() -> Array:
 			dirs.append(candidate)
 	return dirs
 
-## Most recently modified *.log across the candidate directories.
-func _newest_log_file(dirs: Array) -> String:
-	var newest_path := ""
-	var newest_time := -1
+## Every *.log across the candidate directories, most recently modified first.
+##
+## A list rather than just the newest, because the newest is exactly the one most
+## likely to be unreadable: the documented flow is play_scene → get_error_log
+## (6.6.4), so the tool runs moments after the game exited, and on Windows the
+## file the departing process was writing can still refuse to open. Falling back
+## to the next candidate turns an intermittent hard error into an answer.
+func _log_files_newest_first(dirs: Array) -> Array:
+	var found: Array = []
 	for entry in dirs:
 		var dir_path: String = entry
 		var dir := DirAccess.open(dir_path)
@@ -320,11 +325,12 @@ func _newest_log_file(dirs: Array) -> String:
 			if not file_name.ends_with(".log"):
 				continue
 			var full: String = dir_path.path_join(file_name)
-			var mtime: int = int(FileAccess.get_modified_time(full))
-			if mtime > newest_time:
-				newest_time = mtime
-				newest_path = full
-	return newest_path
+			found.append({"path": full, "mtime": int(FileAccess.get_modified_time(full))})
+	found.sort_custom(func(a, b): return a["mtime"] > b["mtime"])
+	var paths: Array = []
+	for item in found:
+		paths.append(item["path"])
+	return paths
 
 func _get_error_log(args: Dictionary) -> Dictionary:
 	var last_n: int = int(args.get("last_n_lines", 100))
@@ -332,13 +338,35 @@ func _get_error_log(args: Dictionary) -> Dictionary:
 	var log_path: String = str(args.get("log_path", ""))
 
 	var dirs := _error_log_dirs()
+	# An explicit log_path is taken as given; otherwise try every log we can see,
+	# newest first, and keep going past one that will not open.
+	var candidates: Array = []
 	if log_path.is_empty():
-		log_path = _newest_log_file(dirs)
-	elif log_path.begins_with("res://") or log_path.begins_with("user://"):
-		log_path = ProjectSettings.globalize_path(log_path)
+		candidates = _log_files_newest_first(dirs)
+	else:
+		if log_path.begins_with("res://") or log_path.begins_with("user://"):
+			log_path = ProjectSettings.globalize_path(log_path)
+		candidates = [log_path]
+
+	var file: FileAccess = null
+	var skipped: Array = []
+	for candidate in candidates:
+		var path: String = candidate
+		if not FileAccess.file_exists(path):
+			continue
+		file = FileAccess.open(path, FileAccess.READ)
+		if file != null:
+			log_path = path
+			break
+		skipped.append({"path": path, "error": error_string(FileAccess.get_open_error())})
 
 	var logging_enabled := bool(ProjectSettings.get_setting("debug/file_logging/enable_file_logging", false))
-	if log_path.is_empty() or not FileAccess.file_exists(log_path):
+	if file == null and not skipped.is_empty():
+		return {
+			"error": "Found %d log file(s) but none could be opened. Newest: %s (%s). A log the game process has only just released can refuse to open; retry, or pass 'log_path' explicitly."
+				% [skipped.size(), skipped[0]["path"], skipped[0]["error"]],
+		}
+	if file == null:
 		return {
 			"lines": [],
 			"total": 0,
@@ -348,10 +376,6 @@ func _get_error_log(args: Dictionary) -> Dictionary:
 				+ "so play the scene (play_scene) and read the log afterwards. "
 				+ ("File logging is currently disabled: set debug/file_logging/enable_file_logging to true and restart the project." if not logging_enabled else "")),
 		}
-
-	var file := FileAccess.open(log_path, FileAccess.READ)
-	if file == null:
-		return {"error": "Cannot open log file: %s" % log_path}
 
 	var content := file.get_as_text()
 	file.close()

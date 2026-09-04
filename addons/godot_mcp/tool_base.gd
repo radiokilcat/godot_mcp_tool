@@ -144,6 +144,21 @@ func _value_to_json(v: Variant) -> Variant:
 		return str(v)
 	return v
 
+## Tell the editor that a res:// file appeared, changed or went away.
+##
+## `scan()` on its own is not enough, and the difference only shows under load or
+## headless: it *queues* a rescan and returns immediately, so a scene written by
+## one tool call is still missing from EditorFileSystem when the next call
+## arrives. Everything that reads that index — the whole batch and analysis
+## category — then answers zero results with `success: true`, i.e. the refactor
+## silently skipped the file the caller had just created. `update_file()`
+## registers the one path synchronously; the scan still follows for whatever else
+## moved. Also correct for deletion: update_file on a vanished path drops it.
+func _notify_file_changed(res_path: String) -> void:
+	var fs := EditorInterface.get_resource_filesystem()
+	fs.update_file(res_path)
+	fs.scan()
+
 ## Create the directory a res:// file is about to be written into. Returns "" on
 ## success or a message describing the failure.
 ##

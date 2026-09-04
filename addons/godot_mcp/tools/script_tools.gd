@@ -90,7 +90,7 @@ func _create_script(args: Dictionary) -> Dictionary:
 	if err != OK:
 		return {"error": "Failed to create script: %s" % error_string(err)}
 
-	EditorInterface.get_resource_filesystem().scan()
+	_notify_file_changed(script_path)
 	return {"success": true, "script_path": script_path, "line_count": content.split("\n").size()}
 
 func _edit_script(args: Dictionary) -> Dictionary:
@@ -158,7 +158,7 @@ func _attach_script(args: Dictionary) -> Dictionary:
 		var err := _write_file(abs_path, template)
 		if err != OK:
 			return {"error": "Failed to create script file: %s" % error_string(err)}
-		EditorInterface.get_resource_filesystem().scan()
+		_notify_file_changed(script_path)
 		created = true
 
 	var script: GDScript = ResourceLoader.load(script_path)
