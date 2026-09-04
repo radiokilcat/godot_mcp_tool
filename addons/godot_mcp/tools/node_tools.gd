@@ -351,9 +351,13 @@ func _connect_signal(args: Dictionary) -> Dictionary:
 	if src.is_connected(signal_name, callable):
 		return {"error": "Signal '%s' is already connected to '%s'" % [signal_name, callback]}
 
+	# CONNECT_PERSIST is what makes the connection part of the *scene* rather than of this
+	# editor session: PackedScene.pack() only records connections carrying that flag, which is
+	# why the editor's own signal dialog sets it. Without it the connection is real — it fires,
+	# and get_node_signals reports it — but saving and reopening the scene silently drops it.
 	var ur := _plugin.get_undo_redo()
 	ur.create_action("Connect Signal: %s → %s" % [signal_name, callback])
-	ur.add_do_method(src, "connect", signal_name, callable)
+	ur.add_do_method(src, "connect", signal_name, callable, Object.CONNECT_PERSIST)
 	ur.add_undo_method(src, "disconnect", signal_name, callable)
 	ur.commit_action()
 

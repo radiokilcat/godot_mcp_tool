@@ -555,7 +555,10 @@ func _refactor_signals(args: Dictionary) -> Dictionary:
 			var new_callable := Callable(target, new_method)
 			if source.is_connected(sig_name, old_callable):
 				source.disconnect(sig_name, old_callable)
-				source.connect(sig_name, new_callable)
+				# CONNECT_PERSIST or the re-pack below drops the connection entirely: the
+				# connections read out of SceneState are persistent by definition, so
+				# reconnecting without the flag turns a rename into a deletion.
+				source.connect(sig_name, new_callable, Object.CONNECT_PERSIST)
 				updated += 1
 
 		if updated > 0:
