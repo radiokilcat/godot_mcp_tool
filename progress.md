@@ -8,7 +8,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 ## Where the project stands
 
 - **163 tools across 23 categories, all implemented** (Phases 1-3, closed — see the changelog).
-- **Four test layers, fastest first** — run them in this order, each is a superset of the
+- **Five test layers, fastest first** — run them in this order, each is a superset of the
   previous one's cost:
 
   | | Command | Covers | Time |
@@ -17,14 +17,19 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   | Unit (plugin) | `node e2e/unit.mjs` | vector/colour parsing, `_as_bool`, `_max_results`, `_value_to_json` | ~2 s |
   | Parse gate | `node e2e/check-syntax.mjs` | every plugin script compiles, named file and line | ~6 s |
   | E2E | `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
+  | Multi-session | `node e2e/multi-session.mjs` | two sessions on one editor, the call queue, token enforcement | ~40 s |
 
-  Run all four before calling a change done; the first three cost about 10 seconds together.
+  Run them all before calling a change done; the first three cost about 10 seconds together.
 
 - **E2E: 230 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
-  527 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+  535 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md.
-- **CI runs all four layers** (.github/workflows/ci.yml): the fast three on Linux, Windows and
-  macOS, the headless suite on Linux and Windows. Windows is the only host verified locally.
+- **CI runs every layer** (.github/workflows/ci.yml): the fast three on Linux, Windows and macOS,
+  the headless suite and the multi-session check on Linux and Windows. Windows is the only host
+  verified locally.
+- **The editor hosts the bridge; MCP sessions dial in** (6.5). It picks its own port and publishes
+  it with a per-launch token to `~/.godot-mcp/instances/`. Several sessions can drive one editor,
+  and each open project listens separately.
 - **The suite now checks effects, not just responses** (6.1.1/6.1.2): `verify` re-reads through a
   second tool call, `expectFiles` asserts what landed on disk. That is what a tool answering
   `success: true` for work it did not do cannot survive — it caught two such bugs on its first run.
@@ -177,7 +182,7 @@ happened). That is the gap worth closing.
 - [ ] 6.2b.2 - **Auto-reconnect is not exercised.** The only retry in the suite is client-side in e2e/lib/executor.mjs; the plugin's exponential backoff (1s→60s) has never been tested. Needs a block that kills the bridge mid-run and asserts the plugin comes back.
 - **Priority:** MEDIUM
 
-### [ ] 6.5 - Bridge port lifecycle & the multi-session story (discovered 2026-08-31; planned 2026-08-31)
+### [x] 6.5 - Bridge port lifecycle & the multi-session story — closed 2026-09-03
 - [x] 6.5.1 - **Graceful shutdown**: `GodotConnection.close()` exists but is wired to no signal, so a closing client leaves an orphaned node process holding 6505 — which then blocks every later session until it is killed by hand. Hook `SIGTERM`/`SIGINT`/`exit`. **Fixed 2026-09-02:** signals were only half the story — an MCP client normally ends a session by closing the pipe, not by signalling, and the SDK's stdio transport listens for `data`/`error` on stdin and never for EOF (verified in the SDK source), while the WebSocket server keeps the event loop alive on its own. `installShutdownHandlers()` (index.ts) now shuts down on stdin `end`/`close`, on `EPIPE` from stdout (a client that vanished without an orderly EOF — also a fatal unhandled error event otherwise), on `SIGINT`/`SIGTERM`/`SIGHUP` (plus `SIGBREAK` on Windows only — registering it elsewhere throws), and releases the socket from a process `exit` handler for any path that bypasses those. `close()` became idempotent, rejects in-flight calls, and **terminates the client sockets before `wss.close()`** — that turned out to be the load-bearing part: ws's internally created HTTP server only finishes closing once every established connection has ended, so with an editor attached the original one-line `close()` would have left the port bound anyway.
 - **Verified** on the built server with a fake editor doing the real handshake: stdin EOF → exit 0 and port free in ~13 ms, both with and without an editor attached. Control run (the bridge imported without the handlers) was still alive 3 s after EOF, i.e. the old behaviour. Not covered on this machine: signal delivery — Windows `process.kill` terminates outright rather than raising `SIGINT`/`SIGTERM` in the child, so those paths are code-reviewed, not executed.
 - [x] 6.5.2 - **Decide the multi-session story.** Original options were (a) auto-picked port + discovery file, (b) a long-lived broker owning 6505 with thin per-session stdio shims. **Decided 2026-08-31: neither — invert the transport instead (6.5.3-6.5.7).** Analysis below.
@@ -233,16 +238,48 @@ falls out for free, each project listens on its own port (killing the cross-proj
 above), and the Node side stays stdio, so `.mcp.json` does not change at all. B was rejected
 because its one real advantage — shared server-side state — does not exist here.
 
-**Implementation**
-- [ ] 6.5.3 - **Godot-side listener**: replace websocket_client.gd with a server built on `TCPServer` + `WebSocketPeer.accept_stream()`, polling a pool of peers in `_process` (~120 lines).
-- [ ] 6.5.4 - **plugin.gd for N peers**: address sends to a peer instead of the single `_send_message` path, drop the reconnect/backoff block (plugin.gd:321-328), heartbeat per peer or server-side pong only (~60 lines).
-- [ ] 6.5.5 - **Node side becomes a client**: godot-connection.ts turns into a reconnecting WS client — essentially a mirror of the logic being deleted from plugin.gd (~80 lines).
-- [ ] 6.5.6 - **Port discovery**: a project setting or a file under `res://.godot/` that the server reads, so two open projects do not collide again through a different door (~40 lines). Keep the `GODOT_MCP_PORT` override — e2e depends on it (6.4.8).
-- [ ] 6.5.7 - **Queue instead of reject**: turn `_tool_busy` (plugin.gd:255-257) into a FIFO queue; with two clients attached, rejection becomes routine rather than exceptional. Raise `TOOL_TIMEOUT_MS` (godot-connection.ts:9) accordingly — 15s now has to cover queue wait, not just execution.
-- [ ] 6.5.8 - **Multi-session semantics**: at minimum log a `client_id` on every mutation; consider an advisory lease on mutating tools. Decide this *before* shipping 6.5.3-6.5.7, not after — otherwise the failure mode is rare, timing-dependent "something undid my edit".
-- [ ] 6.5.9 - **e2e harness**: the pipeline starts the MCP server before the editor (docs/e2e_test_infrastructure.md, stage 3). With the inversion that order flips, and the server has to wait for the editor's port to appear.
-- **Priority:** MEDIUM — **deferred**, scheduled after the 6.6 blockers (6.6.1-6.6.5). 6.5.1 landed on its own (2026-09-02) and takes the everyday pain out of the port collision: a closed session no longer leaves a squatter, so the remaining breakage is only two *concurrent* sessions.
-- **Effort:** ~1 day for 6.5.3-6.5.7, plus 6.5.9 on top.
+**Implementation — all of it landed 2026-09-03, together with 9.5.**
+- [x] 6.5.3 - **Godot-side listener**: `addons/godot_mcp/websocket_server.gd`, `TCPServer` +
+  `WebSocketPeer.accept_stream()` polling a peer pool in `_process`. Carries the 9.4.2 buffer
+  sizes per peer, drops a connection that opens a socket and never finishes the handshake, and
+  checks the token the moment a peer reaches OPEN.
+- [x] 6.5.4 - **plugin.gd for N peers**: sends are addressed to a peer, the whole reconnect/backoff
+  block is gone, and so is the heartbeat — liveness is now the dialling side's problem, and the
+  plugin only answers `ping` with `pong`. `websocket_client.gd` and `heartbeat.gd` are deleted.
+- [x] 6.5.5 - **Node side becomes a client**: godot-connection.ts is a reconnecting WS client,
+  which is the logic deleted from plugin.gd, moved to the side that should own it. It
+  **rediscovers on every attempt** rather than caching the first answer — an editor restarted
+  mid-session comes back on a different port with a different token, and a cached target would
+  mean a session never recovers from something that simple.
+- [x] 6.5.6 - **Discovery**: `~/.godot-mcp/instances/<project hash>.json`, holding port, token,
+  project path and pid. **The plan's `res://.godot/` could not work**: nothing tells the server
+  where the Godot project is — `.mcp.json` carries an absolute path to the *server* and the
+  client's working directory is arbitrary — so a project-local file is findable only by someone
+  who already knows the answer. Machine-wide also gives the multi-project story for free.
+  `GODOT_MCP_PORT`/`GODOT_MCP_TOKEN` still override, which e2e depends on (6.4.8).
+- [x] 6.5.7 - **Queue instead of reject**: `_tool_busy` became a FIFO. `_running` guards
+  re-entrancy rather than threads — a tool body awaits, which returns to the main loop, which can
+  deliver the next message and re-enter the pump mid-flight. A client that disconnects has its
+  queued calls dropped rather than spending the editor's single thread on a result nobody will
+  read. The client's timeout gained 30 s of queue slack on top of the 9.4.1 budget.
+- [x] 6.5.8 - **Multi-session semantics**: every tool call logs `client N → tool`. Editor state is
+  global — one current scene, one selection, one UndoRedo stack — so the question about any change
+  is *which* session made it; without attribution the failure mode is a rare, timing-dependent
+  "something undid my edit" with nothing in the Output panel to trace. An advisory lease was
+  considered and not taken: it adds a protocol and a lock to something no evidence says is a
+  problem yet, and the log is what would tell us whether it is.
+- [x] 6.5.9 - **e2e harness**: the order flipped. The editor launches first, `waitForInstance()`
+  polls the registry for an entry whose `project_path` is the generated project — **matched on the
+  path, not "the newest entry", because a developer's own editor may be running and driving that
+  would edit their real scenes** — and only then is the MCP server started, with the port and token
+  passed explicitly.
+- **`e2e/multi-session.mjs` is new and is the point of the whole task.** The main suite drives one
+  client and would pass just as well against the old direction. This checks what actually changed:
+  the editor picks its own port, two sessions attach to one editor and both work, concurrent calls
+  queue instead of one being told "another tool call is already in progress", one session leaving
+  does not disturb the other, and the token is enforced in both directions. **11/11.**
+- **Verified:** e2e **230 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2, **188 passed /
+  42 skipped** headless, 535 server unit tests, 80 GDScript, parse gate clean.
 
 *(6.2, 6.3, 6.4 and the whole 6.6 field report are closed — see the changelog. 6.4 built the
 E2E infrastructure; 6.6 is the field report whose 15 fixes the current behaviour rests on.)*
@@ -380,7 +417,7 @@ between the 13 copies of `_resolve_node`.
   checks (was 78), 514 server ones, parse gate clean over all 32 scripts.
 - **Priority:** DONE — all five items are closed. The closed writeups for 9.4.1/9.4.2 are in the changelog.
 
-### [ ] 9.5 - Bridge authentication — **precondition for 6.5.3, decide inside 6.5.8**
+### [x] 9.5 - Bridge authentication — closed 2026-09-03 with 6.5 (9.5.3 remains, see below)
 The bridge authenticates nobody: whoever opens the socket is treated as the plugin, and
 godot-connection.ts:50-53 evicts the previous connection ("last writer wins").
 
@@ -393,14 +430,39 @@ in the editor. Note that WebSocket is exempt from same-origin/CORS, so **any web
 developer's browser can reach `ws://localhost:<port>`** — binding to loopback (9.1.2) does not
 cover this.
 
-- [ ] 9.5.1 - Shared secret checked at handshake, stored beside the port file from 6.5.6.
-- [ ] 9.5.2 - Reject connections that carry an `Origin` header — the real plugin never sends one,
-  a browser always does.
+**Engine constraints, probed on 4.4.1 before designing anything (2026-09-03).** Both answers
+came from a live `TCPServer` + `WebSocketPeer.accept_stream()` connection, not from the docs:
+
+- **`get_requested_url()` works on the accepting side** and returns the full URL the client asked
+  for, path and query included (`ws://127.0.0.1:58591/mcp/tok3n?q=1`). So the URL is a usable
+  channel for the shared secret.
+- **`get_handshake_headers()` returns `[]` on the accepting side.** It is the property of headers a
+  peer *sends*, not the request it received — so **a Godot listener cannot see `Origin` at all**,
+  and there is no peek on `StreamPeerTCP` to read the request before `accept_stream` consumes it.
+
+- [x] 9.5.1 - **Shared secret. Done 2026-09-03.** 256 bits from `Crypto.generate_random_bytes`,
+  fresh per editor launch, published in the discovery file (0600 where the OS has a notion of it —
+  GDScript has no chmod, so that is a `chmod` subprocess, and a no-op on Windows where the profile
+  is the boundary). It travels in the **URL path**, because the probe above proved headers are
+  unreachable; the plugin compares it the moment the peer reaches OPEN, in constant time, and on a
+  mismatch closes with application code **4001 and a reason**. That last part is deliberate: a
+  browser learns nothing it did not already know, while a *real* client that read the wrong
+  discovery file gets something diagnosable instead of a silent drop, and the Node side turns 4001
+  into a message naming the file it took the token from.
+- **Verified end to end**, not just at the unit level: `e2e/multi-session.mjs` connects a raw
+  WebSocket with a wrong token and asserts close code 4001, then connects with the right one and
+  asserts it opens.
+- [x] 9.5.2 - **Not implementable as written, and 9.5.1 subsumes it (2026-09-03).** The Origin check
+  was defence in depth against a web page reaching `ws://localhost:<port>`, since WebSocket ignores
+  same-origin. The probe above shows the header never reaches the listener. It costs nothing:
+  a page cannot read the token file off disk, so the secret already closes that door — the Origin
+  check would only have rejected the same connection one step earlier. Recorded rather than
+  silently dropped, so it is not re-proposed.
 - [ ] 9.5.3 - Lower priority: unify the `res://` prefix check on the write paths. It appears 10
   times across the 6 files that write to disk (scene/script/resource/shader/theme/batch tools),
   i.e. inconsistently. One `_safe_write_path()` on the 9.3 base class. Not a containment boundary —
   `execute_script` is arbitrary by design; that is what 9.5.1 protects.
-- **Sequencing:** decide before 6.5.3-6.5.7 ships, not after.
+- **Sequencing held:** 9.5.1 was designed and shipped in the same change as 6.5.3-6.5.9, so the handshake was never built twice.
 
 ### [x] 9.6 - Platform layer for e2e — closed 2026-09-03
 The suite is Windows-only by construction, not merely untested elsewhere: provision.mjs downloads

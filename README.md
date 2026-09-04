@@ -14,10 +14,18 @@ editor** and runs all 163 registered tools against it — see [Testing](#testing
 ```
 AI Assistant (Claude / other MCP client)
     ↓ (MCP protocol, stdio)
-Node.js MCP Server
-    ↓ (WebSocket :6505)
-Godot Editor Plugin (GDScript)
+Node.js MCP Server  ──┐
+                      ├─→ connect to ws://127.0.0.1:<port>/<token>
+Node.js MCP Server  ──┘        (another session, same editor)
+    ↑
+Godot Editor Plugin (GDScript) — hosts the bridge, publishes port + token
 ```
+
+**The editor hosts the bridge**, and MCP server processes dial in. It is that way
+round because the port is a machine-wide resource and the editor is the long-lived
+end: sessions come and go without fighting over it, several can attach at once,
+and each open project listens on its own port. The plugin advertises its port and
+a per-launch token in `~/.godot-mcp/instances/`, which is how a server finds it.
 
 ## Tool categories (163 total)
 
@@ -98,8 +106,11 @@ built entry point:
 }
 ```
 
-The server listens for the editor plugin on WebSocket port `6505` (override with the
-`GODOT_MCP_PORT` environment variable — set it for both the server and the editor).
+No port to configure: the editor picks one, writes it with a per-launch token to
+`~/.godot-mcp/instances/`, and the server reads that. With one editor open there is
+nothing to choose; with several, the server picks the one matching its working
+directory and otherwise tells you which are running. `GODOT_MCP_PORT` and
+`GODOT_MCP_TOKEN` override discovery entirely.
 
 Open your Godot project with the plugin enabled, and your assistant now has access to
 all the tools.
@@ -181,14 +192,22 @@ planned for clients with tool-count limits — see [progress.md](progress.md).
 
 ## Troubleshooting
 
-**Connection issues** — confirm the editor is open with the plugin enabled, that
-WebSocket port `6505` is free (or set `GODOT_MCP_PORT`), and check the Godot Output
-panel for `[Godot MCP]` log lines.
+**Connection issues** — confirm the editor is open with the plugin enabled, and look in
+the Godot Output panel for `[Godot MCP] Listening on …`. That line names the port and the
+discovery file; if it is absent the plugin never started. If it is present but the
+assistant still cannot connect, check that `~/.godot-mcp/instances/` holds a matching
+entry.
 
-**The bridge is loopback-only** — it binds `127.0.0.1`, because anything that connects is
-trusted as the plugin and there is no authentication yet. To attach an editor on another
-machine, set `GODOT_MCP_HOST` for both the server and the editor process, and only on a
-network you control.
+**"N Godot editors are running…"** — two or more projects are open and the working
+directory does not identify one. Set `GODOT_MCP_PORT` and `GODOT_MCP_TOKEN` from the
+entry you want.
+
+**The bridge is loopback-only and authenticated** — it binds `127.0.0.1`, and a client
+must present the token from the discovery file. Both matter: WebSocket is exempt from
+same-origin, so any web page you have open may connect to `ws://127.0.0.1:<port>`, and
+`execute_script` runs arbitrary GDScript. A page cannot read the token off disk, which is
+what closes that door. To attach an editor on another machine set `GODOT_MCP_HOST` on
+both ends, and only on a network you control.
 
 **Tool not found** — verify the plugin is enabled and the server built successfully
 (`server/dist/index.js` exists).

@@ -12,7 +12,25 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-03 (**9.6 done — the e2e suite is no longer Windows-only, and CI runs
+**Last Updated:** 2026-09-03 (**6.5 and 9.5 done as one change — the transport is inverted and the
+bridge is authenticated.** The editor now hosts the WebSocket server and MCP sessions dial in, so
+the machine-wide port belongs to the long-lived end instead of the shortest-lived one: several
+sessions attach to one editor, each open project listens on its own OS-assigned port, and nobody
+has to "start the shared server". Two engine facts were probed before designing anything, and one
+changed the plan: `get_requested_url()` works on the accepting side, but `get_handshake_headers()`
+returns `[]` there, so a Godot listener **cannot see `Origin`** and 9.5.2 is not implementable —
+the 256-bit per-launch token travels in the URL path instead, and subsumes it, since a web page
+cannot read the token off disk. Discovery also had to move: the plan's `res://.godot/` file is
+undiscoverable because nothing tells the server where the project is, so the plugin publishes port
+and token to `~/.godot-mcp/instances/` and the server selects by working directory, refusing rather
+than guessing when several editors match nothing. `_tool_busy` became a FIFO queue, the plugin's
+reconnect/backoff and heartbeat are gone (deleted with websocket_client.gd and heartbeat.gd) and
+that logic now lives on the dialling side where it belongs, and the e2e harness starts the editor
+first. `e2e/multi-session.mjs` is the new check that any of this was worth doing — the main suite
+drives one client and would pass against the old direction too. **11/11 there, e2e 230/230 on 4.4.1
+and 4.7.2, 188/42-skipped headless, 535 server unit tests, 80 GDScript.**)
+
+**Previously:** 2026-09-03 (**9.6 done — the e2e suite is no longer Windows-only, and CI runs
 it.** `e2e/lib/platform/{win32,linux,darwin}.mjs` answer the same five questions each — archive
 name, binary location, where `_sc_` goes, how to unpack, how to kill the editor with everything it
 spawned — and provision/godot-process became the flow around them. All seven release URLs verified
