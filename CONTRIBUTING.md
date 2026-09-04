@@ -64,7 +64,8 @@ check a concrete field (e.g. `success == true`), never just "the call did not er
 - All editor mutations should support UndoRedo where practical.
 - Guard version-specific engine APIs via `version_utils.gd` rather than assuming a
   minimum Godot version.
-- Update [progress.md](progress.md) when you complete a task.
+- Update [progress.md](progress.md) when you complete a task — it tracks open work only.
+  Closed work, with the reasoning behind each decision, lives in [docs/changelog.md](docs/changelog.md).
 
 ## Reporting bugs
 

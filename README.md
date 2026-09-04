@@ -140,9 +140,8 @@ godot_mcp_tool/
 ├── server/               # Node.js MCP server (TypeScript)
 │   └── src/tools/        # Tool categories
 ├── e2e/                  # End-to-end test runner + block definitions
-├── tests/                # Unit tests (type parser)
-├── docs/                 # Test plan & E2E design
-└── progress.md           # Detailed task tracking
+├── docs/                 # E2E design, and the changelog of closed work
+└── progress.md           # Open tasks (closed ones: docs/changelog.md)
 ```
 
 ### Development
@@ -152,7 +151,12 @@ cd server
 npm run build      # compile TypeScript
 npm run watch      # compile in watch mode
 npm run lint       # ESLint
-npm test           # unit tests (vitest)
+npm test           # unit tests (vitest — none yet, see progress.md 6.1.3)
+```
+
+```bash
+node e2e/check-syntax.mjs          # ~6 s GDScript parse gate, names file and line
+node e2e/run.mjs --godot 4.4.1     # full end-to-end suite against a real editor
 ```
 
 ## Clients
@@ -165,8 +169,9 @@ planned for clients with tool-count limits — see [progress.md](progress.md).
 
 - All 163 tools implemented (23 categories)
 - Godot 4.4.1 and 4.7.2 compatibility verified — plugin loads clean, all tools registered
-- End-to-end suite green: **216/216 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
+- End-to-end suite green: **218/218 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
 - Planned: Lite Mode, expanded API docs, and npm packaging — see [progress.md](progress.md)
+- What has already shipped, and why each decision was made: [docs/changelog.md](docs/changelog.md)
 
 ## Troubleshooting
 
