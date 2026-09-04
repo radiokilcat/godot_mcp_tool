@@ -16,10 +16,15 @@ yarn-error.log*
 yarn.lock
 
 # Build output
+#
+# Ignored by location, not by extension. A blanket `*.js` used to sit here with a
+# `!tests/**/*.js` exception, which meant any helper .js added anywhere in the repo
+# was silently never committed — the e2e runner survives only because it is written
+# as .mjs. The exception itself pointed at a tests/ directory 9.2 deleted. tsc emits
+# solely into server/dist (outDir in tsconfig.json), so `dist/` already covers the
+# build output on its own.
 dist/
 build/
-*.js
-!tests/**/*.js
 
 # Local MCP client config — it holds an absolute path to this checkout.
 # The committed template is .mcp.json.example

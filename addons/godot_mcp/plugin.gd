@@ -34,6 +34,8 @@ var is_initialized: bool = false
 var is_connected: bool = false
 var reconnect_attempts: int = 0
 var _tool_busy: bool = false
+## The pending reconnect, kept so shutdown can cut it short. See _schedule_reconnect.
+var _reconnect_timer: SceneTreeTimer = null
 
 ## Called when plugin is enabled
 func _enter_tree() -> void:
@@ -91,6 +93,19 @@ func _shutdown_plugin() -> void:
 	if not is_initialized:
 		return
 
+	# Cleared first, before anything below can emit: closing the socket signals a
+	# disconnect, and a disconnect schedules a reconnect. Today that emission is
+	# deferred to the client's _process, which no longer runs — but a shutdown that
+	# depends on that is one refactor away from re-arming the timer it just cancelled.
+	is_initialized = false
+
+	# Cut a pending reconnect short: zeroing time_left makes the timer fire on the
+	# next frame, so the awaiting coroutine resumes, sees is_initialized false, and
+	# releases its reference to this plugin now rather than up to a minute from now.
+	if _reconnect_timer != null:
+		_reconnect_timer.time_left = 0.0
+		_reconnect_timer = null
+
 	# Stop heartbeat
 	if heartbeat:
 		heartbeat.stop()
@@ -103,7 +118,6 @@ func _shutdown_plugin() -> void:
 
 	_tools.clear()
 	tool_registry = null
-	is_initialized = false
 	is_connected = false
 	print_log("Plugin shutdown complete")
 
@@ -304,13 +318,34 @@ func _send_message(message: Dictionary) -> Error:
 # Reconnect Logic
 # ============================================================================
 
-## Schedule a reconnection attempt
+## Schedule a reconnection attempt.
+##
+## `await` on a SceneTreeTimer holds a reference to this plugin until the timer
+## fires, so a plugin disabled while a reconnect is pending stayed alive for up to
+## max_reconnect_delay — a minute at the top of the backoff, long enough that
+## quitting the editor inside that window reports leaked ObjectDB instances. The
+## timer is therefore kept, and _shutdown_plugin zeroes it to let the coroutine
+## resume and drop the reference on the next frame.
 func _schedule_reconnect() -> void:
+	if not is_initialized:
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+
 	reconnect_attempts += 1
 	var delay = min(reconnect_delay * pow(2, reconnect_attempts - 1), max_reconnect_delay)
 	print_log("Scheduling reconnect in %.1f seconds (attempt %d)" % [delay, reconnect_attempts])
 
-	await get_tree().create_timer(delay).timeout
+	var timer := tree.create_timer(delay)
+	_reconnect_timer = timer
+	await timer.timeout
+
+	# _connect_to_server guards on is_initialized too, but checking the identity
+	# here also stops a superseded timer from reconnecting out of turn.
+	if not is_initialized or _reconnect_timer != timer:
+		return
+	_reconnect_timer = null
 	_connect_to_server()
 
 # ============================================================================
