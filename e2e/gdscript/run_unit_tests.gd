@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_to_vector3()
 	_test_to_color()
 	_test_as_bool()
+	_test_max_results()
 	_test_value_to_json()
 
 	print("[gdunit] %d passed / %d failed" % [_passed, _failures.size()])
@@ -166,6 +167,24 @@ func _test_as_bool() -> void:
 	check("_as_bool of numeric 0", base._as_bool(0), false)
 	check("_as_bool of an empty string", base._as_bool(""), false)
 	check("_as_bool of null", base._as_bool(null), false)
+
+func _test_max_results() -> void:
+	var base := GodotMCPToolBase.new()
+	var unlimited := 0x7FFFFFFF
+
+	check("_max_results defaults when absent", base._max_results({}), 500)
+	check("_max_results takes an integer", base._max_results({"max_results": 25}), 25)
+	check("_max_results takes a JSON float", base._max_results({"max_results": 25.0}), 25)
+	check("_max_results takes a numeric string", base._max_results({"max_results": "25"}), 25)
+	# Negative means no cap, the way max_depth already reads in get_scene_tree.
+	check("_max_results treats a negative as unlimited", base._max_results({"max_results": -1}), unlimited)
+	check("_max_results treats zero as unlimited", base._max_results({"max_results": 0}), unlimited)
+	# A malformed argument must not turn a listing into an empty one, and null has
+	# to be caught before int() for the same reason _as_bool catches it.
+	check("_max_results falls back on null", base._max_results({"max_results": null}), 500)
+	check("_max_results falls back on a dictionary", base._max_results({"max_results": {}}), 500)
+	check("_max_results falls back on an array", base._max_results({"max_results": []}), 500)
+	check("_max_results honours a caller's own fallback", base._max_results({}, 10), 10)
 
 func _test_value_to_json() -> void:
 	var base := GodotMCPToolBase.new()

@@ -79,7 +79,21 @@
       "id": "SC-09",
       "tool": "search_in_scripts",
       "args": { "query": "increment" },
-      "asserts": [{ "field": "", "op": "jsonContains", "value": "test_tool.gd" }]
+      "asserts": [
+        { "field": "", "op": "jsonContains", "value": "test_tool.gd" },
+        { "field": "truncated", "op": "isNull" }
+      ]
+    },
+    {
+      "id": "SC-09b",
+      "tool": "search_in_scripts",
+      "comment": "9.4.4 — 'func' matches hundreds of lines across the addon, which used to come back whole. The cap stops the walk, not just the output.",
+      "args": { "query": "func", "max_results": 3 },
+      "asserts": [
+        { "field": "total_matches", "op": "eq", "value": 3 },
+        { "field": "truncated", "op": "eq", "value": true },
+        { "field": "note", "op": "contains", "value": "max_results" }
+      ]
     },
     {
       "id": "SC-10",

@@ -6,7 +6,7 @@ An MCP server that lets AI assistants (Claude and other MCP clients) drive the G
 Editor through **163 tools across 23 categories** — scenes, nodes, scripts, animation,
 3D, physics, shaders, runtime inspection, automated testing, and more.
 
-Every release is exercised by a **216-test end-to-end suite that boots a real Godot
+Every release is exercised by a **230-test end-to-end suite that boots a real Godot
 editor** and runs all 163 registered tools against it — see [Testing](#testing).
 
 ## Architecture
@@ -106,13 +106,18 @@ all the tools.
 
 ## Testing
 
-Two layers:
-
-**Unit tests** (type parser) — fast, no editor required:
+Four layers, fastest first. The first three together cost about ten seconds and need no
+editor, so run them before reaching for the suite:
 
 ```bash
-cd server && npm test
+cd server && npm test              # ~1 s   514 tests: version/timeout/bridge logic, all 163 tool schemas
+node e2e/unit.mjs                  # ~2 s   78 checks: plugin coercion rules, headless GDScript
+node e2e/check-syntax.mjs          # ~6 s   every plugin script compiles, names file and line
+node e2e/run.mjs --godot 4.4.1     # ~4 min the full suite below
 ```
+
+The parse gate earns its place: a typo in any one plugin file stops `plugin.gd` compiling,
+so *every* tool disappears and the only symptom the suite reports is `Tool not found`.
 
 **End-to-end suite** — downloads a Godot distribution, generates a throwaway project,
 boots the editor, runs every tool through the full MCP stack, writes a report, and
@@ -154,14 +159,7 @@ npm run lint       # ESLint
 npm test           # 514 unit tests (vitest), ~1 s
 ```
 
-Four test layers, fastest first — each is worth running before the next:
-
-```bash
-cd server && npm test              # ~1 s   version/timeout/bridge logic + all 163 tool schemas
-node e2e/unit.mjs                  # ~2 s   plugin coercion rules, headless GDScript
-node e2e/check-syntax.mjs          # ~6 s   GDScript parse gate, names file and line
-node e2e/run.mjs --godot 4.4.1     # ~4 min full end-to-end suite against a real editor
-```
+The four test layers are described under [Testing](#testing).
 
 ## Clients
 
@@ -173,7 +171,7 @@ planned for clients with tool-count limits — see [progress.md](progress.md).
 
 - All 163 tools implemented (23 categories)
 - Godot 4.4.1 and 4.7.2 compatibility verified — plugin loads clean, all tools registered
-- End-to-end suite green: **223/223 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
+- End-to-end suite green: **230/230 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
 - Planned: Lite Mode, expanded API docs, and npm packaging — see [progress.md](progress.md)
 - What has already shipped, and why each decision was made: [docs/changelog.md](docs/changelog.md)
 

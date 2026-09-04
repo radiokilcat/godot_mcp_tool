@@ -12,7 +12,18 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-03 (**6.1.3 done, so all of 6.1 is closed — the project has unit tests
+**Last Updated:** 2026-09-03 (**9.4.4 done — the enumerating tools are bounded.** `get_scene_tree`,
+`list_project_files`, `search_in_scripts` and `search_files` take `max_results` (default 500,
+negative for none) and answer `truncated: true` with a note on how to narrow. Measured against HEAD
+on the *test* project, which is tiny: `search_in_scripts` for `func` returned **400 matches**,
+`list_project_files` **70** files. The cap stops the walk rather than trimming a finished list, and
+`get_scene_tree` needed a node budget rather than a row cap — `max_depth` cannot bound a wide tree,
+since one flat node with 20 000 children is a single level deep. Named `max_results` to match the
+convention the batch tools already used, whose three inline copies now share `_max_results()` on the
+9.3 base. E2E **230 passed / 0 failed, 163/163 tools** on both engines; the seven new tests were
+confirmed to fail against HEAD. Only 9.4.5 is left in 9.4.)
+
+**Previously:** 2026-09-03 (**6.1.3 done, so all of 6.1 is closed — the project has unit tests
 again.** Two harnesses: 514 vitest tests on the server (~0.7 s), covering version-utils, the 9.4.1
 timeout policy, the 9.4.3 bridge seam, and 493 structural checks over all 163 tool schemas; and 68
 headless-GDScript checks (`node e2e/unit.mjs`, ~2 s, green on both engines) over the coercion rules

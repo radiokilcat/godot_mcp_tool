@@ -18,8 +18,10 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   | Parse gate | `node e2e/check-syntax.mjs` | every plugin script compiles, named file and line | ~6 s |
   | E2E | `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
 
-- **E2E: 223 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
-  514 server unit tests and 68 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+  Run all four before calling a change done; the first three cost about 10 seconds together.
+
+- **E2E: 230 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
+  514 server unit tests and 78 GDScript ones alongside. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md.
 - **The suite now checks effects, not just responses** (6.1.1/6.1.2): `verify` re-reads through a
   second tool call, `expectFiles` asserts what landed on disk. That is what a tool answering
@@ -316,15 +318,39 @@ between the 13 copies of `_resolve_node`.
   the built server still binds before the MCP handshake (the plugin dials in on a backoff and
   cannot wait for a first tool call) and still frees the port on stdin EOF, i.e. 6.5.1 intact.
   Full e2e after the change: **218 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2.
-- [ ] 9.4.4 - **Bound the enumerating responses.** `limit` with a sane default plus `truncated: true`
-  on `get_scene_tree` / `list_project_files` / `search_in_scripts`, generalizing what 6.6.13 did
-  for `get_node_properties`. Also removes part of the 9.4.2 exposure.
+- [x] 9.4.4 - **Bound the enumerating responses. Done 2026-09-03.** `max_results` with a default of
+  500 plus `truncated: true` and a `note` naming how to narrow, on `get_scene_tree`,
+  `list_project_files`, `search_in_scripts` — and on **`search_files`**, which the task did not
+  name but is the same shape and the same exposure.
+  - **Named `max_results`, not `limit`:** the batch and analysis tools already took `max_results`
+    with `truncated`, so `limit` would have been a second name for the established convention.
+    Their three inline `int(args.get("max_results", 500))` copies now call the shared
+    `_max_results()` on the 9.3 base class, so there is no fifth divergent copy to drift.
+  - **The cap stops the walk, not just the output** — that is where the cost is. Every collector
+    takes it and returns early rather than filtering a finished list.
+  - **The off-by-one is handled deliberately and tested:** the list tools collect one *past* the
+    cap so "exactly `max_results` files exist" and "there are more" stay distinguishable — comparing
+    `size()` to the cap reports truncation for a listing that was complete (P-03c).
+    `get_scene_tree` cannot use that trick, so its walk sets an explicit `dropped` flag.
+  - **`get_scene_tree` needed a node budget, not a row cap:** `max_depth` cannot bound a wide tree —
+    one flat node with 20 000 children is a single level deep. Each shortened node is marked
+    `truncated_children: true`, because an agent reading a subtree needs to know *that* list is
+    short, not merely that something somewhere was dropped.
+  - Negative means no cap, matching how `max_depth` already reads; a malformed value falls back to
+    the default rather than to zero, so a bad argument cannot turn a listing into an empty one; and
+    `null` is caught before `int()` for the reason 6.1.3 found in `_as_bool`.
+- **Measured against HEAD on the *test* project**, which is far smaller than any real one:
+  `search_in_scripts` for `func` returned **400 matches** (each a dict of file/line/text),
+  `list_project_files` **70** files, `search_files` for `.gd` **66**. Those were the unbounded
+  replies, and the ones that 9.4.2 showed vanish entirely past the socket buffer.
+- **Verified:** e2e **230 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2 (was 223), 78
+  GDScript unit checks, 514 server ones. The seven new e2e tests were confirmed to fail against
+  HEAD — except P-03c, which asserts the *absence* of truncation and correctly passes both ways.
 - [ ] 9.4.5 - Minor: `.gitignore` has a blanket `*.js` with `!tests/**/*.js`, so any helper `.js`
   added to the repo silently will not be committed (e2e survives only by using `.mjs`). And
   plugin.gd:321-328 leaves a `create_timer` reconnect pending after `_exit_tree` — harmless
   thanks to the `is_initialized` guard, and it disappears with 6.5.4.
-- **Priority:** MEDIUM — the user-visible half (9.4.1, 9.4.2) and the 6.1.3 blocker (9.4.3) are done;
-  9.4.4 and 9.4.5 are what is left.
+- **Priority:** LOW — only 9.4.5, the two minor items, is left.
 
 ### [ ] 9.5 - Bridge authentication — **precondition for 6.5.3, decide inside 6.5.8**
 The bridge authenticates nobody: whoever opens the socket is treated as the plugin, and

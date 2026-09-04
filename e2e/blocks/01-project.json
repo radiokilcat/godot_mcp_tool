@@ -34,6 +34,38 @@
       ]
     },
     {
+      "id": "P-03b",
+      "tool": "list_project_files",
+      "comment": "9.4.4 — the listing was unbounded, so a real project loaded its whole file tree into the agent's context and, past the socket buffer, into a dropped reply (9.4.2).",
+      "args": { "path": "res://", "max_results": 2 },
+      "asserts": [
+        { "field": "total", "op": "eq", "value": 2 },
+        { "field": "truncated", "op": "eq", "value": true },
+        { "field": "note", "op": "contains", "value": "max_results" }
+      ]
+    },
+    {
+      "id": "P-03c",
+      "tool": "list_project_files",
+      "comment": "The off-by-one that matters: exactly one .svg exists, so a cap of 1 returns a *complete* listing and must not claim truncation. Comparing size() to the cap alone gets this wrong.",
+      "args": { "path": "res://", "filter": ".svg", "max_results": 1 },
+      "asserts": [
+        { "field": "total", "op": "eq", "value": 1 },
+        { "field": "files", "op": "contains", "value": "res://icon.svg" },
+        { "field": "truncated", "op": "isNull" }
+      ]
+    },
+    {
+      "id": "P-03d",
+      "tool": "list_project_files",
+      "comment": "A negative cap means no limit, matching how max_depth already reads.",
+      "args": { "path": "res://", "filter": ".gd", "max_results": -1 },
+      "asserts": [
+        { "field": "total", "op": "gte", "value": 20 },
+        { "field": "truncated", "op": "isNull" }
+      ]
+    },
+    {
       "id": "P-04",
       "tool": "list_project_files",
       "args": { "path": "res://", "filter": ".gd" },
@@ -46,6 +78,15 @@
       "asserts": [
         { "field": "results", "op": "notNull" },
         { "field": "results", "op": "jsonContains", "value": "plugin" }
+      ]
+    },
+    {
+      "id": "P-05b",
+      "tool": "search_files",
+      "args": { "query": ".gd", "type": "name", "max_results": 1 },
+      "asserts": [
+        { "field": "total", "op": "eq", "value": 1 },
+        { "field": "truncated", "op": "eq", "value": true }
       ]
     },
     {

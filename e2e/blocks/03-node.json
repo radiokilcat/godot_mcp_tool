@@ -140,6 +140,30 @@
       "asserts": [{ "field": "success", "op": "eq", "value": true }]
     },
     {
+      "id": "N-12b",
+      "tool": "get_scene_tree",
+      "comment": "9.4.4 — the tree walk was unbounded, and max_depth cannot bound it: one flat node with 20 000 children is a single level deep. The budget is nodes, so a cap of 2 stops inside the root's child list.",
+      "args": { "max_results": 2 },
+      "asserts": [
+        { "field": "node_count", "op": "eq", "value": 2 },
+        { "field": "truncated", "op": "eq", "value": true },
+        { "field": "root.truncated_children", "op": "eq", "value": true },
+        { "field": "root.name", "op": "eq", "value": "Root" }
+      ]
+    },
+    {
+      "id": "N-12c",
+      "tool": "get_scene_tree",
+      "comment": "Unbounded by default for a small tree: nothing dropped, so no truncation flag anywhere.",
+      "args": {},
+      "asserts": [
+        { "field": "node_count", "op": "gte", "value": 4 },
+        { "field": "truncated", "op": "isNull" },
+        { "field": "root.truncated_children", "op": "isNull" },
+        { "field": "", "op": "jsonContains", "value": "TestBtn" }
+      ]
+    },
+    {
       "id": "N-13",
       "tool": "connect_signal",
       "args": {
