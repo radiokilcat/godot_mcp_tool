@@ -1,4 +1,4 @@
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const resourceTools = {
   read_resource: {
@@ -16,7 +16,7 @@ export const resourceTools = {
       required: ["resource_path"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("read_resource", args),
+      callTool("read_resource", args),
   },
 
   edit_resource: {
@@ -40,7 +40,7 @@ export const resourceTools = {
       required: ["resource_path", "properties"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("edit_resource", args),
+      callTool("edit_resource", args),
   },
 
   create_resource: {
@@ -74,7 +74,7 @@ export const resourceTools = {
       required: ["resource_class", "resource_path"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("create_resource", args),
+      callTool("create_resource", args),
   },
 
   save_resource: {
@@ -97,7 +97,7 @@ export const resourceTools = {
       required: ["source_path"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("save_resource", args),
+      callTool("save_resource", args),
   },
 
   get_project_autoloads: {
@@ -110,7 +110,7 @@ export const resourceTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("get_project_autoloads", args),
+      callTool("get_project_autoloads", args),
   },
 
   set_autoload: {
@@ -140,6 +140,6 @@ export const resourceTools = {
       required: ["name"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("set_autoload", args),
+      callTool("set_autoload", args),
   },
 };

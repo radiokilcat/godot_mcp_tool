@@ -1,4 +1,4 @@
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const exportTools = {
   list_export_presets: {
@@ -12,7 +12,7 @@ export const exportTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("list_export_presets", args),
+      callTool("list_export_presets", args),
   },
 
   export_project: {
@@ -43,7 +43,7 @@ export const exportTools = {
       required: ["preset_name"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("export_project", args),
+      callTool("export_project", args),
   },
 
   get_template_info: {
@@ -58,6 +58,6 @@ export const exportTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("get_template_info", args),
+      callTool("get_template_info", args),
   },
 };

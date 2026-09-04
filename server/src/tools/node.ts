@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const nodeTools: ToolCategory = {
   add_node: {
@@ -29,7 +29,7 @@ export const nodeTools: ToolCategory = {
       required: ["parent_path", "node_type"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_node", args);
+      return await callTool("add_node", args);
     },
   },
 
@@ -47,7 +47,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("delete_node", args);
+      return await callTool("delete_node", args);
     },
   },
 
@@ -69,7 +69,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("duplicate_node", args);
+      return await callTool("duplicate_node", args);
     },
   },
 
@@ -95,7 +95,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path", "new_parent_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("move_node", args);
+      return await callTool("move_node", args);
     },
   },
 
@@ -117,7 +117,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path", "new_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("rename_node", args);
+      return await callTool("rename_node", args);
     },
   },
 
@@ -148,7 +148,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_node_properties", args);
+      return await callTool("get_node_properties", args);
     },
   },
 
@@ -173,7 +173,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path", "property", "value"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_node_property", args);
+      return await callTool("set_node_property", args);
     },
   },
 
@@ -191,7 +191,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_node_signals", args);
+      return await callTool("get_node_signals", args);
     },
   },
 
@@ -221,7 +221,7 @@ export const nodeTools: ToolCategory = {
       required: ["source_node_path", "signal_name", "target_node_path", "callback_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("connect_signal", args);
+      return await callTool("connect_signal", args);
     },
   },
 
@@ -243,7 +243,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path", "group_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_to_group", args);
+      return await callTool("add_to_group", args);
     },
   },
 
@@ -265,7 +265,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path", "group_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("remove_from_group", args);
+      return await callTool("remove_from_group", args);
     },
   },
 
@@ -283,7 +283,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_node_groups", args);
+      return await callTool("get_node_groups", args);
     },
   },
 
@@ -301,7 +301,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_node_parent", args);
+      return await callTool("get_node_parent", args);
     },
   },
 
@@ -319,7 +319,7 @@ export const nodeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_node_children", args);
+      return await callTool("get_node_children", args);
     },
   },
 };

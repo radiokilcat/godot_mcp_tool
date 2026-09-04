@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const inputTools: ToolCategory = {
   simulate_key_press: {
@@ -29,7 +29,7 @@ export const inputTools: ToolCategory = {
       required: ["key"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("simulate_key_press", args);
+      return await callTool("simulate_key_press", args);
     },
   },
 
@@ -58,7 +58,7 @@ export const inputTools: ToolCategory = {
       required: ["x", "y"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("simulate_mouse_click", args);
+      return await callTool("simulate_mouse_click", args);
     },
   },
 
@@ -76,7 +76,7 @@ export const inputTools: ToolCategory = {
       required: ["x", "y"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("simulate_mouse_move", args);
+      return await callTool("simulate_mouse_move", args);
     },
   },
 
@@ -102,7 +102,7 @@ export const inputTools: ToolCategory = {
       required: ["action"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("trigger_input_action", args);
+      return await callTool("trigger_input_action", args);
     },
   },
 
@@ -119,7 +119,7 @@ export const inputTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("record_input_sequence", args);
+      return await callTool("record_input_sequence", args);
     },
   },
 
@@ -154,7 +154,7 @@ export const inputTools: ToolCategory = {
       required: ["events"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("replay_input_sequence", args);
+      return await callTool("replay_input_sequence", args);
     },
   },
 
@@ -180,7 +180,7 @@ export const inputTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("configure_input_mapping", args);
+      return await callTool("configure_input_mapping", args);
     },
   },
 };

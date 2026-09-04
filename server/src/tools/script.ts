@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const scriptTools: ToolCategory = {
   read_script: {
@@ -21,7 +21,7 @@ export const scriptTools: ToolCategory = {
       required: ["script_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("read_script", args);
+      return await callTool("read_script", args);
     },
   },
 
@@ -51,7 +51,7 @@ export const scriptTools: ToolCategory = {
       required: ["script_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("create_script", args);
+      return await callTool("create_script", args);
     },
   },
 
@@ -81,7 +81,7 @@ export const scriptTools: ToolCategory = {
       required: ["script_path", "content"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("edit_script", args);
+      return await callTool("edit_script", args);
     },
   },
 
@@ -107,7 +107,7 @@ export const scriptTools: ToolCategory = {
       required: ["node_path", "script_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("attach_script", args);
+      return await callTool("attach_script", args);
     },
   },
 
@@ -128,7 +128,7 @@ export const scriptTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("validate_syntax", args);
+      return await callTool("validate_syntax", args);
     },
   },
 
@@ -154,7 +154,7 @@ export const scriptTools: ToolCategory = {
       required: ["query"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("search_in_scripts", args);
+      return await callTool("search_in_scripts", args);
     },
   },
 
@@ -172,7 +172,7 @@ export const scriptTools: ToolCategory = {
       required: ["script_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_script_info", args);
+      return await callTool("get_script_info", args);
     },
   },
 
@@ -180,7 +180,7 @@ export const scriptTools: ToolCategory = {
     name: "reload_scripts",
     description: "Reload all GDScripts in the editor (equivalent to editor Reload Scripts action)",
     handler: async (_args) => {
-      return await godotConnection.callTool("reload_scripts", {});
+      return await callTool("reload_scripts", {});
     },
   },
 };

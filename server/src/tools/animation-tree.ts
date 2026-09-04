@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const animationTreeTools: ToolCategory = {
   create_animation_tree: {
@@ -35,7 +35,7 @@ export const animationTreeTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("create_animation_tree", args);
+      return await callTool("create_animation_tree", args);
     },
   },
 
@@ -70,7 +70,7 @@ export const animationTreeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("create_state_machine", args);
+      return await callTool("create_state_machine", args);
     },
   },
 
@@ -111,7 +111,7 @@ export const animationTreeTools: ToolCategory = {
       required: ["node_path", "from_state", "to_state"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_transition", args);
+      return await callTool("add_transition", args);
     },
   },
 
@@ -160,7 +160,7 @@ export const animationTreeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_blend_tree", args);
+      return await callTool("add_blend_tree", args);
     },
   },
 
@@ -188,7 +188,7 @@ export const animationTreeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_active_state", args);
+      return await callTool("set_active_state", args);
     },
   },
 
@@ -212,7 +212,7 @@ export const animationTreeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_state_machine_info", args);
+      return await callTool("get_state_machine_info", args);
     },
   },
 
@@ -256,7 +256,7 @@ export const animationTreeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("edit_blend_space", args);
+      return await callTool("edit_blend_space", args);
     },
   },
 
@@ -280,7 +280,7 @@ export const animationTreeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("delete_animation_tree_node", args);
+      return await callTool("delete_animation_tree_node", args);
     },
   },
 };

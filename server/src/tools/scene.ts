@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const sceneTools: ToolCategory = {
   get_scene_tree: {
@@ -24,7 +24,7 @@ export const sceneTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_scene_tree", args);
+      return await callTool("get_scene_tree", args);
     },
   },
 
@@ -54,7 +54,7 @@ export const sceneTools: ToolCategory = {
       required: ["name", "root_type"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("create_scene", args);
+      return await callTool("create_scene", args);
     },
   },
 
@@ -76,7 +76,7 @@ export const sceneTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("save_scene", args);
+      return await callTool("save_scene", args);
     },
   },
 
@@ -94,7 +94,7 @@ export const sceneTools: ToolCategory = {
       required: ["scene_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("open_scene", args);
+      return await callTool("open_scene", args);
     },
   },
 
@@ -112,7 +112,7 @@ export const sceneTools: ToolCategory = {
       required: ["scene_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("delete_scene", args);
+      return await callTool("delete_scene", args);
     },
   },
 
@@ -129,7 +129,7 @@ export const sceneTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("play_scene", args);
+      return await callTool("play_scene", args);
     },
   },
 
@@ -137,7 +137,7 @@ export const sceneTools: ToolCategory = {
     name: "stop_scene",
     description: "Stop the currently running scene",
     handler: async (_args) => {
-      return await godotConnection.callTool("stop_scene", {});
+      return await callTool("stop_scene", {});
     },
   },
 
@@ -163,7 +163,7 @@ export const sceneTools: ToolCategory = {
       required: ["scene_path", "parent_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("instantiate_scene", args);
+      return await callTool("instantiate_scene", args);
     },
   },
 
@@ -181,7 +181,7 @@ export const sceneTools: ToolCategory = {
       required: ["scene_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_scene_info", args);
+      return await callTool("get_scene_info", args);
     },
   },
 
@@ -189,7 +189,7 @@ export const sceneTools: ToolCategory = {
     name: "list_open_scenes",
     description: "List all scenes currently open in the editor",
     handler: async (_args) => {
-      return await godotConnection.callTool("list_open_scenes", {});
+      return await callTool("list_open_scenes", {});
     },
   },
 };

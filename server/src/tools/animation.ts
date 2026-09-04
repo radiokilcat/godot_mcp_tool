@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const animationTools: ToolCategory = {
   create_animation: {
@@ -34,7 +34,7 @@ export const animationTools: ToolCategory = {
       required: ["node_path", "animation_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("create_animation", args);
+      return await callTool("create_animation", args);
     },
   },
 
@@ -70,7 +70,7 @@ export const animationTools: ToolCategory = {
       required: ["node_path", "animation_name", "target_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_animation_track", args);
+      return await callTool("add_animation_track", args);
     },
   },
 
@@ -107,7 +107,7 @@ export const animationTools: ToolCategory = {
       required: ["node_path", "animation_name", "track_index", "time", "value"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_keyframe", args);
+      return await callTool("add_keyframe", args);
     },
   },
 
@@ -141,7 +141,7 @@ export const animationTools: ToolCategory = {
       required: ["node_path", "animation_name", "track_index", "key_index"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_easing", args);
+      return await callTool("set_easing", args);
     },
   },
 
@@ -167,7 +167,7 @@ export const animationTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_animation_info", args);
+      return await callTool("get_animation_info", args);
     },
   },
 
@@ -193,7 +193,7 @@ export const animationTools: ToolCategory = {
       required: ["node_path", "animation_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("delete_animation", args);
+      return await callTool("delete_animation", args);
     },
   },
 };

@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 const vector2Schema = {
   anyOf: [
@@ -90,7 +90,7 @@ export const physicsTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_rigid_body", args);
+      return await callTool("add_rigid_body", args);
     },
   },
 
@@ -152,7 +152,7 @@ export const physicsTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_collision_shape", args);
+      return await callTool("add_collision_shape", args);
     },
   },
 
@@ -174,7 +174,7 @@ export const physicsTools: ToolCategory = {
       required: ["node_path", "layers"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_collision_layer", args);
+      return await callTool("set_collision_layer", args);
     },
   },
 
@@ -196,7 +196,7 @@ export const physicsTools: ToolCategory = {
       required: ["node_path", "layers"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_collision_mask", args);
+      return await callTool("set_collision_mask", args);
     },
   },
 
@@ -240,7 +240,7 @@ export const physicsTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_raycast", args);
+      return await callTool("add_raycast", args);
     },
   },
 
@@ -259,7 +259,7 @@ export const physicsTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_physics_info", args);
+      return await callTool("get_physics_info", args);
     },
   },
 };

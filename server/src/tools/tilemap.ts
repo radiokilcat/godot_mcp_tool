@@ -8,7 +8,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 const coordsSchema = {
   type: "array" as const,
@@ -57,7 +57,7 @@ export const tilemapTools: ToolCategory = {
       required: ["node_path", "coords", "source_id"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_tile_cell", args);
+      return await callTool("set_tile_cell", args);
     },
   },
 
@@ -103,7 +103,7 @@ export const tilemapTools: ToolCategory = {
       required: ["node_path", "from_coords", "to_coords", "source_id"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("fill_tiles", args);
+      return await callTool("fill_tiles", args);
     },
   },
 
@@ -131,7 +131,7 @@ export const tilemapTools: ToolCategory = {
       required: ["node_path", "coords"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("query_tile_cell", args);
+      return await callTool("query_tile_cell", args);
     },
   },
 
@@ -151,7 +151,7 @@ export const tilemapTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_tileset_info", args);
+      return await callTool("get_tileset_info", args);
     },
   },
 
@@ -179,7 +179,7 @@ export const tilemapTools: ToolCategory = {
       required: ["node_path", "coords"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("erase_tile_cell", args);
+      return await callTool("erase_tile_cell", args);
     },
   },
 
@@ -199,7 +199,7 @@ export const tilemapTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_tilemap_info", args);
+      return await callTool("get_tilemap_info", args);
     },
   },
 };

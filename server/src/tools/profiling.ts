@@ -1,4 +1,4 @@
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const profilingTools = {
   get_performance_monitors: {
@@ -23,7 +23,7 @@ export const profilingTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("get_performance_monitors", args),
+      callTool("get_performance_monitors", args),
   },
 
   get_memory_usage: {
@@ -52,6 +52,6 @@ export const profilingTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("get_memory_usage", args),
+      callTool("get_memory_usage", args),
   },
 };

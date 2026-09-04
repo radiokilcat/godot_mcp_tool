@@ -5,7 +5,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const audioTools: ToolCategory = {
   add_audio_player: {
@@ -50,7 +50,7 @@ export const audioTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_audio_player", args);
+      return await callTool("add_audio_player", args);
     },
   },
 
@@ -73,7 +73,7 @@ export const audioTools: ToolCategory = {
       required: ["node_path", "file_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("load_audio_file", args);
+      return await callTool("load_audio_file", args);
     },
   },
 
@@ -96,7 +96,7 @@ export const audioTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("play_audio", args);
+      return await callTool("play_audio", args);
     },
   },
 
@@ -115,7 +115,7 @@ export const audioTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("stop_audio", args);
+      return await callTool("stop_audio", args);
     },
   },
 
@@ -151,7 +151,7 @@ export const audioTools: ToolCategory = {
       required: ["bus_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("configure_bus", args);
+      return await callTool("configure_bus", args);
     },
   },
 
@@ -193,7 +193,7 @@ export const audioTools: ToolCategory = {
       required: ["bus_name", "effect_type"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_audio_effect", args);
+      return await callTool("add_audio_effect", args);
     },
   },
 };

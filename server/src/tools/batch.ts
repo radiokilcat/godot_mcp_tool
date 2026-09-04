@@ -1,4 +1,4 @@
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const batchTools = {
   find_by_node_type: {
@@ -29,7 +29,7 @@ export const batchTools = {
       },
       required: ["node_type"],
     },
-    handler: async (args: Record<string, unknown>) => godotConnection.callTool("find_by_node_type", args),
+    handler: async (args: Record<string, unknown>) => callTool("find_by_node_type", args),
   },
 
   find_by_script: {
@@ -55,7 +55,7 @@ export const batchTools = {
       },
       required: ["script_path"],
     },
-    handler: async (args: Record<string, unknown>) => godotConnection.callTool("find_by_script", args),
+    handler: async (args: Record<string, unknown>) => callTool("find_by_script", args),
   },
 
   find_by_group: {
@@ -81,7 +81,7 @@ export const batchTools = {
       },
       required: ["group_name"],
     },
-    handler: async (args: Record<string, unknown>) => godotConnection.callTool("find_by_group", args),
+    handler: async (args: Record<string, unknown>) => callTool("find_by_group", args),
   },
 
   bulk_rename: {
@@ -121,7 +121,7 @@ export const batchTools = {
       },
       required: ["match", "replacement"],
     },
-    handler: async (args: Record<string, unknown>) => godotConnection.callTool("bulk_rename", args),
+    handler: async (args: Record<string, unknown>) => callTool("bulk_rename", args),
   },
 
   cross_scene_update: {
@@ -155,7 +155,7 @@ export const batchTools = {
       },
       required: ["node_type", "property", "value"],
     },
-    handler: async (args: Record<string, unknown>) => godotConnection.callTool("cross_scene_update", args),
+    handler: async (args: Record<string, unknown>) => callTool("cross_scene_update", args),
   },
 
   find_dependencies: {
@@ -177,7 +177,7 @@ export const batchTools = {
       },
       required: ["resource_path"],
     },
-    handler: async (args: Record<string, unknown>) => godotConnection.callTool("find_dependencies", args),
+    handler: async (args: Record<string, unknown>) => callTool("find_dependencies", args),
   },
 
   orphaned_resources: {
@@ -204,7 +204,7 @@ export const batchTools = {
       },
       required: [],
     },
-    handler: async (args: Record<string, unknown>) => godotConnection.callTool("orphaned_resources", args),
+    handler: async (args: Record<string, unknown>) => callTool("orphaned_resources", args),
   },
 
   refactor_signals: {
@@ -239,6 +239,6 @@ export const batchTools = {
       },
       required: ["old_method", "new_method"],
     },
-    handler: async (args: Record<string, unknown>) => godotConnection.callTool("refactor_signals", args),
+    handler: async (args: Record<string, unknown>) => callTool("refactor_signals", args),
   },
 };

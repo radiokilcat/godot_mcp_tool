@@ -4,14 +4,14 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const runtimeTools: ToolCategory = {
   get_game_state: {
     name: "get_game_state",
     description: "Get the current game state: running/paused, active scene, FPS, time scale",
     handler: async (_args) => {
-      return await godotConnection.callTool("get_game_state", {});
+      return await callTool("get_game_state", {});
     },
   },
 
@@ -32,7 +32,7 @@ export const runtimeTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("list_loaded_resources", args);
+      return await callTool("list_loaded_resources", args);
     },
   },
 
@@ -51,7 +51,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("inspect_node_at_runtime", args);
+      return await callTool("inspect_node_at_runtime", args);
     },
   },
 
@@ -69,7 +69,7 @@ export const runtimeTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_performance_metrics", args);
+      return await callTool("get_performance_metrics", args);
     },
   },
 
@@ -90,7 +90,7 @@ export const runtimeTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("record_gameplay", args);
+      return await callTool("record_gameplay", args);
     },
   },
 
@@ -112,7 +112,7 @@ export const runtimeTools: ToolCategory = {
       required: ["events"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("replay_gameplay", args);
+      return await callTool("replay_gameplay", args);
     },
   },
 
@@ -127,7 +127,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("navigate_to_node", args);
+      return await callTool("navigate_to_node", args);
     },
   },
 
@@ -150,7 +150,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("click_ui_element", args);
+      return await callTool("click_ui_element", args);
     },
   },
 
@@ -167,7 +167,7 @@ export const runtimeTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_node_tree_runtime", args);
+      return await callTool("get_node_tree_runtime", args);
     },
   },
 
@@ -175,7 +175,7 @@ export const runtimeTools: ToolCategory = {
     name: "pause_game",
     description: "Pause the running game (sets SceneTree.paused = true)",
     handler: async (_args) => {
-      return await godotConnection.callTool("pause_game", {});
+      return await callTool("pause_game", {});
     },
   },
 
@@ -183,7 +183,7 @@ export const runtimeTools: ToolCategory = {
     name: "resume_game",
     description: "Resume the paused game (sets SceneTree.paused = false)",
     handler: async (_args) => {
-      return await godotConnection.callTool("resume_game", {});
+      return await callTool("resume_game", {});
     },
   },
 
@@ -201,7 +201,7 @@ export const runtimeTools: ToolCategory = {
       required: ["time_scale"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_game_speed", args);
+      return await callTool("set_game_speed", args);
     },
   },
 
@@ -209,7 +209,7 @@ export const runtimeTools: ToolCategory = {
     name: "list_autoloads",
     description: "List all autoload singletons defined in the project",
     handler: async (_args) => {
-      return await godotConnection.callTool("list_autoloads", {});
+      return await callTool("list_autoloads", {});
     },
   },
 
@@ -229,7 +229,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path", "method"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("call_function", args);
+      return await callTool("call_function", args);
     },
   },
 
@@ -245,7 +245,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path", "variable"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_variable_value", args);
+      return await callTool("get_variable_value", args);
     },
   },
 
@@ -262,7 +262,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path", "variable", "value"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_variable_value", args);
+      return await callTool("set_variable_value", args);
     },
   },
 
@@ -282,7 +282,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_signal_connections", args);
+      return await callTool("get_signal_connections", args);
     },
   },
 
@@ -302,7 +302,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path", "signal_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("emit_signal", args);
+      return await callTool("emit_signal", args);
     },
   },
 
@@ -322,7 +322,7 @@ export const runtimeTools: ToolCategory = {
       required: ["node_path", "signal_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("listen_to_signal", args);
+      return await callTool("listen_to_signal", args);
     },
   },
 };

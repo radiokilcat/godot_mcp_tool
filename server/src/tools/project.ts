@@ -4,14 +4,14 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const projectTools: ToolCategory = {
   get_project_info: {
     name: "get_project_info",
     description: "Get basic project information: name, version, Godot version, path, main scene",
     handler: async (_args) => {
-      return await godotConnection.callTool("get_project_info", {});
+      return await callTool("get_project_info", {});
     },
   },
 
@@ -32,7 +32,7 @@ export const projectTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("list_project_files", args);
+      return await callTool("list_project_files", args);
     },
   },
 
@@ -55,7 +55,7 @@ export const projectTools: ToolCategory = {
       required: ["query"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("search_files", args);
+      return await callTool("search_files", args);
     },
   },
 
@@ -72,7 +72,7 @@ export const projectTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_project_settings", args);
+      return await callTool("get_project_settings", args);
     },
   },
 
@@ -93,7 +93,7 @@ export const projectTools: ToolCategory = {
       required: ["setting_path", "value"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_project_setting", args);
+      return await callTool("set_project_setting", args);
     },
   },
 
@@ -114,7 +114,7 @@ export const projectTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("convert_uid", args);
+      return await callTool("convert_uid", args);
     },
   },
 
@@ -122,7 +122,7 @@ export const projectTools: ToolCategory = {
     name: "get_project_metadata",
     description: "Get project metadata: renderer, viewport size, gravity, OS features",
     handler: async (_args) => {
-      return await godotConnection.callTool("get_project_metadata", {});
+      return await callTool("get_project_metadata", {});
     },
   },
 };

@@ -8,7 +8,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const themeTools: ToolCategory = {
   create_theme: {
@@ -41,7 +41,7 @@ export const themeTools: ToolCategory = {
       required: ["theme_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("create_theme", args);
+      return await callTool("create_theme", args);
     },
   },
 
@@ -75,7 +75,7 @@ export const themeTools: ToolCategory = {
       required: ["theme_path", "theme_type", "color_name", "color"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_theme_color", args);
+      return await callTool("set_theme_color", args);
     },
   },
 
@@ -111,7 +111,7 @@ export const themeTools: ToolCategory = {
       required: ["theme_path", "theme_type", "font_name", "font_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_theme_font", args);
+      return await callTool("set_theme_font", args);
     },
   },
 
@@ -143,7 +143,7 @@ export const themeTools: ToolCategory = {
       required: ["theme_path", "theme_type", "constant_name", "value"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_theme_constant", args);
+      return await callTool("set_theme_constant", args);
     },
   },
 
@@ -183,7 +183,7 @@ export const themeTools: ToolCategory = {
       required: ["theme_path", "theme_type", "stylebox_name"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_stylebox", args);
+      return await callTool("set_stylebox", args);
     },
   },
 
@@ -202,7 +202,7 @@ export const themeTools: ToolCategory = {
       required: ["theme_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_theme_info", args);
+      return await callTool("get_theme_info", args);
     },
   },
 };

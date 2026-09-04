@@ -8,7 +8,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const shaderTools: ToolCategory = {
   create_shader: {
@@ -48,7 +48,7 @@ export const shaderTools: ToolCategory = {
       required: ["shader_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("create_shader", args);
+      return await callTool("create_shader", args);
     },
   },
 
@@ -77,7 +77,7 @@ export const shaderTools: ToolCategory = {
       required: ["shader_path", "code"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("edit_shader", args);
+      return await callTool("edit_shader", args);
     },
   },
 
@@ -117,7 +117,7 @@ export const shaderTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("assign_material", args);
+      return await callTool("assign_material", args);
     },
   },
 
@@ -150,7 +150,7 @@ export const shaderTools: ToolCategory = {
       required: ["node_path", "param_name", "param_value"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_shader_param", args);
+      return await callTool("set_shader_param", args);
     },
   },
 
@@ -182,7 +182,7 @@ export const shaderTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_shader_info", args);
+      return await callTool("get_shader_info", args);
     },
   },
 
@@ -205,7 +205,7 @@ export const shaderTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("validate_shader", args);
+      return await callTool("validate_shader", args);
     },
   },
 };

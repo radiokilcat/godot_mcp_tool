@@ -5,7 +5,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 const vector2Schema = {
   anyOf: [
@@ -69,7 +69,7 @@ export const navigationTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_navigation_region", args);
+      return await callTool("add_navigation_region", args);
     },
   },
 
@@ -117,7 +117,7 @@ export const navigationTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_navigation_agent", args);
+      return await callTool("add_navigation_agent", args);
     },
   },
 
@@ -137,7 +137,7 @@ export const navigationTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("bake_navigation", args);
+      return await callTool("bake_navigation", args);
     },
   },
 
@@ -158,7 +158,7 @@ export const navigationTools: ToolCategory = {
       required: ["node_path", "navigation_layers"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_navigation_layer", args);
+      return await callTool("set_navigation_layer", args);
     },
   },
 
@@ -192,7 +192,7 @@ export const navigationTools: ToolCategory = {
       required: ["from", "to"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_navigation_path", args);
+      return await callTool("get_navigation_path", args);
     },
   },
 
@@ -212,7 +212,7 @@ export const navigationTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_navigation_info", args);
+      return await callTool("get_navigation_info", args);
     },
   },
 };

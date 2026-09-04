@@ -1,4 +1,4 @@
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const analysisTools = {
   analyze_scene_complexity: {
@@ -21,7 +21,7 @@ export const analysisTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("analyze_scene_complexity", args),
+      callTool("analyze_scene_complexity", args),
   },
 
   trace_signal_flow: {
@@ -51,7 +51,7 @@ export const analysisTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("trace_signal_flow", args),
+      callTool("trace_signal_flow", args),
   },
 
   find_unused_resources: {
@@ -81,7 +81,7 @@ export const analysisTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("find_unused_resources", args),
+      callTool("find_unused_resources", args),
   },
 
   get_code_metrics: {
@@ -115,6 +115,6 @@ export const analysisTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("get_code_metrics", args),
+      callTool("get_code_metrics", args),
   },
 };

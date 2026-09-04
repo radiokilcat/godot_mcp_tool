@@ -48,14 +48,18 @@ function timeoutForCall(tool: string, args: Record<string, unknown>): number {
   return SLOW_TOOLS[tool] ?? DEFAULT_TOOL_TIMEOUT_MS;
 }
 // Overridable so test harnesses can run in parallel with a live setup on the default port
-const WS_PORT = Number(process.env.GODOT_MCP_PORT ?? "") || 6505;
+function defaultPort(): number {
+  return Number(process.env.GODOT_MCP_PORT ?? "") || 6505;
+}
 // Whatever connects here is trusted as the Godot plugin — there is no authentication
 // yet (progress.md 9.5) — so the bridge must not be reachable from the network. Node
 // binds every interface when no host is given. Loopback is pinned to IPv4 because the
 // plugin dials 127.0.0.1: binding "localhost" can resolve to ::1 on Windows and leave
 // the editor knocking on an address nobody is listening to. Override only to attach an
 // editor running on another machine, and only on a network you control.
-const WS_HOST = process.env.GODOT_MCP_HOST || "127.0.0.1";
+function defaultHost(): string {
+  return process.env.GODOT_MCP_HOST || "127.0.0.1";
+}
 
 interface PendingCall {
   resolve: (value: unknown) => void;
@@ -63,7 +67,20 @@ interface PendingCall {
   timer: ReturnType<typeof setTimeout>;
 }
 
-class GodotConnection {
+/**
+ * What a tool handler needs from the bridge. Narrower than the class on purpose:
+ * it is the seam a test (or 6.5.5's client-side transport) substitutes, and it
+ * deliberately excludes anything that owns a socket.
+ */
+export interface GodotBridge {
+  readonly isConnected: boolean;
+  readonly godotVersion: string | null;
+  readonly pluginVersion: string | null;
+  callTool(tool: string, args?: Record<string, unknown>): Promise<unknown>;
+  close(): void;
+}
+
+export class GodotConnection implements GodotBridge {
   private wss: WebSocketServer;
   private socket: WebSocket | null = null;
   private pending = new Map<string, PendingCall>();
@@ -71,14 +88,19 @@ class GodotConnection {
   private _pluginVersion: string | null = null;
   private _bindError: string | null = null;
   private _closed = false;
+  private port: number;
+  private host: string;
 
-  constructor() {
-    this.wss = new WebSocketServer({ port: WS_PORT, host: WS_HOST });
+  /** Binds immediately — constructing this object is what opens the port. */
+  constructor(options: { port?: number; host?: string } = {}) {
+    this.port = options.port ?? defaultPort();
+    this.host = options.host ?? defaultHost();
+    this.wss = new WebSocketServer({ port: this.port, host: this.host });
     this.wss.on("connection", (ws) => this._onConnection(ws));
     // Only announce the port once the bind actually succeeded — listen() is async,
     // so logging in the constructor claims success before it is known.
     this.wss.on("listening", () => {
-      console.error(`[Godot] WebSocket server listening on ws://${WS_HOST}:${WS_PORT}`);
+      console.error(`[Godot] WebSocket server listening on ws://${this.host}:${this.port}`);
     });
     // Without this handler a failed bind surfaces as an unhandled 'error' event and
     // kills the process before the MCP handshake completes, so the client reports
@@ -86,7 +108,7 @@ class GodotConnection {
     // tools instead.
     this.wss.on("error", (err: NodeJS.ErrnoException) => {
       this._bindError = err.code === "EADDRINUSE"
-        ? `Port ${WS_PORT} is already in use — another Godot MCP server is still running. ` +
+        ? `Port ${this.port} is already in use — another Godot MCP server is still running. ` +
           `Stop that process, or set GODOT_MCP_PORT to a free port for both this server ` +
           `and the Godot plugin.`
         : `WebSocket server failed: ${err.message}`;
@@ -227,4 +249,50 @@ class GodotConnection {
   }
 }
 
-export const godotConnection = new GodotConnection();
+/**
+ * The process-wide bridge.
+ *
+ * This used to be `export const godotConnection = new GodotConnection()`, which
+ * bound the port as a side effect of *importing* the module — and every one of the
+ * 23 tool modules imports it. So merely enumerating tool schemas opened a
+ * machine-wide port and evicted whatever editor was attached to a live session
+ * (progress.md 9.4.3). Creation is now explicit: `openBridge()` from main(), and
+ * `setBridge()` for a test that wants handlers without a socket.
+ */
+let bridge: GodotBridge | null = null;
+
+/** Bind the port. Called once from main(); the plugin dials in, so it cannot wait for the first tool call. */
+export function openBridge(options?: { port?: number; host?: string }): GodotBridge {
+  if (!bridge) bridge = new GodotConnection(options);
+  return bridge;
+}
+
+/** Substitute the bridge — for tests, and for 6.5.5 where the transport is constructed elsewhere. */
+export function setBridge(next: GodotBridge | null): void {
+  bridge = next;
+}
+
+/**
+ * The bridge as seen by a tool handler. Fails loudly rather than binding a port
+ * behind the caller's back: reaching here with no bridge means main() did not run,
+ * which is a wiring bug, not a condition to paper over at runtime.
+ */
+export function getBridge(): GodotBridge {
+  if (!bridge) {
+    throw new Error(
+      "Godot bridge is not open — openBridge() was never called. " +
+      "This is a server wiring bug; in a test, call setBridge() with a stub first."
+    );
+  }
+  return bridge;
+}
+
+/** Close the bridge if one was ever opened. Safe from a process 'exit' handler. */
+export function closeBridge(): void {
+  bridge?.close();
+}
+
+/** Every tool handler's single line to the editor. */
+export function callTool(tool: string, args: Record<string, unknown> = {}): Promise<unknown> {
+  return getBridge().callTool(tool, args);
+}

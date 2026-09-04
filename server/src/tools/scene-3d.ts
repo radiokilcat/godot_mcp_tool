@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 const vector3Schema = {
   description: "3D vector: {x, y, z}, the literal 'Vector3(0, 2, 5)', or [x, y, z]",
@@ -70,7 +70,7 @@ export const scene3dTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_mesh", args);
+      return await callTool("add_mesh", args);
     },
   },
 
@@ -128,7 +128,7 @@ export const scene3dTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_camera", args);
+      return await callTool("add_camera", args);
     },
   },
 
@@ -176,7 +176,7 @@ export const scene3dTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_light", args);
+      return await callTool("add_light", args);
     },
   },
 
@@ -234,7 +234,7 @@ export const scene3dTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_environment", args);
+      return await callTool("set_environment", args);
     },
   },
 
@@ -270,7 +270,7 @@ export const scene3dTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("add_gridmap", args);
+      return await callTool("add_gridmap", args);
     },
   },
 
@@ -294,7 +294,7 @@ export const scene3dTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_3d_scene_info", args);
+      return await callTool("get_3d_scene_info", args);
     },
   },
 };

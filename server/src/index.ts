@@ -35,8 +35,9 @@ import { testingTools } from "./tools/testing.js";
 import { profilingTools } from "./tools/profiling.js";
 import { exportTools } from "./tools/export.js";
 
-// Initialize Godot WebSocket bridge (starts listening on port 6505)
-import { godotConnection } from "./godot-connection.js";
+// The Godot WebSocket bridge. Importing this no longer binds anything — main()
+// opens it explicitly (progress.md 9.4.3).
+import { openBridge, getBridge, closeBridge } from "./godot-connection.js";
 import { satisfiesVersionRange } from "./utils/version-utils.js";
 import { ToolDefinition } from "./types/index.js";
 
@@ -129,17 +130,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new Error(`Tool not found: ${toolName}`);
   }
 
-  if (
-    (tool.minGodotVersion || tool.maxGodotVersion) &&
-    !satisfiesVersionRange(godotConnection.godotVersion, tool.minGodotVersion, tool.maxGodotVersion)
-  ) {
-    const range = [
-      tool.minGodotVersion ? `>= ${tool.minGodotVersion}` : null,
-      tool.maxGodotVersion ? `<= ${tool.maxGodotVersion}` : null,
-    ].filter(Boolean).join(" and ");
-    throw new Error(
-      `Tool '${toolName}' requires Godot ${range}, but the connected editor is running ${godotConnection.godotVersion}.`
-    );
+  if (tool.minGodotVersion || tool.maxGodotVersion) {
+    const godotVersion = getBridge().godotVersion;
+    if (!satisfiesVersionRange(godotVersion, tool.minGodotVersion, tool.maxGodotVersion)) {
+      const range = [
+        tool.minGodotVersion ? `>= ${tool.minGodotVersion}` : null,
+        tool.maxGodotVersion ? `<= ${tool.maxGodotVersion}` : null,
+      ].filter(Boolean).join(" and ");
+      throw new Error(
+        `Tool '${toolName}' requires Godot ${range}, but the connected editor is running ${godotVersion}.`
+      );
+    }
   }
 
   try {
@@ -177,7 +178,7 @@ function installShutdownHandlers(): void {
     console.error(`[MCP Server] Shutting down (${reason})`);
     process.exitCode = code;
 
-    godotConnection.close();
+    closeBridge();
     void server.close().catch(() => { /* transport already gone */ });
 
     // With the port released nothing should keep the loop alive, so the process
@@ -206,7 +207,7 @@ function installShutdownHandlers(): void {
 
   // Last resort for any exit path that bypasses the above (an uncaught fatal, an
   // explicit process.exit): release the socket synchronously on the way out.
-  process.on("exit", () => godotConnection.close());
+  process.on("exit", () => closeBridge());
 }
 
 /**
@@ -217,6 +218,10 @@ async function main(): Promise<void> {
   console.error(`[MCP Server] Initializing...`);
 
   registerAllTools();
+  // Open the bridge before the MCP handshake: the plugin dials in on its own
+  // schedule (backing off to 60s), so it must find a listener the moment the
+  // process starts, not when the first tool call happens to arrive.
+  openBridge();
   installShutdownHandlers();
 
   const transport = new StdioServerTransport();

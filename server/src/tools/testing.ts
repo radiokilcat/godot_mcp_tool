@@ -1,4 +1,4 @@
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const testingTools = {
   run_automated_tests: {
@@ -32,7 +32,7 @@ export const testingTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("run_automated_tests", args),
+      callTool("run_automated_tests", args),
   },
 
   assert_node_state: {
@@ -75,7 +75,7 @@ export const testingTools = {
       required: ["node_path"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("assert_node_state", args),
+      callTool("assert_node_state", args),
   },
 
   compare_screenshots: {
@@ -105,7 +105,7 @@ export const testingTools = {
       required: ["path_a", "path_b"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("compare_screenshots", args),
+      callTool("compare_screenshots", args),
   },
 
   record_test: {
@@ -142,7 +142,7 @@ export const testingTools = {
       required: ["action"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("record_test", args),
+      callTool("record_test", args),
   },
 
   replay_test: {
@@ -178,7 +178,7 @@ export const testingTools = {
       required: ["events"],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("replay_test", args),
+      callTool("replay_test", args),
   },
 
   get_test_report: {
@@ -193,6 +193,6 @@ export const testingTools = {
       required: [],
     },
     handler: async (args: Record<string, unknown>) =>
-      godotConnection.callTool("get_test_report", args),
+      callTool("get_test_report", args),
   },
 };

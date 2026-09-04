@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 const vector3Schema = {
   anyOf: [
@@ -62,7 +62,7 @@ export const particleTools: ToolCategory = {
       required: [],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("create_particle_system", args);
+      return await callTool("create_particle_system", args);
     },
   },
 
@@ -142,7 +142,7 @@ export const particleTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_particle_material", args);
+      return await callTool("set_particle_material", args);
     },
   },
 
@@ -180,7 +180,7 @@ export const particleTools: ToolCategory = {
       required: ["node_path", "colors"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("set_particle_gradient", args);
+      return await callTool("set_particle_gradient", args);
     },
   },
 
@@ -205,7 +205,7 @@ export const particleTools: ToolCategory = {
       required: ["node_path", "preset"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("load_particle_preset", args);
+      return await callTool("load_particle_preset", args);
     },
   },
 
@@ -224,7 +224,7 @@ export const particleTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_particle_info", args);
+      return await callTool("get_particle_info", args);
     },
   },
 };

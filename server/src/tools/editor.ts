@@ -4,7 +4,7 @@
  */
 
 import { ToolCategory } from "../types/index.js";
-import { godotConnection } from "../godot-connection.js";
+import { callTool } from "../godot-connection.js";
 
 export const editorTools: ToolCategory = {
   take_screenshot: {
@@ -47,7 +47,7 @@ export const editorTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("take_screenshot", args);
+      return await callTool("take_screenshot", args);
     },
   },
 
@@ -77,7 +77,7 @@ export const editorTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("get_error_log", args);
+      return await callTool("get_error_log", args);
     },
   },
 
@@ -107,7 +107,7 @@ export const editorTools: ToolCategory = {
       required: ["code"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("execute_script", args);
+      return await callTool("execute_script", args);
     },
   },
 
@@ -124,7 +124,7 @@ export const editorTools: ToolCategory = {
       },
     },
     handler: async (args) => {
-      return await godotConnection.callTool("open_editor_settings", args);
+      return await callTool("open_editor_settings", args);
     },
   },
 
@@ -132,7 +132,7 @@ export const editorTools: ToolCategory = {
     name: "get_editor_version",
     description: "Get the current Godot editor version information",
     handler: async (_args) => {
-      return await godotConnection.callTool("get_editor_version", {});
+      return await callTool("get_editor_version", {});
     },
   },
 
@@ -140,7 +140,7 @@ export const editorTools: ToolCategory = {
     name: "get_editor_state",
     description: "Get the current editor state: active scene, selected nodes, current main screen panel",
     handler: async (_args) => {
-      return await godotConnection.callTool("get_editor_state", {});
+      return await callTool("get_editor_state", {});
     },
   },
 
@@ -163,7 +163,7 @@ export const editorTools: ToolCategory = {
       required: ["node_path"],
     },
     handler: async (args) => {
-      return await godotConnection.callTool("select_node_in_editor", args);
+      return await callTool("select_node_in_editor", args);
     },
   },
 
@@ -171,7 +171,7 @@ export const editorTools: ToolCategory = {
     name: "focus_editor",
     description: "Bring the Godot editor window to the foreground",
     handler: async (_args) => {
-      return await godotConnection.callTool("focus_editor", {});
+      return await callTool("focus_editor", {});
     },
   },
 };
