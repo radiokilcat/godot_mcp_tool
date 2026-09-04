@@ -26,6 +26,7 @@ import { provision } from "./lib/provision.mjs";
 import { generateProject, preImport } from "./lib/project.mjs";
 import { launchEditor, killTree, waitForExit } from "./lib/godot-process.mjs";
 import { McpTestClient } from "./lib/client.mjs";
+import { waitForInstance } from "./lib/discovery.mjs";
 import { loadBlocks, runBlocks } from "./lib/executor.mjs";
 import { writeReports, computeTotals } from "./lib/report.mjs";
 
@@ -134,13 +135,26 @@ async function runForVersion(version) {
     });
     preImport({ binary, projectDir, logPath: godotLog, port, log });
 
-    // 3. LAUNCH
-    client = new McpTestClient({ serverDir: join(repoRoot, "server"), port, serverLogPath: serverLog });
-    await client.connect();
-    log(`[e2e] MCP server up (stdio), bridge port ${port}`);
-
+    // 3. LAUNCH — editor first now. It owns the bridge (6.5), so the server has
+    // nothing to connect to until the plugin is listening and has published.
     editor = launchEditor({ binary, projectDir, logPath: godotLog, headless: opts.headless, port });
-    log(`[e2e] editor launched (pid ${editor.pid}), waiting for plugin handshake…`);
+    log(`[e2e] editor launched (pid ${editor.pid}), waiting for it to host the bridge…`);
+
+    const instance = await waitForInstance({
+      projectDir,
+      isEditorAlive: () => !editor.exited,
+      log,
+    });
+    log(`[e2e] editor is hosting on port ${instance.port} (token from ${instance.file})`);
+
+    client = new McpTestClient({
+      serverDir: join(repoRoot, "server"),
+      port: instance.port,
+      token: instance.token,
+      serverLogPath: serverLog,
+    });
+    await client.connect();
+    log(`[e2e] MCP server up (stdio), dialling the editor`);
 
     const versionInfo = await client.waitReady(90_000, { isEditorAlive: () => !editor.exited });
     run.actualGodotVersion = versionInfo?.string ?? versionInfo?.version ?? null;

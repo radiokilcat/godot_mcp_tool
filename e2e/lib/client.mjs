@@ -14,9 +14,12 @@ import { createWriteStream } from "node:fs";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export class McpTestClient {
-  constructor({ serverDir, port, serverLogPath }) {
+  constructor({ serverDir, port, token, serverLogPath }) {
     this.serverDir = serverDir;
     this.port = port;
+    // Passed explicitly rather than discovered: the harness must reach the editor
+    // it just launched, never a developer's live one on the same machine.
+    this.token = token ?? "";
     this.serverLogPath = serverLogPath;
     this.client = null;
   }
@@ -33,7 +36,11 @@ export class McpTestClient {
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [join(this.serverDir, "dist", "index.js")],
-      env: { ...process.env, GODOT_MCP_PORT: String(this.port) },
+      env: {
+        ...process.env,
+        GODOT_MCP_PORT: String(this.port),
+        GODOT_MCP_TOKEN: this.token,
+      },
       stderr: "pipe",
     });
 
