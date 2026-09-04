@@ -122,7 +122,7 @@ async function runForVersion(version) {
     await assertPortFree(port);
 
     // 1. PROVISION
-    const { consoleExe } = await provision({ version, workDir, log });
+    const { binary } = await provision({ version, workDir, log });
 
     // 2. GENERATE
     generateProject({
@@ -132,14 +132,14 @@ async function runForVersion(version) {
       version,
       log,
     });
-    preImport({ consoleExe, projectDir, logPath: godotLog, port, log });
+    preImport({ binary, projectDir, logPath: godotLog, port, log });
 
     // 3. LAUNCH
     client = new McpTestClient({ serverDir: join(repoRoot, "server"), port, serverLogPath: serverLog });
     await client.connect();
     log(`[e2e] MCP server up (stdio), bridge port ${port}`);
 
-    editor = launchEditor({ consoleExe, projectDir, logPath: godotLog, headless: opts.headless, port });
+    editor = launchEditor({ binary, projectDir, logPath: godotLog, headless: opts.headless, port });
     log(`[e2e] editor launched (pid ${editor.pid}), waiting for plugin handshake…`);
 
     const versionInfo = await client.waitReady(90_000, { isEditorAlive: () => !editor.exited });

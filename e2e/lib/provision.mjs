@@ -1,31 +1,33 @@
 /**
- * Provision — download and cache a Godot 4.x win64 distribution.
- * Cache layout: .e2e_work/cache/Godot_v{ver}-stable_win64/{exe, _console.exe, _sc_}
+ * Provision — download and cache a Godot 4.x distribution for the host platform.
+ * Cache layout: .e2e_work/cache/<dist name>/{binary, _sc_}
+ *
+ * Everything platform-shaped (archive name, binary location, how to unpack, where
+ * the self-contained marker goes) lives in ./platform; this file is the flow.
  */
 
 import { createWriteStream, existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 
-export async function provision({ version, workDir, log }) {
-  const base = `Godot_v${version}-stable_win64`;
-  const distDir = join(workDir, "cache", base);
-  const exe = join(distDir, `${base}.exe`);
-  const consoleExe = join(distDir, `${base}_console.exe`);
-  const scMarker = join(distDir, "_sc_");
+import { platformFor } from "./platform/index.mjs";
 
-  if (existsSync(consoleExe)) {
+export async function provision({ version, workDir, log, platform = platformFor() }) {
+  const distDir = join(workDir, "cache", platform.distName(version));
+  const binary = platform.binaryPath(distDir, version);
+  const scMarker = join(platform.selfContainedDir(distDir), "_sc_");
+
+  if (existsSync(binary)) {
     log(`[provision] cache hit: ${distDir}`);
     if (!existsSync(scMarker)) writeFileSync(scMarker, "");
-    return { exe, consoleExe, distDir };
+    return { binary, distDir };
   }
 
   mkdirSync(distDir, { recursive: true });
-  const zipName = `${base}.exe.zip`;
-  const zipPath = join(workDir, "cache", zipName);
+  const archive = platform.archiveName(version);
+  const zipPath = join(workDir, "cache", archive);
   const urls = [
-    `https://github.com/godotengine/godot-builds/releases/download/${version}-stable/${zipName}`,
-    `https://github.com/godotengine/godot/releases/download/${version}-stable/${zipName}`,
+    `https://github.com/godotengine/godot-builds/releases/download/${version}-stable/${archive}`,
+    `https://github.com/godotengine/godot/releases/download/${version}-stable/${archive}`,
   ];
 
   let downloaded = false;
@@ -43,28 +45,19 @@ export async function provision({ version, workDir, log }) {
   }
   if (!downloaded) throw new Error(`Could not download Godot ${version}: ${lastErr?.message}`);
 
-  log(`[provision] extracting ${zipName}`);
-  const r = spawnSync(
-    "powershell.exe",
-    [
-      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
-      `Expand-Archive -LiteralPath "${zipPath}" -DestinationPath "${distDir}" -Force`,
-    ],
-    { encoding: "utf8", timeout: 300_000 }
-  );
-  if (r.status !== 0) {
-    throw new Error(`Expand-Archive failed (exit ${r.status}): ${r.stderr || r.stdout}`);
+  log(`[provision] extracting ${archive} (${platform.name})`);
+  platform.extract(zipPath, distDir);
+  if (!existsSync(binary)) {
+    throw new Error(`Extraction did not produce the expected binary at ${binary}`);
   }
-  if (!existsSync(consoleExe) || !existsSync(exe)) {
-    throw new Error(`Extraction did not produce expected executables in ${distDir}`);
-  }
+  platform.afterExtract(distDir, version);
 
   try { unlinkSync(zipPath); } catch { /* non-fatal */ }
-  // Self-contained mode: editor settings/caches live next to the exe,
-  // the user's real Godot configuration is never touched.
+  // Self-contained mode: editor settings/caches live next to the binary, so the
+  // user's real Godot configuration is never touched.
   writeFileSync(scMarker, "");
   log(`[provision] ready: ${distDir}`);
-  return { exe, consoleExe, distDir };
+  return { binary, distDir };
 }
 
 async function download(url, dest, log) {

@@ -27,9 +27,9 @@ export function generateProject({ repoRoot, templatesDir, projectDir, version, l
 }
 
 /** Headless import pass so the first editor open is clean (no import churn/dialogs). */
-export function preImport({ consoleExe, projectDir, logPath, port, log }) {
+export function preImport({ binary, projectDir, logPath, port, log }) {
   log(`[project] pre-import pass (headless)…`);
-  const r = spawnSync(consoleExe, ["--headless", "--import", "--path", projectDir], {
+  const r = spawnSync(binary, ["--headless", "--import", "--path", projectDir], {
     encoding: "utf8",
     timeout: 180_000,
     // The plugin loads during import too, so it needs the same port as the main pass —

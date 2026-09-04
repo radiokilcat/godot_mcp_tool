@@ -88,9 +88,9 @@ function parseErrors(output) {
   return errors.filter((e) => !e.message.startsWith("Failed to compile depended scripts"));
 }
 
-function check(consoleExe, projectDir, scriptPath) {
+function check(binary, projectDir, scriptPath) {
   const r = spawnSync(
-    consoleExe,
+    binary,
     ["--headless", "--path", projectDir, "--check-only", "--script", scriptPath],
     { encoding: "utf8", timeout: 120_000 }
   );
@@ -113,7 +113,7 @@ try {
   // Registers the addon's class_name declarations; without it every reference
   // to one reads as "not declared in the current scope".
   preImport({
-    consoleExe: dist.consoleExe,
+    binary: dist.binary,
     projectDir,
     logPath: join(workDir, "logs", "syntax-check.log"),
     port: 6510,
@@ -125,7 +125,7 @@ try {
 
   const failures = [];
   for (const target of targets) {
-    for (const err of check(dist.consoleExe, projectDir, target)) {
+    for (const err of check(dist.binary, projectDir, target)) {
       const where = err.file ? `${err.file}:${err.line}` : target;
       const key = `${where} ${err.message}`;
       if (!failures.some((f) => f.key === key)) failures.push({ key, where, message: err.message });

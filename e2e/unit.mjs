@@ -57,7 +57,7 @@ try {
   // Registers those class_name declarations; without it every reference to
   // GodotMCPTypeUtils reads as "not declared in the current scope".
   preImport({
-    consoleExe: dist.consoleExe,
+    binary: dist.binary,
     projectDir,
     logPath: join(workDir, "logs", "unit.log"),
     port: 6510,
@@ -66,7 +66,7 @@ try {
 
   log(`[gdunit] running GDScript unit tests with Godot ${opts.godot}…`);
   const r = spawnSync(
-    dist.consoleExe,
+    dist.binary,
     ["--headless", "--path", projectDir, "--script", "res://gdscript_tests/run_unit_tests.gd"],
     { encoding: "utf8", timeout: 120_000 }
   );
