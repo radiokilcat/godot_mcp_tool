@@ -12,7 +12,19 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-03 (**6.1.1 and 6.1.2 done — the suite now checks effects, and
+**Last Updated:** 2026-09-03 (**6.1.3 done, so all of 6.1 is closed — the project has unit tests
+again.** Two harnesses: 514 vitest tests on the server (~0.7 s), covering version-utils, the 9.4.1
+timeout policy, the 9.4.3 bridge seam, and 493 structural checks over all 163 tool schemas; and 68
+headless-GDScript checks (`node e2e/unit.mjs`, ~2 s, green on both engines) over the coercion rules
+9.3 unified. Neither needs an editor, where the e2e suite needs four minutes and a live one. Two
+more bugs fell out: `callTool` threw *synchronously* while typed as returning a Promise, so a
+caller using `.catch()` without `await` would have crashed the process; and `_as_bool(null)` printed
+"Nonexistent 'bool' constructor" on every call, because `bool(null)` is not valid GDScript — an
+explicit JSON null on any boolean argument hit it. The second is why `e2e/unit.mjs` fails on any
+pushed engine error and not just on a failed check: 68/68 were green while the engine printed an
+error each time. E2E still **223 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2.)
+
+**Previously:** 2026-09-03 (**6.1.1 and 6.1.2 done — the suite now checks effects, and
 immediately found two real bugs.** A test can assert what landed on disk (`expectFiles`, ops
 exists/absent/contains/notContains/matches/minSize), applied to the tools that can silently
 no-op; two of the three assertions the task asked for turned out to already exist as `verify`.

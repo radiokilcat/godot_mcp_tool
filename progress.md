@@ -8,9 +8,19 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 ## Where the project stands
 
 - **163 tools across 23 categories, all implemented** (Phases 1-3, closed — see the changelog).
-- **E2E: 223 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**.
-  Run it with `node e2e/run.mjs --godot 4.4.1`; `node e2e/check-syntax.mjs` is the 6-second
-  parse gate to run before it. `e2e/blocks/*.json` is the executable spec, not docs/mcp_test_plan.md.
+- **Three test layers, fastest first** — run them in this order, each is a superset of the
+  previous one's cost:
+
+  | | Command | Covers | Time |
+  |---|---|---|---|
+  | Unit (server) | `npm test` in `server/` | version-utils, timeout policy, bridge seam, 163 tool schemas | ~1 s |
+  | Unit (plugin) | `node e2e/unit.mjs` | vector/colour parsing, `_as_bool`, `_value_to_json` | ~2 s |
+  | Parse gate | `node e2e/check-syntax.mjs` | every plugin script compiles, named file and line | ~6 s |
+  | E2E | `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
+
+- **E2E: 223 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
+  514 server unit tests and 68 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+  spec, not docs/mcp_test_plan.md.
 - **The suite now checks effects, not just responses** (6.1.1/6.1.2): `verify` re-reads through a
   second tool call, `expectFiles` asserts what landed on disk. That is what a tool answering
   `success: true` for work it did not do cannot survive — it caught two such bugs on its first run.
@@ -116,9 +126,43 @@ happened). That is the gap worth closing.
   - **Both fixes carry a regression test verified to fail without them:** N-16, and BR-08b on a
     new fixture (a script with both method names, a Button, a persisted connection, saved).
     Reverting the batch fix fails BR-08b with the connection missing from the 272-byte scene.
-- [ ] 6.1.3 - Unit-test the pure server-side modules that have no editor dependency. **Rescoped by 9.2:** the modules this named — type coercion, tool-validator, message framing — were all dead and are gone, along with the single test file that covered one of them. What is left on the server is thin proxies plus `version-utils`, so the real target is the plugin's own rules (vector/colour parsing, `_as_bool`, `_value_to_json`), best attacked after 9.3 puts them in one place. Remove `passWithNoTests` from server/vitest.config.ts when this lands. **Unblocked 2026-09-03 by 9.4.3:** importing a tool module no longer opens the bridge port, and `setBridge()` takes a stub, so a server-side test can now exercise handlers without a socket or a live editor.
-- **Priority:** HIGH — 6.1.3 is what is left.
-- **Verified:** **223 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2 (was 218).
+- [x] 6.1.3 - **Unit tests. Done 2026-09-03.** Two harnesses, because the pure rules live in two
+  languages and neither needs an editor:
+  - **Server, vitest — `npm test` in server/, 514 tests in ~0.7 s.** `version-utils` (the parse is
+    regex-based and the comparison must be numeric: `4.10` vs `4.9`); the 9.4.1 timeout policy,
+    for which `timeoutForCall` is now exported — it is real policy that is easy to break silently;
+    the 9.4.3 bridge seam (`getBridge()` throws rather than binding, `setBridge()` substitutes,
+    `callTool` routes and propagates failure); and 493 structural checks over all 163 tool
+    definitions — no name collisions, every parameter documented, `required` names that exist in
+    `properties`, snake_case names, parsable version bounds. That last group is the guard for
+    9.7.1, which will rewrite these schemas wholesale.
+  - **Plugin, headless GDScript — `node e2e/unit.mjs`, 68 checks in ~2 s**, green on 4.4.1 and
+    4.7.2. Covers what 9.3 unified and what the copies used to disagree about: `to_vector2`/
+    `to_vector3`/`to_color` across every shape a client sends (including the `"Vector3(0, 2, 5)"`
+    shorthand of 6.6.14 and the `"Color(1, 0, 0)"` one that used to push an engine error),
+    `floats_in` not reading the digits in a type name as components, `_as_bool` (all three forms,
+    including the numeric `1` that eight of nine copies answered `false` for), and `_value_to_json`
+    returning structured transforms rather than `str(v)`.
+  - `passWithNoTests` is gone from server/vitest.config.ts, along with its `../tests/**` include
+    pointing at the directory 9.2 deleted.
+- **Two things this found, neither reachable from a response assertion:**
+  - **`callTool` threw synchronously** while typed as returning a `Promise` — `getBridge()` raising
+    out of a non-`async` function. A caller using `.catch()` without `await` would have taken the
+    process down instead of handling it. Now `async`, so a missing bridge arrives as a rejection.
+  - **`_as_bool(null)` pushed an engine error on every call:** `bool(null)` is not a valid
+    constructor call in GDScript, so it answered `false` *and* printed "Invalid call. Nonexistent
+    'bool' constructor" — the same Output-panel spam 9.8 went through the tools to remove. An
+    explicit JSON `null` on any boolean argument hit it. Guarded before the `bool()` call.
+  - Hence `e2e/unit.mjs` **fails on any `SCRIPT ERROR`, not just on a failed check**: nothing in a
+    unit run feeds the engine bad input on purpose, so a pushed error is a defect even when every
+    assertion passes. That is exactly how the `_as_bool` bug surfaced — 68/68 green and the engine
+    printing an error each time.
+- **The harness itself was verified in all three failure modes:** a deliberate wrong expectation
+  (exit 1, names the case with expected vs actual), a parse error (reported, not silently green),
+  and a pushed engine error (exit 1).
+- **Priority:** DONE — 6.1 is closed (6.1.1, 6.1.2, 6.1.3, plus 6.1.4 found along the way).
+- **Verified:** **223 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2 (was 218), plus
+  514 server unit tests and 68 GDScript ones.
 - **One engine fact worth keeping:** Godot 4.7 writes `[node name="X" type="Y" unique_id=982333479]`
   where 4.4 writes `[node name="X" type="Y"]`. A node-header assertion must therefore stop after
   the type and never match the closing bracket — the first version of these four assertions passed

@@ -151,12 +151,16 @@ cd server
 npm run build      # compile TypeScript
 npm run watch      # compile in watch mode
 npm run lint       # ESLint
-npm test           # unit tests (vitest — none yet, see progress.md 6.1.3)
+npm test           # 514 unit tests (vitest), ~1 s
 ```
 
+Four test layers, fastest first — each is worth running before the next:
+
 ```bash
-node e2e/check-syntax.mjs          # ~6 s GDScript parse gate, names file and line
-node e2e/run.mjs --godot 4.4.1     # full end-to-end suite against a real editor
+cd server && npm test              # ~1 s   version/timeout/bridge logic + all 163 tool schemas
+node e2e/unit.mjs                  # ~2 s   plugin coercion rules, headless GDScript
+node e2e/check-syntax.mjs          # ~6 s   GDScript parse gate, names file and line
+node e2e/run.mjs --godot 4.4.1     # ~4 min full end-to-end suite against a real editor
 ```
 
 ## Clients
