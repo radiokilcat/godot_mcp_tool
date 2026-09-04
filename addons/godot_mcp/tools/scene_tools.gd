@@ -42,19 +42,36 @@ func _get_scene_tree(args: Dictionary) -> Dictionary:
 		root = packed.instantiate()
 		if root == null:
 			return {"error": "Failed to instantiate scene: %s" % scene_path}
-		var tree_data := _node_to_dict(root, 0, max_depth)
+		var budget := _node_budget(args)
+		var tree_data := _node_to_dict(root, 0, max_depth, budget)
 		root.queue_free()
-		return {
-			"scene_path": scene_path,
-			"root": tree_data,
-		}
+		return _tree_result(scene_path, tree_data, budget)
 
-	return {
-		"scene_path": root.scene_file_path,
-		"root": _node_to_dict(root, 0, max_depth),
+	var open_budget := _node_budget(args)
+	return _tree_result(root.scene_file_path, _node_to_dict(root, 0, max_depth, open_budget), open_budget)
+
+## A node allowance shared across the whole walk. A Dictionary because it has to
+## be mutated by the recursion; `max_depth` alone cannot bound this — one flat
+## node with 20 000 children is a single level deep.
+func _node_budget(args: Dictionary) -> Dictionary:
+	return {"left": _max_results(args), "spent": 0, "dropped": false}
+
+func _tree_result(scene_path: String, tree_data: Dictionary, budget: Dictionary) -> Dictionary:
+	var result := {
+		"scene_path": scene_path,
+		"root": tree_data,
+		"node_count": budget["spent"],
 	}
+	# Report the flag the walk actually set, not "the budget reached zero": a tree
+	# of exactly max_results nodes exhausts the budget without dropping anything.
+	if budget["dropped"]:
+		result["truncated"] = true
+		result["note"] = "Stopped at max_results nodes; some children are omitted. Narrow with 'max_depth', ask for a subtree, or raise 'max_results'."
+	return result
 
-func _node_to_dict(node: Node, depth: int, max_depth: int) -> Dictionary:
+func _node_to_dict(node: Node, depth: int, max_depth: int, budget: Dictionary) -> Dictionary:
+	budget["left"] -= 1
+	budget["spent"] += 1
 	var d := {
 		"name": node.name,
 		"type": node.get_class(),
@@ -64,7 +81,14 @@ func _node_to_dict(node: Node, depth: int, max_depth: int) -> Dictionary:
 	}
 	if max_depth < 0 or depth < max_depth:
 		for child in node.get_children():
-			d["children"].append(_node_to_dict(child, depth + 1, max_depth))
+			if budget["left"] <= 0:
+				# Marked per node, not only at the top: an agent reading a subtree
+				# needs to know *this* list is short, not merely that something
+				# somewhere was dropped.
+				d["truncated_children"] = true
+				budget["dropped"] = true
+				break
+			d["children"].append(_node_to_dict(child, depth + 1, max_depth, budget))
 	return d
 
 func _create_scene(args: Dictionary) -> Dictionary:

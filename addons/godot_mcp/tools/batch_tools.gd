@@ -72,7 +72,7 @@ func _find_by_node_type(args: Dictionary) -> Dictionary:
 
 	var scene_filter: String = args.get("scene_filter", "")
 	var include_inherited: bool = _as_bool(args.get("include_inherited", true))
-	var max_results: int = int(args.get("max_results", 500))
+	var max_results := _max_results(args)
 
 	var scene_files: Array = []
 	_collect_scene_files(_get_filesystem(), scene_filter, scene_files)
@@ -118,7 +118,7 @@ func _find_by_script(args: Dictionary) -> Dictionary:
 		return {"error": "Script not found: %s" % script_path}
 
 	var scene_filter: String = args.get("scene_filter", "")
-	var max_results: int = int(args.get("max_results", 500))
+	var max_results := _max_results(args)
 
 	var scene_files: Array = []
 	_collect_scene_files(_get_filesystem(), scene_filter, scene_files)
@@ -158,7 +158,7 @@ func _find_by_group(args: Dictionary) -> Dictionary:
 		return {"error": "'group_name' is required"}
 
 	var scene_filter: String = args.get("scene_filter", "")
-	var max_results: int = int(args.get("max_results", 500))
+	var max_results := _max_results(args)
 
 	var scene_files: Array = []
 	_collect_scene_files(_get_filesystem(), scene_filter, scene_files)

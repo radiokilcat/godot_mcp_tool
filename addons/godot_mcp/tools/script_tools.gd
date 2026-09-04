@@ -269,28 +269,44 @@ func _search_in_scripts(args: Dictionary) -> Dictionary:
 	var case_sensitive: bool = args.get("case_sensitive", false)
 	var search_query := query if case_sensitive else query.to_lower()
 
+	var limit := _max_results(args)
 	var matches: Array = []
-	_search_recursive(root_path, search_query, case_sensitive, matches)
+	# One past the cap, so a search that returned exactly `limit` matches is not
+	# reported as truncated when it was complete.
+	_search_recursive(root_path, search_query, case_sensitive, matches, limit + 1)
+	var truncated := matches.size() > limit
+	if truncated:
+		matches.resize(limit)
 
-	return {"query": query, "matches": matches, "total_matches": matches.size()}
+	var out := {"query": query, "matches": matches, "total_matches": matches.size()}
+	if truncated:
+		out["truncated"] = true
+		out["note"] = "Stopped at max_results=%d. Narrow with 'path' or a longer query, or raise 'max_results'." % limit
+	return out
 
-func _search_recursive(path: String, query: String, case_sensitive: bool, results: Array) -> void:
+func _search_recursive(path: String, query: String, case_sensitive: bool, results: Array, cap: int) -> void:
+	if results.size() >= cap:
+		return
 	var dir := DirAccess.open(path)
 	if dir == null:
 		return
 	dir.list_dir_begin()
 	var item := dir.get_next()
 	while item != "":
+		if results.size() >= cap:
+			break
 		if not item.begins_with("."):
 			var full := path.path_join(item)
 			if dir.current_is_dir():
-				_search_recursive(full, query, case_sensitive, results)
+				_search_recursive(full, query, case_sensitive, results, cap)
 			elif item.ends_with(".gd"):
 				var abs_path := ProjectSettings.globalize_path(full)
 				var content = _read_file(abs_path)
 				if content != null:
 					var lines: Array = Array((content as String).split("\n"))
 					for i in range(lines.size()):
+						if results.size() >= cap:
+							break
 						var line: String = lines[i]
 						var compare := line if case_sensitive else line.to_lower()
 						if compare.contains(query):

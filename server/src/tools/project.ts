@@ -29,6 +29,10 @@ export const projectTools: ToolCategory = {
           type: "string",
           description: "File extension filter, e.g. '.gd' or '.tscn'",
         },
+        max_results: {
+          type: "integer",
+          description: "Maximum files to return (default 500, negative for no limit). The response carries truncated: true when the listing stopped early.",
+        },
       },
     },
     handler: async (args) => {
@@ -50,6 +54,10 @@ export const projectTools: ToolCategory = {
           type: "string",
           enum: ["name", "content"],
           description: "Search by filename (default) or file content",
+        },
+        max_results: {
+          type: "integer",
+          description: "Maximum matches to return (default 500, negative for no limit). The response carries truncated: true when the search stopped early.",
         },
       },
       required: ["query"],

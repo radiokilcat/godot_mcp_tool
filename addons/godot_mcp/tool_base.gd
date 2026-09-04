@@ -15,6 +15,14 @@ class_name GodotMCPToolBase
 ## Where the copies disagreed, the version adopted here accepts the union of what
 ## they accepted -- see the notes on each method.
 
+## Cap for the tools that enumerate, matching what the batch tools already used.
+## An unbounded reply is two problems at once: it is loaded into the agent's
+## context whole, and before 9.4.2 anything past the socket buffer was dropped
+## into a push_error, so the caller saw only a timeout on a result that was never
+## coming. Bounding the *walk* rather than the output is the point — a capped
+## tool stops looking once it has enough.
+const DEFAULT_MAX_RESULTS := 500
+
 var _plugin: EditorPlugin
 
 ## The default lets a tool class that needs no editor access be constructed
@@ -84,6 +92,22 @@ func _as_bool(value: Variant) -> bool:
 	if value is String:
 		return value.to_lower() in ["true", "1", "yes"]
 	return bool(value)
+
+## How many results the caller will accept. Negative means no cap, matching how
+## `max_depth` already reads in get_scene_tree; anything unparsable falls back to
+## the default rather than to zero, so a malformed argument cannot turn a listing
+## into an empty one.
+##
+## `null` is handled before int(), for the same reason _as_bool handles it: the
+## constructor call is invalid for null and pushes an engine error.
+func _max_results(args: Dictionary, fallback: int = DEFAULT_MAX_RESULTS) -> int:
+	var raw: Variant = args.get("max_results")
+	if not (raw is int or raw is float or raw is String):
+		return fallback
+	var n := int(raw)
+	if n <= 0:
+		return 0x7FFFFFFF
+	return n
 
 ## Coercion of the values that arrive over JSON. Thin on purpose: the rules live
 ## in GodotMCPTypeUtils, which the server-side schemas mirror, and these exist so

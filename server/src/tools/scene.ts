@@ -21,6 +21,10 @@ export const sceneTools: ToolCategory = {
           type: "number",
           description: "Max tree depth to return (default: unlimited)",
         },
+        max_results: {
+          type: "integer",
+          description: "Maximum nodes to walk (default 500, negative for no limit). Bounds a wide tree, which max_depth cannot. The response carries truncated: true, and each shortened node truncated_children: true.",
+        },
       },
     },
     handler: async (args) => {

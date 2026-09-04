@@ -150,6 +150,10 @@ export const scriptTools: ToolCategory = {
           type: "boolean",
           description: "Whether the search is case-sensitive (default: false)",
         },
+        max_results: {
+          type: "integer",
+          description: "Maximum matching lines to return (default 500, negative for no limit). The response carries truncated: true when the search stopped early.",
+        },
       },
       required: ["query"],
     },

@@ -32,21 +32,36 @@ func _get_project_info(_args: Dictionary) -> Dictionary:
 func _list_project_files(args: Dictionary) -> Dictionary:
 	var path: String = args.get("path", "res://")
 	var filter: String = args.get("filter", "")
+	var limit := _max_results(args)
 	var files: Array = []
-	_collect_files(path, filter, files)
-	return {"files": files, "total": files.size()}
+	# Collect one past the cap so "exactly `limit` files exist" and "there are more"
+	# are distinguishable — comparing size() to the cap alone reports truncation for
+	# a listing that happened to be complete.
+	_collect_files(path, filter, files, limit + 1)
+	var truncated := files.size() > limit
+	if truncated:
+		files.resize(limit)
+	var result := {"files": files, "total": files.size()}
+	if truncated:
+		result["truncated"] = true
+		result["note"] = "Stopped at max_results=%d. Narrow with 'path' or 'filter', or raise 'max_results'." % limit
+	return result
 
-func _collect_files(path: String, filter: String, result: Array) -> void:
+func _collect_files(path: String, filter: String, result: Array, cap: int) -> void:
+	if result.size() >= cap:
+		return
 	var dir := DirAccess.open(path)
 	if dir == null:
 		return
 	dir.list_dir_begin()
 	var item := dir.get_next()
 	while item != "":
+		if result.size() >= cap:
+			break
 		if not item.begins_with("."):
 			var full := path.path_join(item)
 			if dir.current_is_dir():
-				_collect_files(full, filter, result)
+				_collect_files(full, filter, result, cap)
 			elif filter.is_empty() or item.ends_with(filter):
 				result.append(full)
 		item = dir.get_next()
@@ -57,30 +72,44 @@ func _search_files(args: Dictionary) -> Dictionary:
 	if query.is_empty():
 		return {"error": "'query' parameter is required"}
 	var search_type: String = args.get("type", "name")
+	var limit := _max_results(args)
 	var results: Array = []
 	if search_type == "content":
-		_search_by_content("res://", query, results)
+		_search_by_content("res://", query, results, limit + 1)
 	else:
-		_search_by_name("res://", query.to_lower(), results)
-	return {"results": results, "total": results.size()}
+		_search_by_name("res://", query.to_lower(), results, limit + 1)
+	var truncated := results.size() > limit
+	if truncated:
+		results.resize(limit)
+	var out := {"results": results, "total": results.size()}
+	if truncated:
+		out["truncated"] = true
+		out["note"] = "Stopped at max_results=%d. Narrow the query, or raise 'max_results'." % limit
+	return out
 
-func _search_by_name(path: String, query: String, results: Array) -> void:
+func _search_by_name(path: String, query: String, results: Array, cap: int) -> void:
+	if results.size() >= cap:
+		return
 	var dir := DirAccess.open(path)
 	if dir == null:
 		return
 	dir.list_dir_begin()
 	var item := dir.get_next()
 	while item != "":
+		if results.size() >= cap:
+			break
 		if not item.begins_with("."):
 			var full := path.path_join(item)
 			if dir.current_is_dir():
-				_search_by_name(full, query, results)
+				_search_by_name(full, query, results, cap)
 			elif item.to_lower().contains(query):
 				results.append({"path": full, "name": item})
 		item = dir.get_next()
 	dir.list_dir_end()
 
-func _search_by_content(path: String, query: String, results: Array) -> void:
+func _search_by_content(path: String, query: String, results: Array, cap: int) -> void:
+	if results.size() >= cap:
+		return
 	var text_exts := [".gd", ".tscn", ".tres", ".gdshader", ".glsl", ".json", ".cfg"]
 	var dir := DirAccess.open(path)
 	if dir == null:
@@ -88,10 +117,12 @@ func _search_by_content(path: String, query: String, results: Array) -> void:
 	dir.list_dir_begin()
 	var item := dir.get_next()
 	while item != "":
+		if results.size() >= cap:
+			break
 		if not item.begins_with("."):
 			var full := path.path_join(item)
 			if dir.current_is_dir():
-				_search_by_content(full, query, results)
+				_search_by_content(full, query, results, cap)
 			else:
 				var ext := "." + item.get_extension()
 				if ext in text_exts:
