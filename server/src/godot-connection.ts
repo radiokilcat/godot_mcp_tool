@@ -35,7 +35,7 @@ const SLOW_TOOLS: Record<string, number> = {
  * those calls could not succeed, and the plugin stayed busy for the remainder,
  * answering every following call with "another tool call is already in progress".
  */
-function timeoutForCall(tool: string, args: Record<string, unknown>): number {
+export function timeoutForCall(tool: string, args: Record<string, unknown>): number {
   for (const key of DURATION_ARGS) {
     const value = args[key];
     if (typeof value === "number" && Number.isFinite(value) && value > 0) {
@@ -292,7 +292,14 @@ export function closeBridge(): void {
   bridge?.close();
 }
 
-/** Every tool handler's single line to the editor. */
-export function callTool(tool: string, args: Record<string, unknown> = {}): Promise<unknown> {
+/**
+ * Every tool handler's single line to the editor.
+ *
+ * `async` so that a missing bridge arrives as a rejection like every other
+ * failure: a plain function would let getBridge() throw *synchronously* out of
+ * something typed as returning a Promise, so a caller using `.catch()` without
+ * `await` would take the process down instead of handling it.
+ */
+export async function callTool(tool: string, args: Record<string, unknown> = {}): Promise<unknown> {
   return getBridge().callTool(tool, args);
 }
