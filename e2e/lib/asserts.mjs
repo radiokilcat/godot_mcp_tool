@@ -2,7 +2,16 @@
  * Assertion DSL — mirrors the conventions of docs/mcp_test_plan.md.
  * Ops: eq, neq, notNull, isNull, notEmpty, contains, gte, lte, matches,
  *      allElementsMatch, jsonContains.
+ *
+ * Two kinds of assertion, and the difference is the point (progress.md 6.1):
+ *   - `asserts` / `verify` check what a tool *says*, over the bridge.
+ *   - `expectFiles` checks what actually landed *on disk*, below the tool that
+ *     reported it. 6.6.1 and 6.6.8 both answered `success: true` for work that
+ *     never happened, and no response-level assertion can catch that.
  */
+
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Resolve a dot-path in a result object. Literal keys win over path splitting
@@ -82,6 +91,87 @@ export function evaluateAsserts(asserts, result) {
     }
   }
   return failures;
+}
+
+/**
+ * Map a Godot path to the real file the test project holds. Only `res://` is
+ * supported on purpose: `user://` resolves inside the self-contained Godot
+ * distribution rather than the project, so a test asserting there would be
+ * checking a path that moves with the engine build.
+ */
+export function resolveProjectPath(projectDir, path) {
+  if (path.startsWith("res://")) return join(projectDir, path.slice("res://".length));
+  if (path.startsWith("user://")) {
+    throw new Error(`expectFiles cannot resolve "${path}" — user:// lives outside the project`);
+  }
+  return join(projectDir, path);
+}
+
+/**
+ * Effect-level assertions against the generated project's filesystem.
+ * @returns {string[]} human-readable failure descriptions (empty = all passed)
+ */
+export function evaluateFileAsserts(fileAsserts, projectDir) {
+  const failures = [];
+  for (const a of fileAsserts) {
+    let target;
+    try {
+      target = resolveProjectPath(projectDir, a.path);
+    } catch (err) {
+      failures.push(`on disk: ${err.message}`);
+      continue;
+    }
+
+    const present = existsSync(target);
+    const fail = (why) => failures.push(`on disk \`${a.path}\` ${a.op} — ${why}`);
+    // Read lazily: the content ops need text, `exists`/`absent`/`minSize` do not,
+    // and a PNG should not be slurped as a string just to check it is there.
+    const text = () => readFileSync(target, "utf8");
+
+    if (a.op === "exists") {
+      if (!present) fail(`file not found at ${target}`);
+      continue;
+    }
+    if (a.op === "absent") {
+      if (present) fail(`file exists at ${target} but must not`);
+      continue;
+    }
+    if (!present) {
+      fail(`file not found at ${target}`);
+      continue;
+    }
+
+    switch (a.op) {
+      case "contains":
+        if (!text().includes(String(a.value))) fail(`text not found in ${excerpt(text())}`);
+        break;
+      case "notContains":
+        if (text().includes(String(a.value))) fail(`text is present but must not be`);
+        break;
+      case "matches":
+        if (!new RegExp(a.value, "m").test(text())) fail(`regex does not match ${excerpt(text())}`);
+        break;
+      case "minSize": {
+        const size = statSync(target).size;
+        if (size < Number(a.value)) fail(`only ${size} bytes`);
+        break;
+      }
+      default:
+        fail(`unknown file assert op "${a.op}"`);
+    }
+  }
+  return failures;
+}
+
+/**
+ * A failed file assertion is nearly useless without the file: the whole point is
+ * that the tool's own answer cannot be trusted, so "did not match" leaves nothing
+ * to reason from. Generated scenes and project.godot are small, so quote them.
+ */
+function excerpt(content) {
+  const limit = 600;
+  const body = content.length > limit ? content.slice(0, limit) + "\n… (truncated)" : content;
+  return `${content.length} bytes:\n--- file ---\n${body}\n--- end ---`;
 }
 
 function looseEq(a, b) {

@@ -159,6 +159,8 @@ async function runForVersion(version) {
       headless: opts.headless,
       log,
       onlyTest: opts.test,
+      // Lets a test assert what landed on disk, not just what the tool reported.
+      projectDir,
     });
     run.blocks = blockResults;
     run.totals = computeTotals(blockResults);

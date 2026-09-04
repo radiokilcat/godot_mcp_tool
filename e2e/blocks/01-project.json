@@ -63,7 +63,10 @@
         "tool": "get_project_settings",
         "args": { "setting_path": "application/config/description" },
         "asserts": [{ "field": "", "op": "jsonContains", "value": "MCP Test Project" }]
-      }
+      },
+      "expectFiles": [
+        { "path": "res://project.godot", "op": "contains", "value": "config/description=\"MCP Test Project\"" }
+      ]
     },
     {
       "id": "P-07b",
@@ -78,7 +81,11 @@
         "tool": "get_project_metadata",
         "args": {},
         "asserts": [{ "field": "viewport_size.width", "op": "eq", "value": 1281 }]
-      }
+      },
+      "comment": "6.6.7 wrote ints as floats (viewport_width=1920.0) and deferred the check to 6.1.1: int-vs-float is invisible over JSON, so only the on-disk literal proves the coercion. An anchored regex is required — 'contains 1281' also matches '1281.0'.",
+      "expectFiles": [
+        { "path": "res://project.godot", "op": "matches", "value": "^window/size/viewport_width=1281\\s*$" }
+      ]
     },
     {
       "id": "P-08",

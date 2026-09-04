@@ -169,11 +169,33 @@
       "asserts": [{ "field": "result", "op": "eq", "value": 1 }]
     },
     {
+      "id": "E-08i",
+      "tool": "execute_script",
+      "comment": "6.6.1 in effect form: the coroutine was dropped, so everything after the await — here the write — never ran, while the tool still answered success. E-08d asserts the collected output; only the file on disk proves the tail actually executed.",
+      "args": {
+        "code": "func _run():\n\tawait Engine.get_main_loop().process_frame\n\tvar f := FileAccess.open(\"res://e2e_effect.txt\", FileAccess.WRITE)\n\tf.store_string(\"written after await\")\n\tf.close()\n\treturn \"done\"\n"
+      },
+      "asserts": [{ "field": "result", "op": "eq", "value": "done" }],
+      "expectFiles": [
+        { "path": "res://e2e_effect.txt", "op": "contains", "value": "written after await" }
+      ]
+    },
+    {
       "id": "E-08g",
       "tool": "execute_script",
       "args": { "code": "var x = 1\nthis is not gdscript\n" },
       "expectError": true,
       "errorContains": "line 2:"
+    },
+    {
+      "id": "E-08j",
+      "tool": "execute_script",
+      "comment": "The negative half of E-08i: line 1 is a real write, line 2 does not parse. GDScript compiles the whole script before running any of it, so the file must not appear — an assertion that only means something because the same code, minus line 2, would create it.",
+      "args": {
+        "code": "var f := FileAccess.open(\"res://e2e_never_written.txt\", FileAccess.WRITE)\nthis is not gdscript\n"
+      },
+      "expectError": true,
+      "expectFiles": [{ "path": "res://e2e_never_written.txt", "op": "absent" }]
     },
     {
       "id": "E-08h",
@@ -220,7 +242,7 @@
     }
   ],
   "cleanup": [
-    { "tool": "execute_script", "args": { "code": "for p in [\"res://screenshot_cam2d.png\"]:\n\tDirAccess.remove_absolute(ProjectSettings.globalize_path(p))\n\tDirAccess.remove_absolute(ProjectSettings.globalize_path(p + \".import\"))\n\tEditorInterface.get_resource_filesystem().update_file(p)\nEditorInterface.get_resource_filesystem().scan()" } },
+    { "tool": "execute_script", "args": { "code": "for p in [\"res://screenshot_cam2d.png\", \"res://e2e_effect.txt\"]:\n\tDirAccess.remove_absolute(ProjectSettings.globalize_path(p))\n\tDirAccess.remove_absolute(ProjectSettings.globalize_path(p + \".import\"))\n\tEditorInterface.get_resource_filesystem().update_file(p)\nEditorInterface.get_resource_filesystem().scan()" } },
     { "tool": "delete_scene", "args": { "scene_path": "res://test_editor.tscn" } }
   ]
 }

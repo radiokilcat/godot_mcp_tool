@@ -6,7 +6,16 @@
     { "tool": "open_scene", "args": { "scene_path": "res://test_batch.tscn" } },
     { "tool": "add_node", "args": { "parent_path": ".", "node_type": "Label", "node_name": "LabelA" } },
     { "tool": "add_to_group", "args": { "node_path": "LabelA", "group_name": "test_group" } },
-    { "tool": "execute_script", "args": { "code": "EditorInterface.save_scene()" } }
+    { "tool": "execute_script", "args": { "code": "EditorInterface.save_scene()" } },
+
+    { "tool": "create_script", "args": { "script_path": "res://test_signals.gd", "content": "extends Node2D\n\nfunc _on_btn_pressed() -> void:\n\tpass\n\nfunc _on_button_pressed() -> void:\n\tpass\n" } },
+    { "tool": "create_scene", "args": { "name": "SignalRoot", "root_type": "Node2D", "path": "res://test_signals.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_signals.tscn" } },
+    { "tool": "attach_script", "args": { "node_path": ".", "script_path": "res://test_signals.gd" } },
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "Button", "node_name": "Btn" } },
+    { "tool": "connect_signal", "args": { "source_node_path": "Btn", "signal_name": "pressed", "target_node_path": ".", "callback_name": "_on_btn_pressed" } },
+    { "tool": "save_scene", "args": {} },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_batch.tscn" } }
   ],
   "tests": [
     {
@@ -56,10 +65,33 @@
       "id": "BR-08",
       "tool": "refactor_signals",
       "args": { "old_method": "_on_btn_pressed", "new_method": "_on_button_pressed", "dry_run": true },
-      "asserts": [{ "field": "", "op": "notEmpty" }]
+      "asserts": [{ "field": "", "op": "notEmpty" }],
+      "comment": "dry_run must not touch the scene — the fixture still carries the old method afterwards.",
+      "expectFiles": [
+        { "path": "res://test_signals.tscn", "op": "contains", "value": "method=\"_on_btn_pressed\"" }
+      ]
+    },
+    {
+      "id": "BR-08b",
+      "tool": "refactor_signals",
+      "comment": "The write path, which dry_run never reached. refactor_signals re-packs the scene, and until this was fixed it reconnected without CONNECT_PERSIST — so the rename silently deleted the connection while reporting updated: 1. Only the .tscn shows it: the tool's own answer is identical either way.",
+      "args": {
+        "old_method": "_on_btn_pressed",
+        "new_method": "_on_button_pressed",
+        "scene_filter": "test_signals",
+        "dry_run": false
+      },
+      "asserts": [{ "field": "", "op": "jsonContains", "value": "test_signals.tscn" }],
+      "expectFiles": [
+        { "path": "res://test_signals.tscn", "op": "contains", "value": "method=\"_on_button_pressed\"" },
+        { "path": "res://test_signals.tscn", "op": "notContains", "value": "method=\"_on_btn_pressed\"" },
+        { "path": "res://test_signals.tscn", "op": "contains", "value": "[connection signal=\"pressed\" from=\"Btn\" to=\".\"" }
+      ]
     }
   ],
   "cleanup": [
-    { "tool": "delete_scene", "args": { "scene_path": "res://test_batch.tscn" } }
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_batch.tscn" } },
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_signals.tscn" } },
+    { "tool": "execute_script", "args": { "code": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"res://test_signals.gd\"))\nEditorInterface.get_resource_filesystem().scan()" } }
   ]
 }

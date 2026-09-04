@@ -14,7 +14,11 @@
       "id": "S-02",
       "tool": "create_scene",
       "args": { "name": "TestRoot", "root_type": "Node2D", "path": "res://test_scene.tscn" },
-      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "comment": "Node-header assertions stop after the type and never include the closing bracket: Godot 4.7 writes [node name=\"X\" type=\"Y\" unique_id=982333479] where 4.4 writes [node name=\"X\" type=\"Y\"]. Matching the bracket passes on 4.4 and fails on 4.7 for no real reason.",
+      "expectFiles": [
+        { "path": "res://test_scene.tscn", "op": "contains", "value": "[node name=\"TestRoot\" type=\"Node2D\"" }
+      ]
     },
     {
       "id": "S-03",
@@ -103,6 +107,11 @@
       "asserts": [
         { "field": "success", "op": "eq", "value": true },
         { "field": "scene_path", "op": "eq", "value": "res://test_scene.tscn" }
+      ],
+      "comment": "The point of 6.6.9: S-09c deleted PrefabInstance from the open scene, and only this save commits it. A save that silently did nothing still reports success — the on-disk file is what tells them apart.",
+      "expectFiles": [
+        { "path": "res://test_scene.tscn", "op": "notContains", "value": "PrefabInstance" },
+        { "path": "res://test_scene.tscn", "op": "contains", "value": "[node name=\"TestRoot\" type=\"Node2D\"" }
       ]
     },
     {
@@ -114,7 +123,8 @@
         "tool": "list_project_files",
         "args": { "path": "res://", "filter": ".tscn" },
         "asserts": [{ "field": "files", "op": "notContains", "value": "res://test_prefab.tscn" }]
-      }
+      },
+      "expectFiles": [{ "path": "res://test_prefab.tscn", "op": "absent" }]
     },
     {
       "id": "S-11",
@@ -132,7 +142,11 @@
         "asserts": [
           { "field": "files", "op": "contains", "value": "res://e2e_nested/deep/Nested.tscn" }
         ]
-      }
+      },
+      "comment": "6.6.6 — create_scene did not create the parent directories, so a nested path failed with \"Can't open\".",
+      "expectFiles": [
+        { "path": "res://e2e_nested/deep/Nested.tscn", "op": "contains", "value": "[node name=\"Nested\" type=\"Node2D\"" }
+      ]
     },
     {
       "id": "S-12",
@@ -146,7 +160,11 @@
         "tool": "list_project_files",
         "args": { "path": "res://e2e_saveas", "filter": ".tscn" },
         "asserts": [{ "field": "files", "op": "contains", "value": "res://e2e_saveas/Copy.tscn" }]
-      }
+      },
+      "comment": "save_scene_as returns void, so the plugin can only confirm the write by checking the file landed — assert the same thing here, independently.",
+      "expectFiles": [
+        { "path": "res://e2e_saveas/Copy.tscn", "op": "contains", "value": "[node name=\"TestRoot\" type=\"Node2D\"" }
+      ]
     }
   ],
   "cleanup": [

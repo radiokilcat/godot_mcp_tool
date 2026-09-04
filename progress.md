@@ -8,11 +8,12 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 ## Where the project stands
 
 - **163 tools across 23 categories, all implemented** (Phases 1-3, closed — see the changelog).
-- **E2E: 218 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**.
+- **E2E: 223 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**.
   Run it with `node e2e/run.mjs --godot 4.4.1`; `node e2e/check-syntax.mjs` is the 6-second
   parse gate to run before it. `e2e/blocks/*.json` is the executable spec, not docs/mcp_test_plan.md.
-- **What the suite does not yet prove:** it asserts tool *responses*, and 6.6 showed responses
-  can lie. Effect-level assertions (6.1) are the open gap.
+- **The suite now checks effects, not just responses** (6.1.1/6.1.2): `verify` re-reads through a
+  second tool call, `expectFiles` asserts what landed on disk. That is what a tool answering
+  `success: true` for work it did not do cannot survive — it caught two such bugs on its first run.
 
 ---
 
@@ -74,12 +75,54 @@ check that a call changed anything: it asserts the tool's *response*, and 6.6 sh
 response is exactly what lies (6.6.1 and 6.6.8 both return `success: true` for work that never
 happened). That is the gap worth closing.
 - [x] Write tests for type parser — tests/type-parser.test.ts, 26 tests
-- [ ] 6.1.1 - Add an effect-assertion vocabulary to the E2E DSL: read the setting back, stat the file on disk, re-read the node tree after a mutation
-- [ ] 6.1.2 - Apply it to the tools that can silently no-op: `set_project_setting`, `execute_script`, `create_scene`, `save_scene`, the `add_*` family
+- [x] 6.1.1 - **Effect-assertion vocabulary. Done 2026-09-03.** Two of the three the task named
+  already existed as `verify` (a second tool call after the mutation, used by 26 tests) — reading
+  a setting back and re-reading the node tree are both that. The missing one was the filesystem,
+  so a test now takes `expectFiles`: a list of `{path, op, value}` against the generated project's
+  real files, with ops `exists` / `absent` / `contains` / `notContains` / `matches` / `minSize`.
+  It runs after `verify` and, deliberately, **also on `expectError` tests** — "the call failed AND
+  left nothing behind" is the half of a negative test that response assertions cannot express.
+  Only `res://` resolves: `user://` points inside the self-contained engine build, not the project,
+  so a test asserting there would follow the Godot distribution rather than the code under test.
+  A failed content assertion **quotes the file** (600 chars) — without it "regex does not match"
+  is useless precisely when the tool's own answer is what is in doubt.
+- [x] 6.1.2 - **Applied to the silent no-op tools. Done 2026-09-03.** `set_project_setting`
+  (P-07, P-07b), `execute_script` (E-08i, E-08j), `create_scene` (S-02, S-11), `save_scene`
+  (S-09d, S-12), `delete_scene` (S-10), the node mutations (N-16) and the `add_*` family
+  (3D-06b), plus `refactor_signals` (BR-08, BR-08b). 223 tests, up from 218.
+  - **P-07b closes the check 6.6.7 deferred here:** int-vs-float is invisible over JSON, so only
+    the on-disk literal proves the coercion. It needs an *anchored* regex — `contains "…=1281"`
+    also matches `1281.0`, which is the exact bug.
+  - **E-08i/E-08j are 6.6.1 in effect form:** a script that writes a file *after* an `await`, and
+    its negative twin whose write is real but whose line 2 does not parse.
+  - **N-16 and 3D-06b each collapse a whole block into one save:** every mutation before them
+    lives only in the editor's memory, so the `.tscn` is the first place their combined result is
+    observable outside the tools that reported it.
+- **This immediately found two real bugs — see 6.1.4 — which is the entire argument for the task:**
+  the suite was green at 218/218 across 163/163 tools with both of them present.
+- [x] 6.1.4 - **`connect_signal` and `refactor_signals` did not persist connections
+  (found and fixed 2026-09-03 by the new assertions).** Both called `Object.connect()` without
+  `CONNECT_PERSIST`. Only connections carrying that flag are recorded by `PackedScene.pack()`,
+  which is why the editor's own signal dialog sets it. The connection was otherwise completely
+  real — it fired, and `get_node_signals` listed it — so **every response-level check passed**;
+  it disappeared when the scene was saved and reopened.
+  - `connect_signal` (node_tools.gd:356): connect a signal through MCP, save, reopen — gone.
+    Caught by N-16, whose file excerpt showed the `[connection]` line simply absent.
+  - `refactor_signals` (batch_tools.gd:558) was worse: it reads connections out of `SceneState`,
+    which by definition holds only persistent ones, then reconnected *without* the flag and
+    re-packed — so **a rename silently deleted the connection** while reporting `updated: 1`.
+    Its only e2e coverage was `dry_run: true` against method names absent from the fixture, so
+    the write path had never once executed.
+  - **Both fixes carry a regression test verified to fail without them:** N-16, and BR-08b on a
+    new fixture (a script with both method names, a Button, a persisted connection, saved).
+    Reverting the batch fix fails BR-08b with the connection missing from the 272-byte scene.
 - [ ] 6.1.3 - Unit-test the pure server-side modules that have no editor dependency. **Rescoped by 9.2:** the modules this named — type coercion, tool-validator, message framing — were all dead and are gone, along with the single test file that covered one of them. What is left on the server is thin proxies plus `version-utils`, so the real target is the plugin's own rules (vector/colour parsing, `_as_bool`, `_value_to_json`), best attacked after 9.3 puts them in one place. Remove `passWithNoTests` from server/vitest.config.ts when this lands. **Unblocked 2026-09-03 by 9.4.3:** importing a tool module no longer opens the bridge port, and `setBridge()` takes a stub, so a server-side test can now exercise handlers without a socket or a live editor.
-- **Priority:** HIGH
-- **Effort:** 4-6 hours
-- **Depends on:** 6.6 fixes landing first, so the assertions encode the corrected behaviour
+- **Priority:** HIGH — 6.1.3 is what is left.
+- **Verified:** **223 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2 (was 218).
+- **One engine fact worth keeping:** Godot 4.7 writes `[node name="X" type="Y" unique_id=982333479]`
+  where 4.4 writes `[node name="X" type="Y"]`. A node-header assertion must therefore stop after
+  the type and never match the closing bracket — the first version of these four assertions passed
+  on 4.4.1 and failed on 4.7.2 for no reason connected to the code under test.
 
 ### [ ] 6.2b - Untested paths left over from 6.2 (2026-08-31)
 - [ ] 6.2b.1 - **UndoRedo is asserted nowhere.** `grep -ri undo e2e/blocks/` returns nothing, yet "all mutations support Ctrl+Z" is a headline feature. Needs a block that mutates, undoes via the editor's UndoRedo, and re-reads the tree.

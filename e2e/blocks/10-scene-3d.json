@@ -135,6 +135,21 @@
       "asserts": [{ "field": "success", "op": "eq", "value": true }]
     },
     {
+      "id": "3D-06b",
+      "tool": "save_scene",
+      "comment": "The add_* family, checked below the response. 6.6.14 is the reason the transform matters: the string form \"Vector3(0, 2, 5)\" was silently dropped outside node_tools, so add_camera put the camera at the origin and still answered success — a response-level assertion on the same call could not see it. 3D-02e's rejected mesh_type must likewise have left no node behind (6.6.12).",
+      "args": {},
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "expectFiles": [
+        { "path": "res://test_3d.tscn", "op": "contains", "value": "[node name=\"TestBox\" type=\"MeshInstance3D\"" },
+        { "path": "res://test_3d.tscn", "op": "contains", "value": "[node name=\"TestLight\" type=\"DirectionalLight3D\"" },
+        { "path": "res://test_3d.tscn", "op": "contains", "value": "[node name=\"TestGrid\" type=\"GridMap\"" },
+        { "path": "res://test_3d.tscn", "op": "matches", "value": "\\[node name=\"TestCam\"[\\s\\S]*?transform = Transform3D\\([^)]*, 0, 2, 5\\)" },
+        { "path": "res://test_3d.tscn", "op": "matches", "value": "\\[node name=\"OrthoCam\"[\\s\\S]*?size = 12\\.5" },
+        { "path": "res://test_3d.tscn", "op": "notContains", "value": "name=\"Bad\"" }
+      ]
+    },
+    {
       "id": "3D-07",
       "tool": "take_screenshot",
       "args": {

@@ -169,7 +169,7 @@ planned for clients with tool-count limits — see [progress.md](progress.md).
 
 - All 163 tools implemented (23 categories)
 - Godot 4.4.1 and 4.7.2 compatibility verified — plugin loads clean, all tools registered
-- End-to-end suite green: **218/218 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
+- End-to-end suite green: **223/223 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
 - Planned: Lite Mode, expanded API docs, and npm packaging — see [progress.md](progress.md)
 - What has already shipped, and why each decision was made: [docs/changelog.md](docs/changelog.md)
 

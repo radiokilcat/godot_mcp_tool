@@ -138,6 +138,27 @@ e2e/blocks/01-project.json … 23-export.json
 
 Assertion DSL mirrors the plan's conventions 1:1 — `eq`, `neq`, `notNull`, `contains`, `gte`, `lte`, `matches` (regex), `errorContains` (negative tests: *absence* of an error when one is expected = FAIL), plus `allElementsMatch` for the "all files end with .gd" style checks. Field paths are dot-paths into the JSON result (`result.nodes.0.name`).
 
+**Effect-level assertions (added by 6.1.1).** The three keys above all check what a tool *says*. `expectFiles` checks what actually landed on disk, below the tool that reported it:
+
+```jsonc
+"expectFiles": [
+  { "path": "res://test_scene.tscn", "op": "contains",    "value": "[node name=\"TestRoot\" type=\"Node2D\"" },
+  { "path": "res://test_scene.tscn", "op": "notContains", "value": "PrefabInstance" },
+  { "path": "res://project.godot",   "op": "matches",     "value": "^window/size/viewport_width=1281\\s*$" },
+  { "path": "res://test_prefab.tscn","op": "absent" }
+]
+```
+
+Ops: `exists`, `absent`, `contains`, `notContains`, `matches` (regex, multiline), `minSize`. Rules worth knowing:
+
+- It runs after `verify`, and **also on `expectError` tests** — "the call failed *and* left nothing behind" is the half of a negative test no response assertion can express.
+- Only `res://` resolves. `user://` points inside the self-contained engine build rather than the project, so an assertion there would track the Godot distribution instead of the code under test.
+- A failed content assertion quotes the file (600 chars). Without that, "regex does not match" is least useful exactly when the tool's own answer is what is in doubt.
+- An anchored regex is often required rather than `contains`: `contains "…=1281"` also matches `1281.0`, which was the bug (6.6.7).
+- Node-header assertions must stop after the type and never match the closing bracket — Godot 4.7 writes `[node name="X" type="Y" unique_id=982333479]` where 4.4 writes `[node name="X" type="Y"]`.
+
+This is what response-level testing structurally cannot do: the suite was green at 218/218 across 163/163 tools while `connect_signal` and `refactor_signals` were failing to persist connections, because their responses were correct and only the saved scene was wrong.
+
 Execution rules:
 
 - **Strictly sequential** — the plugin rejects concurrent calls (`_tool_busy`).

@@ -12,7 +12,20 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-03 (**9.4.3 and 9.7.2 done.** The bridge is no longer opened by an
+**Last Updated:** 2026-09-03 (**6.1.1 and 6.1.2 done — the suite now checks effects, and
+immediately found two real bugs.** A test can assert what landed on disk (`expectFiles`, ops
+exists/absent/contains/notContains/matches/minSize), applied to the tools that can silently
+no-op; two of the three assertions the task asked for turned out to already exist as `verify`.
+What it caught: `connect_signal` and `refactor_signals` both called `Object.connect()` without
+`CONNECT_PERSIST`, and only connections carrying that flag are recorded by `PackedScene.pack()`.
+The connection was real — it fired, `get_node_signals` listed it, every response-level assertion
+passed — and vanished on save/reopen. `refactor_signals` was worse: a rename *deleted* the
+connection while reporting `updated: 1`, and its only coverage was a `dry_run` against method
+names absent from the fixture, so the write path had never run. Both fixes carry a regression
+test verified to fail without them. **223 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2.
+Next: 6.1.3, now that 9.4.3 gives the server a socket-free test seam.)
+
+**Previously:** 2026-09-03 (**9.4.3 and 9.7.2 done.** The bridge is no longer opened by an
 import: `new GodotConnection()` at module scope is replaced by an explicit `openBridge()` in
 main(), and the 163 call sites now go through a `callTool()` free function. `getBridge()`
 deliberately *throws* instead of lazily binding — quietly opening a machine-wide port to cover a

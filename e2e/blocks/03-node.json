@@ -171,6 +171,20 @@
         "args": {},
         "asserts": [{ "field": "", "op": "jsonNotContains", "value": "LabelCopy" }]
       }
+    },
+    {
+      "id": "N-16",
+      "tool": "save_scene",
+      "args": {},
+      "comment": "One effect assertion for the whole block: every mutation above lives only in the editor's in-memory scene until this save. The .tscn text is the first place their combined result is observable outside the tools that reported it — add_node (N-01/N-12), set_node_property (N-03), rename_node (N-04), connect_signal (N-13) and delete_node (N-15) all land or fail here.",
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "expectFiles": [
+        { "path": "res://test_nodes.tscn", "op": "contains", "value": "[node name=\"LabelRenamed\" type=\"Label\"" },
+        { "path": "res://test_nodes.tscn", "op": "contains", "value": "text = \"Hello\"" },
+        { "path": "res://test_nodes.tscn", "op": "contains", "value": "[node name=\"TestBtn\" type=\"Button\"" },
+        { "path": "res://test_nodes.tscn", "op": "matches", "value": "^\\[connection signal=\"pressed\" from=\"TestBtn\" to=\"\\.\" method=\"queue_free\"\\]" },
+        { "path": "res://test_nodes.tscn", "op": "notContains", "value": "LabelCopy" }
+      ]
     }
   ],
   "cleanup": [

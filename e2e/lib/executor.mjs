@@ -6,7 +6,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { evaluateAsserts, resolveField } from "./asserts.mjs";
+import { evaluateAsserts, evaluateFileAsserts, resolveField } from "./asserts.mjs";
 
 export function loadBlocks(blocksDir, blockFilter) {
   const files = readdirSync(blocksDir).filter((f) => f.endsWith(".json")).sort();
@@ -34,7 +34,7 @@ export function substitute(value, ctx) {
   return value;
 }
 
-export async function runBlocks({ client, blocks, tokens, headless, log, onlyTest }) {
+export async function runBlocks({ client, blocks, tokens, headless, log, onlyTest, projectDir }) {
   const ctx = { vars: {}, tokens };
   const usedTools = new Set();
   const blockResults = [];
@@ -130,6 +130,23 @@ export async function runBlocks({ client, blocks, tokens, headless, log, onlyTes
           if (rec.status === "pass" && t.save) {
             for (const [name, path] of Object.entries(t.save)) {
               ctx.vars[name] = resolveField(r.result, path);
+            }
+          }
+        }
+
+        // Effect-level check, deliberately outside the branches above: it applies
+        // equally to a call that succeeded and to one that was expected to fail,
+        // because "the call errored AND left nothing behind" is the interesting
+        // half of a negative test.
+        if (rec.status === "pass" && t.expectFiles) {
+          if (!projectDir) {
+            rec.status = "fail";
+            rec.error = "expectFiles used but the runner passed no projectDir";
+          } else {
+            const ff = evaluateFileAsserts(substitute(t.expectFiles, ctx), projectDir);
+            if (ff.length > 0) {
+              rec.status = "fail";
+              rec.failures.push(...ff);
             }
           }
         }
