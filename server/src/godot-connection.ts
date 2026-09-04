@@ -1,10 +1,22 @@
 /**
- * GodotConnection — WebSocket server that the Godot plugin connects to.
- * Bridges MCP tool calls to Godot and returns results.
+ * The bridge to the Godot editor — a reconnecting WebSocket *client*.
+ *
+ * The direction used to be the other way round: this process listened and the
+ * plugin dialled in. That put a machine-wide port in the hands of the shortest
+ * lived process in the chain, so only the first MCP session worked, a second
+ * session was a corpse with a polite message, and two open projects clobbered
+ * each other's socket. With the editor listening (6.5), the listener lives
+ * exactly as long as the thing it represents, N sessions attach for free, and
+ * each project gets its own port.
+ *
+ * The retry logic below is deliberately a mirror of what this change deleted from
+ * plugin.gd — the problem did not go away, it moved to the side that should own it.
  */
 
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocket } from "ws";
 import { randomUUID } from "crypto";
+
+import { resolveTarget, type GodotInstance } from "./discovery.js";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 15_000;
 // Never wait longer than this, whatever a caller asks for: the plugin clamps its
@@ -29,6 +41,12 @@ const SLOW_TOOLS: Record<string, number> = {
   replay_test: 120_000,
 };
 
+const RECONNECT_BASE_MS = 500;
+const RECONNECT_MAX_MS = 15_000;
+// One editor serves N clients now, so a call can wait behind another session's.
+// The plugin queues rather than rejecting (6.5.7), and this covers the wait.
+const QUEUE_SLACK_MS = 30_000;
+
 /**
  * How long to wait for one call. A flat 15s was shorter than what several tools
  * are documented to do — `listen_to_signal` allows 30s, `execute_script` 60s — so
@@ -47,19 +65,6 @@ export function timeoutForCall(tool: string, args: Record<string, unknown>): num
   }
   return SLOW_TOOLS[tool] ?? DEFAULT_TOOL_TIMEOUT_MS;
 }
-// Overridable so test harnesses can run in parallel with a live setup on the default port
-function defaultPort(): number {
-  return Number(process.env.GODOT_MCP_PORT ?? "") || 6505;
-}
-// Whatever connects here is trusted as the Godot plugin — there is no authentication
-// yet (progress.md 9.5) — so the bridge must not be reachable from the network. Node
-// binds every interface when no host is given. Loopback is pinned to IPv4 because the
-// plugin dials 127.0.0.1: binding "localhost" can resolve to ::1 on Windows and leave
-// the editor knocking on an address nobody is listening to. Override only to attach an
-// editor running on another machine, and only on a network you control.
-function defaultHost(): string {
-  return process.env.GODOT_MCP_HOST || "127.0.0.1";
-}
 
 interface PendingCall {
   resolve: (value: unknown) => void;
@@ -69,8 +74,8 @@ interface PendingCall {
 
 /**
  * What a tool handler needs from the bridge. Narrower than the class on purpose:
- * it is the seam a test (or 6.5.5's client-side transport) substitutes, and it
- * deliberately excludes anything that owns a socket.
+ * it is the seam a test substitutes, and it deliberately excludes anything that
+ * owns a socket.
  */
 export interface GodotBridge {
   readonly isConnected: boolean;
@@ -81,70 +86,95 @@ export interface GodotBridge {
 }
 
 export class GodotConnection implements GodotBridge {
-  private wss: WebSocketServer;
   private socket: WebSocket | null = null;
   private pending = new Map<string, PendingCall>();
   private _godotVersion: string | null = null;
   private _pluginVersion: string | null = null;
-  private _bindError: string | null = null;
   private _closed = false;
-  private port: number;
-  private host: string;
+  private _attempts = 0;
+  private _retryTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Why the last attempt failed, so a tool call can explain itself. */
+  private _lastError: string | null = null;
+  private _target: GodotInstance | null = null;
 
-  /** Binds immediately — constructing this object is what opens the port. */
-  constructor(options: { port?: number; host?: string } = {}) {
-    this.port = options.port ?? defaultPort();
-    this.host = options.host ?? defaultHost();
-    this.wss = new WebSocketServer({ port: this.port, host: this.host });
-    this.wss.on("connection", (ws) => this._onConnection(ws));
-    // Only announce the port once the bind actually succeeded — listen() is async,
-    // so logging in the constructor claims success before it is known.
-    this.wss.on("listening", () => {
-      console.error(`[Godot] WebSocket server listening on ws://${this.host}:${this.port}`);
-    });
-    // Without this handler a failed bind surfaces as an unhandled 'error' event and
-    // kills the process before the MCP handshake completes, so the client reports
-    // nothing but "connection closed". Stay up and report the cause through the
-    // tools instead.
-    this.wss.on("error", (err: NodeJS.ErrnoException) => {
-      this._bindError = err.code === "EADDRINUSE"
-        ? `Port ${this.port} is already in use — another Godot MCP server is still running. ` +
-          `Stop that process, or set GODOT_MCP_PORT to a free port for both this server ` +
-          `and the Godot plugin.`
-        : `WebSocket server failed: ${err.message}`;
-      console.error(`[Godot] ${this._bindError}`);
-    });
+  constructor(private readonly host = process.env.GODOT_MCP_HOST || "127.0.0.1") {
+    this.connect();
   }
 
-  private _onConnection(ws: WebSocket): void {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      console.error("[Godot] Replacing existing connection");
-      this.socket.close();
+  /**
+   * Rediscovery happens on every attempt, not once at startup: the editor may be
+   * restarted mid-session, and it comes back on a different port with a different
+   * token. Caching the first answer would mean a session never recovers from a
+   * simple editor restart.
+   */
+  private connect(): void {
+    if (this._closed || this.socket) return;
+
+    const target = resolveTarget();
+    if ("error" in target) {
+      this._lastError = target.error;
+      this.scheduleRetry();
+      return;
     }
-    this.socket = ws;
-    console.error("[Godot] Godot plugin connected");
+    this._target = target.instance;
 
-    ws.on("message", (raw) => this._onMessage(raw.toString()));
-    ws.on("close", () => {
-      if (this.socket === ws) {
-        this.socket = null;
-        this._godotVersion = null;
-        this._pluginVersion = null;
-        console.error("[Godot] Godot plugin disconnected");
-        // Reject all pending calls
-        for (const [id, call] of this.pending) {
-          clearTimeout(call.timer);
-          call.reject(new Error("Godot disconnected"));
-          this.pending.delete(id);
-        }
-      }
+    // The token travels in the path because a Godot listener cannot read request
+    // headers — verified against the engine, see progress.md 9.5.
+    const url = `ws://${this.host}:${target.instance.port}/${encodeURIComponent(target.instance.token)}`;
+    const socket = new WebSocket(url, { maxPayload: 8 * 1024 * 1024 });
+    this.socket = socket;
+
+    socket.on("open", () => {
+      this._attempts = 0;
+      this._lastError = null;
+      console.error(`[Godot] Connected to editor on port ${target.instance.port}`);
     });
-    ws.on("error", (err) => {
-      console.error(`[Godot] WebSocket error: ${err.message}`);
+
+    socket.on("message", (raw) => this.onMessage(raw.toString()));
+
+    socket.on("close", (code, reason) => {
+      if (this.socket !== socket) return;
+      this.socket = null;
+      this._godotVersion = null;
+      this._pluginVersion = null;
+      this.rejectAll(
+        code === 4001
+          ? "The editor rejected this connection: invalid or missing token."
+          : "Godot disconnected"
+      );
+      if (code === 4001) {
+        // Not retryable by waiting, but the editor may be restarted with a fresh
+        // token, and the next attempt rediscovers — so still retry, just say why.
+        this._lastError =
+          `The editor rejected the token from ${this._target?.source ?? "discovery"}. ` +
+          "If you set GODOT_MCP_TOKEN by hand, check it matches the running editor.";
+        console.error(`[Godot] ${this._lastError}`);
+      } else if (reason?.length) {
+        console.error(`[Godot] Disconnected: ${reason.toString()}`);
+      }
+      this.scheduleRetry();
+    });
+
+    socket.on("error", (err) => {
+      this._lastError = err.message;
+      // 'close' always follows, and that is where the retry is scheduled.
     });
   }
 
-  private _onMessage(raw: string): void {
+  private scheduleRetry(): void {
+    if (this._closed || this._retryTimer) return;
+    this._attempts += 1;
+    const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** (this._attempts - 1));
+    this._retryTimer = setTimeout(() => {
+      this._retryTimer = null;
+      this.connect();
+    }, delay);
+    // Unref'd: a pending retry must never be the reason this process stays alive
+    // after the MCP client has gone (6.5.1).
+    this._retryTimer.unref?.();
+  }
+
+  private onMessage(raw: string): void {
     let msg: Record<string, unknown>;
     try {
       msg = JSON.parse(raw) as Record<string, unknown>;
@@ -181,11 +211,19 @@ export class GodotConnection implements GodotBridge {
     }
   }
 
+  private rejectAll(reason: string): void {
+    for (const [id, call] of this.pending) {
+      clearTimeout(call.timer);
+      call.reject(new Error(reason));
+      this.pending.delete(id);
+    }
+  }
+
   get isConnected(): boolean {
     return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
   }
 
-  /** Godot engine version string reported by the plugin at handshake (e.g. "4.4.1.stable"), or null before connection. */
+  /** Godot engine version string reported by the plugin at handshake, or null before connection. */
   get godotVersion(): string | null {
     return this._godotVersion;
   }
@@ -196,21 +234,15 @@ export class GodotConnection implements GodotBridge {
   }
 
   async callTool(tool: string, args: Record<string, unknown> = {}): Promise<unknown> {
-    // Check this first: with a failed bind the editor can never connect, and the
-    // generic "plugin not enabled" hint below would send the user after the wrong fix.
-    if (this._bindError) {
-      throw new Error(this._bindError);
-    }
-
     if (!this.isConnected) {
       throw new Error(
-        "Godot editor is not connected. " +
-        "Make sure the Godot MCP plugin is enabled and the editor is open."
+        this._lastError ??
+          "Godot editor is not connected. Make sure the Godot MCP plugin is enabled and the editor is open."
       );
     }
 
     const id = randomUUID();
-    const timeoutMs = timeoutForCall(tool, args);
+    const timeoutMs = timeoutForCall(tool, args) + QUEUE_SLACK_MS;
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
@@ -222,60 +254,44 @@ export class GodotConnection implements GodotBridge {
     });
   }
 
-  /**
-   * Release the bridge port and drop the editor connection. Idempotent, and safe
-   * to call from a process 'exit' handler (everything that matters is synchronous).
-   *
-   * `wss.close()` alone is not enough: the internally created HTTP server only
-   * finishes closing once every established connection has ended, and an attached
-   * editor never ends one — the port would stay bound for the life of the process.
-   * Terminating the sockets first is what actually frees it.
-   */
+  /** Idempotent, and safe to call from a process 'exit' handler. */
   close(): void {
     if (this._closed) return;
     this._closed = true;
-
-    for (const [id, call] of this.pending) {
-      clearTimeout(call.timer);
-      call.reject(new Error("Godot MCP server is shutting down"));
-      this.pending.delete(id);
+    if (this._retryTimer) {
+      clearTimeout(this._retryTimer);
+      this._retryTimer = null;
     }
-
-    for (const client of this.wss.clients) {
-      client.terminate();
-    }
+    this.rejectAll("Godot MCP server is shutting down");
+    this.socket?.terminate();
     this.socket = null;
-    this.wss.close();
   }
 }
 
 /**
  * The process-wide bridge.
  *
- * This used to be `export const godotConnection = new GodotConnection()`, which
- * bound the port as a side effect of *importing* the module — and every one of the
- * 23 tool modules imports it. So merely enumerating tool schemas opened a
- * machine-wide port and evicted whatever editor was attached to a live session
- * (progress.md 9.4.3). Creation is now explicit: `openBridge()` from main(), and
- * `setBridge()` for a test that wants handlers without a socket.
+ * Creation is explicit (9.4.3): this used to be a module-level `new`, which meant
+ * *importing* a tool module opened a machine-wide port, and every one of the 23
+ * tool modules imports it.
  */
 let bridge: GodotBridge | null = null;
 
-/** Bind the port. Called once from main(); the plugin dials in, so it cannot wait for the first tool call. */
-export function openBridge(options?: { port?: number; host?: string }): GodotBridge {
-  if (!bridge) bridge = new GodotConnection(options);
+/** Start connecting. Called once from main(). */
+export function openBridge(): GodotBridge {
+  if (!bridge) bridge = new GodotConnection();
   return bridge;
 }
 
-/** Substitute the bridge — for tests, and for 6.5.5 where the transport is constructed elsewhere. */
+/** Substitute the bridge — for tests, and anywhere the transport is constructed elsewhere. */
 export function setBridge(next: GodotBridge | null): void {
   bridge = next;
 }
 
 /**
- * The bridge as seen by a tool handler. Fails loudly rather than binding a port
- * behind the caller's back: reaching here with no bridge means main() did not run,
- * which is a wiring bug, not a condition to paper over at runtime.
+ * The bridge as seen by a tool handler. Fails loudly rather than connecting
+ * behind the caller's back: reaching here with no bridge means main() did not
+ * run, which is a wiring bug, not a condition to paper over at runtime.
  */
 export function getBridge(): GodotBridge {
   if (!bridge) {
