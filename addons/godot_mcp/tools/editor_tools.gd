@@ -457,10 +457,11 @@ func _execute_script(args: Dictionary) -> Dictionary:
 		compile_err = script.reload(false)
 	if compile_err != OK:
 		# reload() gave us a number; the parser's message only exists on stderr.
-		var diagnostics := GodotMCPScriptCheck.check_source(wrapped, line_offset)
+		var check_status := {}
+		var diagnostics := GodotMCPScriptCheck.check_source(wrapped, line_offset, check_status)
 		var failure: Dictionary = {
 			"error": GodotMCPScriptCheck.describe(diagnostics,
-				"Script compilation failed (code %d). Check syntax." % compile_err),
+				"Script compilation failed (code %d). Check syntax." % compile_err, check_status),
 			"source": wrapped,
 		}
 		if not diagnostics.is_empty():

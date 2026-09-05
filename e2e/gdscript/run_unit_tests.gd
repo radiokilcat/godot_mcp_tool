@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_as_bool()
 	_test_max_results()
 	_test_value_to_json()
+	_test_script_check_parsing()
 	await _test_timer_cancellation()
 
 	print("[gdunit] %d passed / %d failed" % [_passed, _failures.size()])
@@ -186,6 +187,49 @@ func _test_max_results() -> void:
 	check("_max_results falls back on a dictionary", base._max_results({"max_results": {}}), 500)
 	check("_max_results falls back on an array", base._max_results({"max_results": []}), 500)
 	check("_max_results honours a caller's own fallback", base._max_results({}, 10), 10)
+
+## GodotMCPScriptCheck's pure half: turning the engine's stderr back into a line
+## number and a message (6.6.5). Worth isolating because the paths in that output
+## are platform-shaped — a Windows drive letter and the C++ `::` scope operator
+## both contain colons, and the Linux form has neither — and because SC-05 fails
+## on Linux with the pre-6.6.5 fallback, which is what an empty parse looks like.
+func _test_script_check_parsing() -> void:
+	var windows_output := "SCRIPT ERROR: Parse Error: Expected closing \")\".\n" \
+		+ "   at: GDScript::reload (C:/Users/dev/.cache/godot_mcp_syntax_check_42.gd:3)\n"
+	var linux_output := "SCRIPT ERROR: Parse Error: Expected closing \")\".\n" \
+		+ "   at: GDScript::reload (/home/runner/.cache/godot_mcp_syntax_check_42.gd:3)\n"
+
+	for pair in [["windows", windows_output], ["linux", linux_output]]:
+		var got: Array = GodotMCPScriptCheck.parse_diagnostics(pair[1])
+		check("parse_diagnostics finds one error (%s)" % pair[0], got.size(), 1)
+		if got.size() == 1:
+			check("parse_diagnostics reads the line number (%s)" % pair[0], got[0].get("line"), 3)
+			check("parse_diagnostics keeps the message (%s)" % pair[0],
+				got[0].get("message"), "Expected closing \")\".")
+
+	# line_offset exists because execute_script wraps the caller's source in a
+	# header; the number must point at the line the caller wrote.
+	var offset: Array = GodotMCPScriptCheck.parse_diagnostics(linux_output, 2)
+	check("parse_diagnostics subtracts the wrapper offset", offset[0].get("line"), 1)
+	var clamped: Array = GodotMCPScriptCheck.parse_diagnostics(linux_output, 99)
+	check("parse_diagnostics never reports a line below 1", clamped[0].get("line"), 1)
+
+	check("parse_diagnostics on unrelated output", GodotMCPScriptCheck.parse_diagnostics("nothing here\n").size(), 0)
+	# A message with no location line is still worth reporting.
+	var lone: Array = GodotMCPScriptCheck.parse_diagnostics("SCRIPT ERROR: Parse Error: Something broke.\n")
+	check("parse_diagnostics keeps a message with no location", lone.size(), 1)
+	check("…and leaves it without a line", lone[0].has("line"), false)
+
+	check("describe formats line and message",
+		GodotMCPScriptCheck.describe([{"line": 7, "message": "Bad."}], "fallback"),
+		"line 7: Bad.")
+	check("describe falls back when there is nothing",
+		GodotMCPScriptCheck.describe([], "fallback"), "fallback")
+	# The reason is why this exists: without it the caller is back to a bare error
+	# code, which is the state 6.6.5 was created to end.
+	var explained: String = GodotMCPScriptCheck.describe([], "fallback", {"reason": "no cache dir"})
+	check("describe reports why the re-check produced nothing",
+		explained.contains("no cache dir") and explained.begins_with("fallback"), true)
 
 ## The mechanism plugin.gd's _shutdown_plugin relies on (9.4.5). `await` on a
 ## SceneTreeTimer holds a reference to the awaiting object until the timer fires,

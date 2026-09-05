@@ -16,15 +16,36 @@ class_name GodotMCPScriptCheck
 ## do not in self-contained mode), and --log-file keeps the subprocess from
 ## rotating the project's own log, which get_error_log reads.
 
+## Scratch path for the probe and the subprocess log. The cache dir is not
+## guaranteed to exist — it is $XDG_CACHE_HOME or ~/.cache on Linux and the
+## engine does not create it — and FileAccess will not create intermediate
+## directories, so a missing one turns into a silent "no diagnostics".
 static func _cache_file(suffix: String) -> String:
-	return OS.get_cache_dir().path_join("godot_mcp_syntax_check_%d%s" % [OS.get_process_id(), suffix])
+	var dir := OS.get_cache_dir()
+	if not DirAccess.dir_exists_absolute(dir):
+		DirAccess.make_dir_recursive_absolute(dir)
+	if not DirAccess.dir_exists_absolute(dir):
+		# Nowhere to scratch in the cache dir; user:// always exists.
+		dir = ProjectSettings.globalize_path("user://")
+	return dir.path_join("godot_mcp_syntax_check_%d%s" % [OS.get_process_id(), suffix])
+
+## Record why a check produced nothing, when the caller offered somewhere to put
+## it. Without this the tool falls back to the pre-6.6.5 message, which names an
+## error code and no reason — and the reason is the whole point of this file.
+static func _note(status: Variant, reason: String) -> void:
+	if status is Dictionary:
+		status["reason"] = reason
 
 ## Parse errors for a script file, as [{line, message}]. line_offset is
 ## subtracted from every line, for sources that were wrapped in a header before
 ## compiling. Returns an empty array if the check could not be run at all.
-static func check_path(script_path: String, line_offset: int = 0) -> Array:
+static func check_path(script_path: String, line_offset: int = 0, status: Variant = null) -> Array:
 	var exe := OS.get_executable_path()
-	if exe.is_empty() or not FileAccess.file_exists(script_path):
+	if exe.is_empty():
+		_note(status, "the engine did not report its own executable path")
+		return []
+	if not FileAccess.file_exists(script_path):
+		_note(status, "the script to check was not readable at %s" % script_path)
 		return []
 
 	var log_path := _cache_file(".log")
@@ -36,7 +57,7 @@ static func check_path(script_path: String, line_offset: int = 0) -> Array:
 		"--script", script_path,
 	]
 	var output: Array = []
-	OS.execute(exe, args, output, true)
+	var exit_code := OS.execute(exe, args, output, true)
 	var text := ""
 	for chunk in output:
 		text += str(chunk) + "\n"
@@ -47,23 +68,38 @@ static func check_path(script_path: String, line_offset: int = 0) -> Array:
 		args.erase("--log-file")
 		args.erase(log_path)
 		output.clear()
-		OS.execute(exe, args, output, true)
+		exit_code = OS.execute(exe, args, output, true)
 		text = ""
 		for chunk in output:
 			text += str(chunk) + "\n"
 
 	DirAccess.remove_absolute(log_path)
-	return parse_diagnostics(text, line_offset)
+	var diagnostics := parse_diagnostics(text, line_offset)
+	if diagnostics.is_empty():
+		# The subprocess ran but said nothing this parser recognises. Keep the
+		# tail: whatever it did say is the only lead, and losing it is how this
+		# ends up as an unexplained "no diagnostics" on someone else's platform.
+		if exit_code == -1:
+			_note(status, "could not run %s to re-check the script" % exe)
+		else:
+			var tail := text.strip_edges()
+			if tail.length() > 400:
+				tail = tail.substr(tail.length() - 400)
+			_note(status, "the re-check exited %d without a recognised parse error%s"
+				% [exit_code, "" if tail.is_empty() else "; it printed: " + tail])
+	return diagnostics
 
 ## Same, for source that is not on disk yet.
-static func check_source(source: String, line_offset: int = 0) -> Array:
+static func check_source(source: String, line_offset: int = 0, status: Variant = null) -> Array:
 	var probe_path := _cache_file(".gd")
 	var file := FileAccess.open(probe_path, FileAccess.WRITE)
 	if file == null:
+		_note(status, "could not write the probe file to %s (%s)"
+			% [probe_path, error_string(FileAccess.get_open_error())])
 		return []
 	file.store_string(source)
 	file.close()
-	var diagnostics := check_path(probe_path, line_offset)
+	var diagnostics := check_path(probe_path, line_offset, status)
 	DirAccess.remove_absolute(probe_path)
 	return diagnostics
 
@@ -112,9 +148,12 @@ static func _line_number(at_line: String) -> int:
 ## into the one string because a tool that fails answers over the error channel,
 ## which carries no structured payload -- the 'diagnostics' array only reaches
 ## callers of tools that report a failure as an ordinary result.
-static func describe(diagnostics: Array, fallback: String) -> String:
+static func describe(diagnostics: Array, fallback: String, status: Variant = null) -> String:
 	if diagnostics.is_empty():
-		return fallback
+		var reason := ""
+		if status is Dictionary:
+			reason = str((status as Dictionary).get("reason", ""))
+		return fallback if reason.is_empty() else "%s (could not recover the parser's message: %s)" % [fallback, reason]
 	var shown: Array = []
 	for entry in diagnostics.slice(0, 3):
 		var one: Dictionary = entry

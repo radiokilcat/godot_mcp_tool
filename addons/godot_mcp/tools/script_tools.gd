@@ -218,12 +218,13 @@ func _validate_syntax(args: Dictionary) -> Dictionary:
 		probe_source = without_class_name
 
 	# The error code alone never says what is wrong or where.
-	var diagnostics := GodotMCPScriptCheck.check_source(probe_source)
+	var check_status := {}
+	var diagnostics := GodotMCPScriptCheck.check_source(probe_source, 0, check_status)
 	var result: Dictionary = {
 		"valid": false,
 		"error_code": err,
 		"error": GodotMCPScriptCheck.describe(diagnostics,
-			"Syntax error (code %d) — open in Godot editor for details" % err),
+			"Syntax error (code %d) — open in Godot editor for details" % err, check_status),
 		"line_count": line_count,
 	}
 	if not diagnostics.is_empty():
