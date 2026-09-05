@@ -117,7 +117,7 @@ all the tools.
 
 ## Testing
 
-Five layers, fastest first. The first three together cost about ten seconds and need no
+Six layers, fastest first. The first three together cost about ten seconds and need no
 editor, so run them before reaching for the suite:
 
 ```bash
@@ -126,6 +126,7 @@ node e2e/unit.mjs                  # ~2 s   80 checks: plugin coercion rules, he
 node e2e/check-syntax.mjs          # ~6 s   every plugin script compiles, names file and line
 node e2e/run.mjs --godot 4.4.1     # ~4 min the full suite below
 node e2e/multi-session.mjs         # ~40 s  two sessions on one editor, queueing, token checks
+node e2e/reconnect.mjs             # ~60 s  a session surviving an editor restart
 ```
 
 The parse gate earns its place: a typo in any one plugin file stops `plugin.gd` compiling,
@@ -147,7 +148,7 @@ failures, `2` infrastructure error.
 
 Runs on Windows, Linux and macOS — the platform differences (release archive, extraction,
 killing the editor's process tree) live in `e2e/lib/platform/`. CI exercises the fast layers
-on all three, and the headless suite plus the multi-session check on Linux and Windows.
+on all three, and the headless suite plus the multi-session and reconnect checks on Linux and Windows.
 
 Design and internals: [docs/e2e_test_infrastructure.md](docs/e2e_test_infrastructure.md).
 The executable spec is `e2e/blocks/*.json`; [docs/mcp_test_plan.md](docs/mcp_test_plan.md) is
@@ -175,7 +176,7 @@ npm run lint       # ESLint
 npm test           # 544 unit tests (vitest), ~1 s
 ```
 
-The five test layers are described under [Testing](#testing).
+The six test layers are described under [Testing](#testing).
 
 ## Clients
 

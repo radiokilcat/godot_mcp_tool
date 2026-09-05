@@ -8,7 +8,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 ## Where the project stands
 
 - **163 tools across 23 categories, all implemented** (Phases 1-3, closed — see the changelog).
-- **Five test layers, fastest first** — run them in this order, each is a superset of the
+- **Six test layers, fastest first** — run them in this order, each is a superset of the
   previous one's cost:
 
   | | Command | Covers | Time |
@@ -18,6 +18,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   | Parse gate | `node e2e/check-syntax.mjs` | every plugin script compiles, named file and line | ~6 s |
   | E2E | `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
   | Multi-session | `node e2e/multi-session.mjs` | two sessions on one editor, the call queue, token enforcement | ~40 s |
+  | Reconnect | `node e2e/reconnect.mjs` | a session surviving an editor restart onto a new port | ~60 s |
 
   Run them all before calling a change done; the first three cost about 10 seconds together.
 
@@ -25,8 +26,8 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   544 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md.
 - **CI runs every layer** (.github/workflows/ci.yml): the fast three on Linux, Windows and macOS,
-  the headless suite and the multi-session check on Linux and Windows. Windows is the only host
-  verified locally.
+  the headless suite plus the multi-session and reconnect checks on Linux and Windows. Windows is
+  the only host verified locally.
 - **The editor hosts the bridge; MCP sessions dial in** (6.5). It picks its own port and publishes
   it with a per-launch token to `~/.godot-mcp/instances/`. Several sessions can drive one editor,
   and each open project listens separately.
@@ -180,8 +181,26 @@ happened). That is the gap worth closing.
 
 ### [ ] 6.2b - Untested paths left over from 6.2 (2026-08-31)
 - [ ] 6.2b.1 - **UndoRedo is asserted nowhere.** `grep -ri undo e2e/blocks/` returns nothing, yet "all mutations support Ctrl+Z" is a headline feature. Needs a block that mutates, undoes via the editor's UndoRedo, and re-reads the tree.
-- [ ] 6.2b.2 - **Auto-reconnect is not exercised.** The only retry in the suite is client-side in e2e/lib/executor.mjs; the plugin's exponential backoff (1s→60s) has never been tested. Needs a block that kills the bridge mid-run and asserts the plugin comes back.
-- **Priority:** MEDIUM
+- [x] 6.2b.2 - **Reconnect. Done 2026-09-05 — `node e2e/reconnect.mjs`, 9/9.** The task predated
+  6.5, which moved the retry loop to the other side of the wire and made this sharper rather than
+  softer: the restarted editor comes back on **a different port with a different token**, so
+  recovery depends on the client *rediscovering* rather than caching its target — and that loop
+  was two days old with no coverage at all. Restarting the editor is an ordinary part of working
+  in Godot and the failure mode is silent: tools simply stop working.
+  - The test runs the server in **discovery mode** (cwd, no `GODOT_MCP_PORT`), because pinning the
+    port — as the main suite does — would make it vacuous: a pinned client can never recover, and
+    pinning the *new* port after the fact would test nothing.
+  - Checks: the session works, a call while the editor is down fails with a diagnosable message
+    rather than hanging, the restarted editor is a different process with a fresh token, and **the
+    same server process recovers without being restarted**.
+  - **Verified to fail without the behaviour it claims:** caching the resolved target instead of
+    rediscovering leaves the session on the dead port permanently — `ECONNREFUSED 127.0.0.1:51827`.
+  - **Found a defect in the harness, not the product:** `waitForInstance` returned the *stale*
+    entry after a restart. An editor killed outright never runs `_exit_tree`, so it never withdraws
+    itself, and the helper matched a dead pid. It now skips dead pids — as the server already did
+    via `isAlive` — and takes `notPid` to wait for a genuinely different editor.
+- **Priority:** MEDIUM — only 6.2b.1 (UndoRedo) is left, and it is the last unverified claim the
+  README makes on its own front page.
 
 ### [x] 6.5 - Bridge port lifecycle & the multi-session story — closed 2026-09-03
 - [x] 6.5.1 - **Graceful shutdown**: `GodotConnection.close()` exists but is wired to no signal, so a closing client leaves an orphaned node process holding 6505 — which then blocks every later session until it is killed by hand. Hook `SIGTERM`/`SIGINT`/`exit`. **Fixed 2026-09-02:** signals were only half the story — an MCP client normally ends a session by closing the pipe, not by signalling, and the SDK's stdio transport listens for `data`/`error` on stdin and never for EOF (verified in the SDK source), while the WebSocket server keeps the event loop alive on its own. `installShutdownHandlers()` (index.ts) now shuts down on stdin `end`/`close`, on `EPIPE` from stdout (a client that vanished without an orderly EOF — also a fatal unhandled error event otherwise), on `SIGINT`/`SIGTERM`/`SIGHUP` (plus `SIGBREAK` on Windows only — registering it elsewhere throws), and releases the socket from a process `exit` handler for any path that bypasses those. `close()` became idempotent, rejects in-flight calls, and **terminates the client sockets before `wss.close()`** — that turned out to be the load-bearing part: ws's internally created HTTP server only finishes closing once every established connection has ended, so with an editor attached the original one-line `close()` would have left the port bound anyway.

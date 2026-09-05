@@ -12,7 +12,20 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-05 (**9.7.1 done, and it closes Phase 4 with it.** `tools/list` went
+**Last Updated:** 2026-09-05 (**6.2b.2 done — a session now provably survives an editor restart.**
+The task predated the transport inversion, which made it sharper: the retry loop was rewritten on
+the other side of the wire two days earlier and had no coverage at all, while a restarted editor now
+returns on a *different port with a different token*, so recovery depends on the client rediscovering
+rather than caching. `node e2e/reconnect.mjs` starts the server in discovery mode — pinning the port
+as the main suite does would make the test vacuous — kills the editor, checks a call fails
+diagnosably rather than hanging, restarts it, and asserts the same server process comes back by
+itself. 9/9, and **verified to fail without the behaviour it claims**: caching the resolved target
+strands the session on the dead port with `ECONNREFUSED` forever. It also found a defect in the
+harness rather than the product — an editor killed outright never runs `_exit_tree`, so its registry
+entry outlives it, and `waitForInstance` was matching that dead entry; it now skips dead pids, as
+the server already did.)
+
+**Previously:** 2026-09-05 (**9.7.1 done, and it closes Phase 4 with it.** `tools/list` went
 105 064 → 99 677 characters for everyone, and **62 779 (-40%, ~17.4k tokens) for a client that sets
 `GODOT_MCP_PROFILE=core`**. Measuring first changed the plan twice. The payload is 52% prose, **37%
 JSON structure** around 481 parameters, 10% identifiers and 1% enum values — so shorter sentences
