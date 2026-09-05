@@ -87,6 +87,9 @@ jobs:
       # The suite drives one client and would pass against the old transport
       # direction too; this is what checks two sessions on one editor.
       - run: node e2e/multi-session.mjs --godot ${{ env.GODOT_VERSION }}
+      # Restarting the editor is ordinary; recovering from it depends on the
+      # client rediscovering rather than caching, which nothing else checks.
+      - run: node e2e/reconnect.mjs --godot ${{ env.GODOT_VERSION }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

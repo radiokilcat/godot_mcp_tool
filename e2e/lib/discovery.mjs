@@ -37,20 +37,47 @@ export function readInstances(dir = instancesDir()) {
 
 const samePath = (a, b) => resolve(String(a ?? "")) === resolve(String(b ?? ""));
 
+/** An editor killed outright never runs _exit_tree, so its entry outlives it. */
+function pidIsAlive(pid) {
+  const n = Number(pid);
+  if (!Number.isInteger(n) || n <= 0) return true;
+  try {
+    process.kill(n, 0);
+    return true;
+  } catch (err) {
+    return err.code === "EPERM";
+  }
+}
+
 /**
  * Wait for the plugin in `projectDir` to advertise itself.
- * @returns {Promise<{port:number, token:string}>}
+ *
+ * `notPid` waits for a *different* editor than the one given — needed after a
+ * restart, because the previous editor's entry is still on disk until the new one
+ * overwrites it, and returning that would hand back a dead port and a stale token.
+ *
+ * @returns {Promise<{port:number, token:string, pid:number, file:string}>}
  */
-export async function waitForInstance({ projectDir, timeoutMs = 90_000, isEditorAlive, log }) {
+export async function waitForInstance({ projectDir, timeoutMs = 90_000, isEditorAlive, notPid, log }) {
   const deadline = Date.now() + timeoutMs;
   let announced = false;
   while (Date.now() < deadline) {
     if (isEditorAlive && !isEditorAlive()) {
       throw new Error("The editor exited before it published a bridge instance.");
     }
-    const match = readInstances().find((i) => samePath(i.project_path, projectDir));
+    const match = readInstances().find(
+      (i) =>
+        samePath(i.project_path, projectDir) &&
+        pidIsAlive(i.pid) &&
+        (notPid === undefined || Number(i.pid) !== Number(notPid))
+    );
     if (match?.port && match?.token) {
-      return { port: Number(match.port), token: String(match.token), file: match._file };
+      return {
+        port: Number(match.port),
+        token: String(match.token),
+        pid: Number(match.pid),
+        file: match._file,
+      };
     }
     if (!announced && log) {
       log(`[e2e] waiting for the editor to publish its bridge in ${instancesDir()}…`);

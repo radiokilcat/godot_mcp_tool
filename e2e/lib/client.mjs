@@ -14,12 +14,20 @@ import { createWriteStream } from "node:fs";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export class McpTestClient {
-  constructor({ serverDir, port, token, serverLogPath }) {
+  /**
+   * `port`/`token` pin the target explicitly, which is what the main suite wants:
+   * it must reach the editor it just launched, never a developer's live one.
+   *
+   * Omit them and pass `cwd` instead to let the server *discover* the editor.
+   * That is not a convenience — pinning the port defeats the thing the reconnect
+   * test exists to check, because a restarted editor comes back on a new port and
+   * a pinned server would keep dialling the old one forever.
+   */
+  constructor({ serverDir, port, token, cwd, serverLogPath }) {
     this.serverDir = serverDir;
     this.port = port;
-    // Passed explicitly rather than discovered: the harness must reach the editor
-    // it just launched, never a developer's live one on the same machine.
     this.token = token ?? "";
+    this.cwd = cwd;
     this.serverLogPath = serverLogPath;
     this.client = null;
   }
@@ -33,14 +41,23 @@ export class McpTestClient {
       pathToFileURL(req.resolve("@modelcontextprotocol/sdk/client/stdio.js")).href
     );
 
+    // Strip the overrides rather than leaving whatever the parent shell had:
+    // an inherited GODOT_MCP_PORT would pin the server without anyone asking.
+    const env = { ...process.env };
+    delete env.GODOT_MCP_PORT;
+    delete env.GODOT_MCP_TOKEN;
+    if (this.port) {
+      env.GODOT_MCP_PORT = String(this.port);
+      env.GODOT_MCP_TOKEN = this.token;
+    }
+
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [join(this.serverDir, "dist", "index.js")],
-      env: {
-        ...process.env,
-        GODOT_MCP_PORT: String(this.port),
-        GODOT_MCP_TOKEN: this.token,
-      },
+      env,
+      // In discovery mode this is what identifies the project: selectInstance
+      // matches an editor whose project contains the working directory.
+      ...(this.cwd ? { cwd: this.cwd } : {}),
       stderr: "pipe",
     });
 
