@@ -10,7 +10,7 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { buildToolRegistry } from "./registry.js";
+import { buildToolRegistry, selectedCategories, categoriesByName } from "./registry.js";
 
 // The Godot WebSocket bridge. Importing this no longer binds anything — main()
 // opens it explicitly (progress.md 9.4.3).
@@ -45,8 +45,14 @@ let toolRegistry = new Map<string, ToolDefinition>();
  * Register tool handlers from all categories
  */
 function registerAllTools(): void {
-  toolRegistry = buildToolRegistry();
-  console.error(`[MCP Server] Registered ${toolRegistry.size} tools`);
+  const { names, unknown } = selectedCategories();
+  if (unknown.length > 0) {
+    console.error(`[MCP Server] Ignoring unknown categories: ${unknown.join(", ")}`);
+  }
+  toolRegistry = buildToolRegistry(names);
+  const all = Object.keys(categoriesByName).length;
+  const scope = names.length === all ? "all categories" : `${names.length} of ${all} categories`;
+  console.error(`[MCP Server] Registered ${toolRegistry.size} tools from ${scope}`);
 }
 
 /**
@@ -161,9 +167,9 @@ async function main(): Promise<void> {
   console.error(`[MCP Server] Initializing...`);
 
   registerAllTools();
-  // Open the bridge before the MCP handshake: the plugin dials in on its own
-  // schedule (backing off to 60s), so it must find a listener the moment the
-  // process starts, not when the first tool call happens to arrive.
+  // Start connecting before the MCP handshake so the editor is usually attached
+  // by the time the first tool call arrives. It is not fatal if it is not: the
+  // client retries, and a call made in the meantime says why it cannot proceed.
   openBridge();
   installShutdownHandlers();
 

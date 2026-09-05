@@ -5,17 +5,7 @@
 
 import { ToolCategory } from "../types/index.js";
 import { callTool } from "../godot-connection.js";
-
-const vector3Schema = {
-  anyOf: [
-    {
-      type: "object",
-      properties: { x: { type: "number" }, y: { type: "number" }, z: { type: "number" } },
-    },
-    { type: "string", description: "Godot literal, e.g. 'Vector3(0, 2, 5)'" },
-    { type: "array", items: { type: "number" }, minItems: 3, maxItems: 3 },
-  ],
-};
+import { vector3Schema } from "./schemas.js";
 
 export const particleTools: ToolCategory = {
   create_particle_system: {

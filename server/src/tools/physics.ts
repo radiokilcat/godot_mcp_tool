@@ -5,38 +5,7 @@
 
 import { ToolCategory } from "../types/index.js";
 import { callTool } from "../godot-connection.js";
-
-const vector2Schema = {
-  anyOf: [
-    {
-      type: "object",
-      properties: { x: { type: "number" }, y: { type: "number" } },
-    },
-    { type: "string", description: "Godot literal, e.g. 'Vector2(100, 200)'" },
-    { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
-  ],
-};
-
-const vector3Schema = {
-  anyOf: [
-    {
-      type: "object",
-      properties: { x: { type: "number" }, y: { type: "number" }, z: { type: "number" } },
-    },
-    { type: "string", description: "Godot literal, e.g. 'Vector3(0, 2, 5)'" },
-    { type: "array", items: { type: "number" }, minItems: 3, maxItems: 3 },
-  ],
-};
-
-const layersSchema = {
-  description:
-    "Collision layers as an integer bitmask (e.g. 1 = layer 1, 3 = layers 1+2) " +
-    "or an array of 1-based layer numbers (e.g. [1, 3] enables layers 1 and 3)",
-  anyOf: [
-    { type: "integer", minimum: 0 },
-    { type: "array", items: { type: "integer", minimum: 1, maximum: 32 } },
-  ],
-};
+import { vector2Schema, vector3Schema, layersSchema } from "./schemas.js";
 
 export const physicsTools: ToolCategory = {
   add_rigid_body: {

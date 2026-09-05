@@ -120,7 +120,7 @@ export const testingTools = {
         action: {
           type: "string",
           enum: ["start", "stop", "add_event", "status"],
-          description: "Recording control: 'start' | 'stop' | 'add_event' | 'status'.",
+          description: "Recording control.",
         },
         test_name: {
           type: "string",

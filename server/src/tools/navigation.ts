@@ -6,37 +6,7 @@
 
 import { ToolCategory } from "../types/index.js";
 import { callTool } from "../godot-connection.js";
-
-const vector2Schema = {
-  anyOf: [
-    {
-      type: "object",
-      properties: { x: { type: "number" }, y: { type: "number" } },
-    },
-    { type: "string", description: "Godot literal, e.g. 'Vector2(100, 200)'" },
-    { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
-  ],
-};
-
-const vector3Schema = {
-  anyOf: [
-    {
-      type: "object",
-      properties: { x: { type: "number" }, y: { type: "number" }, z: { type: "number" } },
-    },
-    { type: "string", description: "Godot literal, e.g. 'Vector3(0, 2, 5)'" },
-    { type: "array", items: { type: "number" }, minItems: 3, maxItems: 3 },
-  ],
-};
-
-const layersSchema = {
-  description:
-    "Navigation layers as an integer bitmask (e.g. 1 for layer 1, 3 for layers 1+2) or array of layer numbers 1–32 (e.g. [1, 2])",
-  anyOf: [
-    { type: "integer", minimum: 0 },
-    { type: "array", items: { type: "integer", minimum: 1, maximum: 32 } },
-  ],
-};
+import { described, vectorSchema, layersSchema } from "./schemas.js";
 
 export const navigationTools: ToolCategory = {
   add_navigation_region: {
@@ -169,14 +139,8 @@ export const navigationTools: ToolCategory = {
     inputSchema: {
       type: "object",
       properties: {
-        from: {
-          description: "Start position of the path query",
-          anyOf: [vector3Schema, vector2Schema],
-        },
-        to: {
-          description: "Target position of the path query",
-          anyOf: [vector3Schema, vector2Schema],
-        },
+        from: described(vectorSchema, "Start position."),
+        to: described(vectorSchema, "Target position."),
         dimension: {
           type: "string",
           enum: ["3d", "2d"],

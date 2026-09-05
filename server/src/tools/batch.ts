@@ -108,7 +108,7 @@ export const batchTools = {
         scope: {
           type: "string",
           enum: ["current_scene", "all_scenes"],
-          description: "Where to apply renames: 'current_scene' (default) or 'all_scenes'.",
+          description: "Where to apply renames. Default: current_scene.",
         },
         scene_filter: {
           type: "string",
