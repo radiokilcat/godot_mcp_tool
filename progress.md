@@ -530,6 +530,30 @@ cross-platform support.
   diverge in the first place. Verified by deleting `.e2e_work/logs` and running all three.
   **This is the whole argument for 9.6 in one bug:** a suite that only ever runs on machines with
   history cannot tell you what a stranger's machine does.
+### [ ] 9.6.4 - `GodotMCPScriptCheck` returns nothing on Linux (found by CI, 2026-09-05)
+E2E on ubuntu is **185 passed / 3 failed / 42 skipped**, and all three failures are one defect:
+SC-05 (`validate_syntax`), E-08g and E-08h (`execute_script`) each fall back to the pre-6.6.5
+message — "code 43", no line, no reason — because `check_source` produced an empty array. Nothing
+else is affected: the rest of `execute_script`, the transport, and every other tool pass, and the
+same suite is green on windows-latest.
+
+**The lead, not yet a conclusion.** `e2e/check-syntax.mjs` is green on Linux and does the same
+thing — runs the engine with `--check-only` and parses the same `SCRIPT ERROR` lines. Two things
+differ: it passes a `res://` path while `script_check.gd` passes an absolute path into the OS cache
+dir, and on Windows an absolute path carries a drive letter while on Linux it starts with `/`.
+Plausible, but three earlier plausible explanations for CI failures were wrong this week, so this
+is not being acted on until the run says so.
+
+**Already ruled out, by test rather than argument:** the parser is fine — `parse_diagnostics` now
+has unit coverage for both the Windows and Linux forms of the location line, including the `::` in
+`GDScript::reload`, and both parse correctly. The cache directory is not obviously it either; it is
+created if missing now, with a `user://` fallback.
+
+**How it gets answered:** the fallback message now carries *why* it had nothing (6a05beb) — the
+open error and path if the probe could not be written, or the subprocess's exit code and the tail
+of its output. One CI run turns "code 43" into the actual cause. That the tool said nothing useful
+about its own failure is the same complaint 6.6.5 existed to fix, so this is worth having anyway.
+
 - **Honest status: Windows is verified here, Linux and macOS are implemented and unexercised.**
   I cannot run them on this machine; the first CI run is their real test. What *is* verified for
   them: the release URLs resolve, and the interface/shape tests pass.
