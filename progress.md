@@ -518,6 +518,18 @@ cross-platform support.
   executes a Godot binary, which is what keeps the darwin module from being dead code. Also fixed
   along the way: the workflow still used `npm install` with a comment claiming package-lock.json
   was gitignored, which 9.1.3 changed; it is `npm ci` now.
+- [x] 9.6.3 - **The first CI run found the thing only a clean checkout can (2026-09-05).**
+  `check-syntax.mjs` and `unit.mjs` failed on **all three** platforms with
+  `ENOENT … .e2e_work/logs/syntax-check.log`. `.e2e_work` is gitignored in full, so on a fresh
+  checkout the `logs/` subdirectory does not exist — and only `run.mjs` happened to create it.
+  Every developer machine has it left over from an earlier run, which is exactly why it passed
+  locally and had done for months. `multi-session.mjs` carried the same latent bug, masked because
+  CI runs it after `run.mjs`.
+  **Fixed where the file is written** — `preImport` and `launchEditor` create the log's directory
+  themselves — rather than in each caller, since depending on call order is what let the callers
+  diverge in the first place. Verified by deleting `.e2e_work/logs` and running all three.
+  **This is the whole argument for 9.6 in one bug:** a suite that only ever runs on machines with
+  history cannot tell you what a stranger's machine does.
 - **Honest status: Windows is verified here, Linux and macOS are implemented and unexercised.**
   I cannot run them on this machine; the first CI run is their real test. What *is* verified for
   them: the release URLs resolve, and the interface/shape tests pass.

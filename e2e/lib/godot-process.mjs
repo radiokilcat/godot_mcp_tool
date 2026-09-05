@@ -3,7 +3,8 @@
  * tree. Platform differences (process groups vs taskkill) live in ./platform.
  */
 
-import { createWriteStream } from "node:fs";
+import { createWriteStream, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { spawn } from "node:child_process";
 
 import { platformFor } from "./platform/index.mjs";
@@ -16,6 +17,9 @@ export function launchEditor({ binary, projectDir, logPath, headless, port, plat
     args.push("--windowed", "--resolution", "1280x720", "--position", "50,50");
   }
 
+  // Same reason as preImport: the caller may not have created the directory, and
+  // depending on call order for that is what broke CI on a clean checkout.
+  mkdirSync(dirname(logPath), { recursive: true });
   const logStream = createWriteStream(logPath, { flags: "a" });
   logStream.write(`===== editor launch ${new Date().toISOString()} =====\n`);
 

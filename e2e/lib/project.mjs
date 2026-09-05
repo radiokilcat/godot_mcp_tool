@@ -3,7 +3,7 @@
  */
 
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, appendFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 
 export function generateProject({ repoRoot, templatesDir, projectDir, version, log }) {
@@ -29,6 +29,13 @@ export function generateProject({ repoRoot, templatesDir, projectDir, version, l
 /** Headless import pass so the first editor open is clean (no import churn/dialogs). */
 export function preImport({ binary, projectDir, logPath, port, log }) {
   log(`[project] pre-import pass (headless)…`);
+  // The appendFileSync below is the first thing to touch the log directory, and
+  // on a fresh checkout it does not exist — `.e2e_work` is gitignored entirely.
+  // Only run.mjs happened to create it, so this failed for check-syntax and
+  // unit.mjs on every clean machine while passing on any developer's, where the
+  // directory was left over from an earlier run. Create it where the file is
+  // written rather than in each caller, which is what let the callers diverge.
+  mkdirSync(dirname(logPath), { recursive: true });
   const r = spawnSync(binary, ["--headless", "--import", "--path", projectDir], {
     encoding: "utf8",
     timeout: 180_000,
