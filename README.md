@@ -59,8 +59,8 @@ a per-launch token in `~/.godot-mcp/instances/`, which is how a server finds it.
 
 - **UndoRedo integration** — all mutations support Ctrl+Z in the editor
 - **Smart type parsing** — `Vector2(100, 200)`, `#ff0000`, `Color(1,0,0)` are auto-converted
-- **Auto-reconnect** — exponential backoff (1s → 60s)
-- **Heartbeat** — ping/pong keeps the connection alive
+- **Auto-reconnect** — a session reconnects with backoff, and rediscovers the editor each
+  attempt, so an editor restarted mid-session is picked up on its new port
 - **Structured errors** — contextual hints on failure
 - **2D & 3D** — full support for both workflows
 - **Version-gating** — tools declare a supported Godot range; incompatible calls return a clear error instead of failing inside the editor (verified on Godot 4.4.1 and 4.7.2; targets 4.0+)
@@ -117,14 +117,15 @@ all the tools.
 
 ## Testing
 
-Four layers, fastest first. The first three together cost about ten seconds and need no
+Five layers, fastest first. The first three together cost about ten seconds and need no
 editor, so run them before reaching for the suite:
 
 ```bash
-cd server && npm test              # ~1 s   527 tests: version/timeout/bridge logic, 163 tool schemas, platform layer
+cd server && npm test              # ~1 s   544 tests: version/timeout/bridge logic, 163 tool schemas, platform layer
 node e2e/unit.mjs                  # ~2 s   80 checks: plugin coercion rules, headless GDScript
 node e2e/check-syntax.mjs          # ~6 s   every plugin script compiles, names file and line
 node e2e/run.mjs --godot 4.4.1     # ~4 min the full suite below
+node e2e/multi-session.mjs         # ~40 s  two sessions on one editor, queueing, token checks
 ```
 
 The parse gate earns its place: a typo in any one plugin file stops `plugin.gd` compiling,
@@ -140,13 +141,13 @@ node e2e/run.mjs --godot 4.4.1
 
 Useful flags: `--blocks 3,9` (run specific blocks), `--test AT-03` (single test),
 `--headless` (rendering-dependent tests auto-skip), `--godot 4.4.1,4.7.2` (version
-matrix), `--port 6510` (isolate from a live setup on 6505), `--keep-work` (keep the
+matrix), `--port 6510` (pin the editor to a known port), `--keep-work` (keep the
 generated project for debugging). Exit codes are CI-friendly: `0` all pass, `1` test
 failures, `2` infrastructure error.
 
 Runs on Windows, Linux and macOS — the platform differences (release archive, extraction,
 killing the editor's process tree) live in `e2e/lib/platform/`. CI exercises the fast layers
-on all three and the headless suite on Linux and Windows.
+on all three, and the headless suite plus the multi-session check on Linux and Windows.
 
 Design and internals: [docs/e2e_test_infrastructure.md](docs/e2e_test_infrastructure.md).
 The executable spec is `e2e/blocks/*.json`; [docs/mcp_test_plan.md](docs/mcp_test_plan.md) is
@@ -171,16 +172,30 @@ cd server
 npm run build      # compile TypeScript
 npm run watch      # compile in watch mode
 npm run lint       # ESLint
-npm test           # 527 unit tests (vitest), ~1 s
+npm test           # 544 unit tests (vitest), ~1 s
 ```
 
-The four test layers are described under [Testing](#testing).
+The five test layers are described under [Testing](#testing).
 
 ## Clients
 
 Works with any MCP-compatible client. Tested primarily with Claude Code / Claude Desktop;
-the tool set also fits Cursor and Windsurf. A **Lite Mode** (a 76-tool core subset) is
-planned for clients with tool-count limits — see [progress.md](progress.md).
+the tool set also fits Cursor and Windsurf.
+
+### Trimming the tool list
+
+`tools/list` is loaded into the model's context before you ask anything, so its size is
+paid every session whether or not a tool is called. All 163 tools cost about **27.7k
+tokens**. If you never touch particles, tilemaps or themes, don't carry their schemas:
+
+```bash
+GODOT_MCP_PROFILE=core                       # 115 tools, ~17.4k tokens (-40%)
+GODOT_MCP_CATEGORIES=project,scene,node,script,editor   # or pick exactly what you want
+```
+
+`core` keeps project, scene, node, script, editor, input, runtime, animation, scene-3d,
+physics, shader, resource, batch and analysis. Set them in the `env` block of your
+`.mcp.json`. The default is everything.
 
 ## Status
 

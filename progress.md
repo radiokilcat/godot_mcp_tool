@@ -22,7 +22,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   Run them all before calling a change done; the first three cost about 10 seconds together.
 
 - **E2E: 230 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
-  535 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+  544 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md.
 - **CI runs every layer** (.github/workflows/ci.yml): the fast three on Linux, Windows and macOS,
   the headless suite and the multi-session check on Linux and Windows. Windows is the only host
@@ -38,22 +38,23 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
 ## Phase 4: Lite Mode Implementation
 
-### [ ] 4.1 - Create Lite Mode Tool Set
-- [ ] Select 76 core tools from full set
-- [ ] Document lite mode capabilities
-- [ ] Create conditional tool loading
-- **Priority:** MEDIUM
-- **Effort:** 2-3 hours
+### [x] 4.1 - Lite Mode — delivered by 9.7.1 (2026-09-05)
+- [x] Conditional tool loading — `GODOT_MCP_PROFILE=core` and `GODOT_MCP_CATEGORIES`, filtering in
+  `registerAllTools` rather than as a separate build.
+- [x] Documented — README "Trimming the tool list".
+- [x] ~~Select 76 core tools from full set~~ — **selection is by category, and the count is not the
+  target.** A hand-listed 76 rots the moment a tool is added, and tool count barely tracks cost:
+  `runtime` is 19 tools in 5.8k characters, `scene-3d` is 6 tools in 8.4k. `core` is 115 tools and
+  **40% cheaper** than the full set, which is the number that actually mattered.
+- **Effect:** ~29.2k → ~17.4k tokens per session for a client that opts in.
 
 ### [ ] 4.2 - Test Lite Mode with Cursor/Windsurf
 - [ ] Test with Cursor client
 - [ ] Test with Windsurf client
 - [ ] Verify performance
-- **Priority:** MEDIUM
+- **Priority:** MEDIUM — the mechanism is shipped and unit-tested; what is left is confirming those
+  two clients behave with a reduced set, which needs the clients themselves.
 - **Effort:** 2-3 hours
-
-**Note:** 9.7.1 argues the real saving is in the schemas rather than in counting to 76 — read it
-before starting this phase.
 
 ---
 
@@ -529,17 +530,41 @@ and the failure was not the harness.
 - **Both are products of running the suite a way it had never been run.** Neither is
   platform-specific, and neither would have surfaced from the Windows windowed runs alone.
 
-### [ ] 9.7 - Token budget
-- [ ] 9.7.1 - **`tools/list` costs ~29k tokens in every session.** Measured against the built
-  `dist`: 163 tools, **104 448 characters**, loaded into context before the user asks anything.
-  Median tool is 528 chars; the heaviest are `add_collision_shape` (2709),
-  `set_particle_material` (2655), `add_rigid_body` (2165), `add_mesh` (2130), `add_camera` (1827).
-  This is the substance of Phase 4 — but the saving comes from the schemas, not from counting to
-  76: (a) compact the 10-15 heaviest descriptions, where long lists of allowed values duplicate
-  the `enum`; (b) make lite/full a `GODOT_MCP_PROFILE` filter in `registerAllTools` rather than a
-  separate build; (c) fold rarely used categories (particles, navigation, theme, export,
-  profiling) behind one dispatcher tool with an `action` field, removing ~40 top-level
-  definitions. Re-run e2e afterwards — the 163/163 coverage diff proves nothing was lost.
+### [x] 9.7 - Token budget — closed 2026-09-05
+- [x] 9.7.1 - **Done 2026-09-05. 105 064 → 99 677 chars for everyone (-5.1%), and 62 779
+  (-40.2%, ~17.4k tokens) for a client that opts into `GODOT_MCP_PROFILE=core`.**
+
+  **The payload is not shaped the way this task assumed, and measuring first changed the plan.**
+  Broken down: parameter descriptions 30%, tool descriptions 22%, **JSON structure 37%**,
+  identifiers 10%, enum values 1%. So prose is 52% and the structural overhead of 481 parameters
+  (`{"type":"string","description":…}` around every one) is another 37% that no amount of editing
+  reaches. **To cut this materially you have to not send tools, not write shorter sentences.**
+
+  - **(a) compacting descriptions that duplicate their `enum` — mostly a non-issue.** Of 12
+    candidates, nine explain what each *value means* ("'2d' — attenuates with distance in 2D"),
+    which the enum does not carry and an agent needs. Only two were pure restatement; both
+    trimmed, 62 characters. Recorded because the assumption looked much bigger than it was.
+  - **The real duplication was in schemas, not prose.** 33 parameters spelled out an `anyOf` of
+    three branches — 10 134 chars, a tenth of the payload — copied across four files.
+    `server/src/tools/schemas.ts` now holds one compact form each. A JSON Schema `type` may be a
+    list, and the array keywords still apply when the value *is* an array, so `[1, 2]` is still
+    rejected for a Vector3 — which matters, because the plugin would coerce it to the default and
+    report success, exactly the 6.6.14 bug class. **−5 325 chars, no information lost.**
+  - **(b) `GODOT_MCP_PROFILE` shipped**, plus `GODOT_MCP_CATEGORIES` for an explicit list.
+    Selection is **by category, not by naming 76 tools**: a hand-listed subset rots as soon as a
+    tool is added, and tool count is a poor proxy for cost anyway — `runtime` is 19 tools in 5.8k
+    chars while `scene-3d` is 6 tools in 8.4k. A list that is all typos falls back to everything,
+    because registering nothing reads as a broken build rather than a bad env var.
+  - **(c) the dispatcher tool: deliberately not done.** Folding the five "rarely used" categories
+    saves 18.5% — less than `core` already gives, and it buys that by making 22 tools worse. A
+    dispatcher is only small if it *omits* its actions' schemas, and then the model has to guess
+    arguments or make a discovery round trip first; if it documents them the characters come
+    straight back. It would also mean rewriting those tools and their e2e blocks. The profile
+    filter gets the same saving for anyone who wants it and costs those who do not nothing.
+- **Verified:** e2e **230 passed / 0 failed, 163/163 tools exercised** on 4.4.1 and 4.7.2 — the
+  coverage diff is what proves the schema rewrite dropped nothing — plus 544 server unit tests
+  (9 new on profile selection, including that `core` stays a strict subset and keeps the tools a
+  session reaches for first) and the multi-session check at 11/11.
 - [x] 9.7.2 - **Split this file. Done 2026-09-03.** progress.md was 1181 lines / 96 425 characters
   and was read whole at the start of nearly every session, of which ~90 % was closed Phases 1-3.
   **Done:** open work and current status stay here (**19 KB**), the history moved verbatim to
@@ -552,7 +577,7 @@ and the failure was not the harness.
   BUILD_REPORT.md that exists in no commit. Live status is now stated as the e2e suite reports it.
   Closed sections keep their full rationale in the changelog; what still *binds* open work (the
   6.5.2 transport decision, "Not worth changing") stayed here.
-- **Priority:** MEDIUM — 9.7.1 is what is left.
+- **Priority:** DONE — both items closed.
 
 *(9.1 quick wins, 9.2 dead-code deletion, 9.3 shared tool base, 9.4.1/9.4.2 and 9.8 editor
 error spam are closed — see the changelog.)*

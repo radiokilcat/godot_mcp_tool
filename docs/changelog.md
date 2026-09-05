@@ -12,7 +12,23 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-03 (**6.5 and 9.5 done as one change — the transport is inverted and the
+**Last Updated:** 2026-09-05 (**9.7.1 done, and it closes Phase 4 with it.** `tools/list` went
+105 064 → 99 677 characters for everyone, and **62 779 (-40%, ~17.4k tokens) for a client that sets
+`GODOT_MCP_PROFILE=core`**. Measuring first changed the plan twice. The payload is 52% prose, **37%
+JSON structure** around 481 parameters, 10% identifiers and 1% enum values — so shorter sentences
+cannot move it much and the lever is not sending tools at all. And the task's expectation that long
+descriptions duplicate their `enum` did not survive contact: of 12 candidates nine explain what each
+*value* means, which the enum does not carry; only two were pure restatement. The real duplication
+was structural — 33 parameters spelling out a three-branch `anyOf`, 10k characters, copied across
+four files, now one compact form each in `tools/schemas.ts` with the array constraints kept so
+`[1, 2]` is still rejected for a Vector3. The dispatcher-tool idea was measured and **refused**: it
+saves less than `core` already does, and only looks cheap if it omits its actions' schemas, which
+trades tokens for guesswork. Selection is by category rather than a hand-listed 76, because tool
+count barely tracks cost — `runtime` is 19 tools in 5.8k characters, `scene-3d` is 6 in 8.4k. E2E
+**230/230, 163/163 tools** on both engines, which is what proves the schema rewrite dropped nothing;
+544 server unit tests.)
+
+**Previously:** 2026-09-03 (**6.5 and 9.5 done as one change — the transport is inverted and the
 bridge is authenticated.** The editor now hosts the WebSocket server and MCP sessions dial in, so
 the machine-wide port belongs to the long-lived end instead of the shortest-lived one: several
 sessions attach to one editor, each open project listens on its own OS-assigned port, and nobody
