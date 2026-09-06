@@ -115,7 +115,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
 ## Phase 6: Testing & Quality Assurance
 
-### [ ] 6.1 - Effect-level assertions (rescoped 2026-08-31, was "Unit Testing")
+### [x] 6.1 - Effect-level assertions (rescoped 2026-08-31, was "Unit Testing")
 Original scope was per-category unit tests plus 80% coverage. 6.4 made that largely moot for
 tool bodies — they are exercised end-to-end against a live editor. What 6.4 does **not** do is
 check that a call changed anything: it asserts the tool's *response*, and 6.6 showed the
