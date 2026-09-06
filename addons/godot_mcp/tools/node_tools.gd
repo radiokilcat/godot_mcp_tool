@@ -101,9 +101,10 @@ func _add_node(args: Dictionary) -> Dictionary:
 	ur.create_action("Add Node: %s" % node.name)
 	ur.add_do_method(parent, "add_child", node, true)
 	ur.add_do_property(node, "owner", root)
+	# Do reference only -- see _add_to_scene in tool_base.gd for why registering
+	# both frees the node while it is still in the scene.
 	ur.add_do_reference(node)
 	ur.add_undo_method(parent, "remove_child", node)
-	ur.add_undo_reference(node)
 	ur.commit_action()
 
 	# Scene-relative, not node.get_path(): inside the editor the edited scene hangs off the
@@ -129,11 +130,20 @@ func _delete_node(args: Dictionary) -> Dictionary:
 	var ur := _plugin.get_undo_redo()
 	ur.create_action("Delete Node: %s" % node.name)
 	ur.add_do_method(parent, "remove_child", node)
-	ur.add_do_reference(node)
-	# LIFO undo order: add_child runs first, then move_child, then owner
-	ur.add_undo_property(node, "owner", _scene_root())
-	ur.add_undo_method(parent, "move_child", node, idx)
+	# Undo operations run in the order they are registered -- NOT reversed, which
+	# is what the "LIFO" this used to claim would mean. Registered backwards, the
+	# owner and move_child ran while the node was still parentless and failed, so
+	# add_child appended it last and unowned: present in the scene tree, absent
+	# from the saved .tscn. Caught by UR-09 in the tree and UR-12 on disk.
 	ur.add_undo_method(parent, "add_child", node, true)
+	ur.add_undo_method(parent, "move_child", node, idx)
+	ur.add_undo_property(node, "owner", _scene_root())
+	# An undo reference and no do reference: the node is detached by "do" and
+	# restored by "undo", so the undo branch is what has to keep it alive.
+	# add_do_reference means the opposite -- free it when the *redo* branch is
+	# discarded -- and after an undo that branch holds a node which is back in the
+	# scene, so the next edit freed it in place. UR-10 caught it as
+	# "Nonexistent function 'get_path' in base 'previously freed'".
 	ur.add_undo_reference(node)
 	ur.commit_action()
 
@@ -157,9 +167,9 @@ func _duplicate_node(args: Dictionary) -> Dictionary:
 	ur.create_action("Duplicate Node: %s" % node.name)
 	ur.add_do_method(parent, "add_child", dupe, true)
 	ur.add_do_property(dupe, "owner", root)
+	# Do reference only -- see _add_to_scene in tool_base.gd.
 	ur.add_do_reference(dupe)
 	ur.add_undo_method(parent, "remove_child", dupe)
-	ur.add_undo_reference(dupe)
 	ur.commit_action()
 
 	return {"success": true, "new_node_path": str(dupe.get_path()), "new_name": dupe.name}
@@ -190,11 +200,14 @@ func _move_node(args: Dictionary) -> Dictionary:
 	ur.add_do_property(node, "owner", root)
 	if new_idx >= 0:
 		ur.add_do_method(new_parent, "move_child", node, new_idx)
-	# LIFO undo order: remove_child(new) → add_child(old) → move_child(old) → owner
-	ur.add_undo_property(node, "owner", root)
-	ur.add_undo_method(old_parent, "move_child", node, old_idx)
-	ur.add_undo_method(old_parent, "add_child", node, true)
+	# Registration order is execution order (see _delete_node). Backwards, this was
+	# worse than a wrong index: add_child ran while the node was still under
+	# new_parent and refused, then remove_child detached it from new_parent, so
+	# undoing a move left the node in no scene at all.
 	ur.add_undo_method(new_parent, "remove_child", node)
+	ur.add_undo_method(old_parent, "add_child", node, true)
+	ur.add_undo_method(old_parent, "move_child", node, old_idx)
+	ur.add_undo_property(node, "owner", root)
 	ur.commit_action()
 
 	return {"success": true, "new_path": str(node.get_path())}

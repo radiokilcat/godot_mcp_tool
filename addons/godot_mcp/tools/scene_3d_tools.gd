@@ -324,9 +324,9 @@ func _set_environment(args: Dictionary) -> Dictionary:
 		ur.add_do_method(root, "add_child", we, true)
 		ur.add_do_property(we, "environment", new_env)
 		ur.add_do_property(we, "owner", root)
+		# Do reference only -- see _add_to_scene in tool_base.gd.
 		ur.add_do_reference(we)
 		ur.add_undo_method(root, "remove_child", we)
-		ur.add_undo_reference(we)
 		ur.commit_action()
 	else:
 		ur.create_action("Set WorldEnvironment properties")

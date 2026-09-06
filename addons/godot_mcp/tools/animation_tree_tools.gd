@@ -90,9 +90,9 @@ func _create_animation_tree(args: Dictionary) -> Dictionary:
 	ur.create_action("Create AnimationTree '%s'" % node_name)
 	ur.add_do_method(parent, "add_child", at, true)
 	ur.add_do_property(at, "owner", root)
+	# Do reference only -- see _add_to_scene in tool_base.gd.
 	ur.add_do_reference(at)
 	ur.add_undo_method(parent, "remove_child", at)
-	ur.add_undo_reference(at)
 	ur.commit_action()
 
 	return {
@@ -561,10 +561,13 @@ func _delete_animation_tree_node(args: Dictionary) -> Dictionary:
 		var ur   := _plugin.get_undo_redo()
 		ur.create_action("Delete AnimationTree '%s'" % node_path)
 		ur.add_do_method(parent, "remove_child", node)
-		ur.add_do_reference(node)
-		ur.add_undo_property(node, "owner", root)
-		ur.add_undo_method(parent, "move_child", node, idx)
+		# Same two corrections as _delete_node in node_tools.gd, of which this is a
+		# copy: undo operations run in registration order, so add_child has to come
+		# before the move and the owner; and a deletion holds its node on the undo
+		# branch only, or the next edit after an undo frees it inside the scene.
 		ur.add_undo_method(parent, "add_child", node, true)
+		ur.add_undo_method(parent, "move_child", node, idx)
+		ur.add_undo_property(node, "owner", root)
 		ur.add_undo_reference(node)
 		ur.commit_action()
 		return {"success": true, "deleted": "animation_tree", "node_path": node_path}

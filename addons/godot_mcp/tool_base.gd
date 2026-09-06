@@ -67,9 +67,15 @@ func _add_to_scene(new_node: Node, parent: Node, node_name: String, action_name:
 	ur.create_action(action_name)
 	ur.add_do_method(parent, "add_child", new_node, true)
 	ur.add_do_property(new_node, "owner", root)
+	# A do reference and NOT an undo reference. The two are not symmetric and
+	# registering both frees a live node: a reference is erased with the branch it
+	# is registered on, and for a node the "do" creates, the undo branch is the one
+	# that holds it only while the creation is undone. Registered on both, the node
+	# is freed while it sits in the scene as soon as that history goes away --
+	# which the editor does on scene close, and UndoRedo also does when it trims
+	# the oldest action off the tail. Verified both ways against the engine.
 	ur.add_do_reference(new_node)
 	ur.add_undo_method(parent, "remove_child", new_node)
-	ur.add_undo_reference(new_node)
 	ur.commit_action()
 	return {
 		"success": true,
