@@ -22,7 +22,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
   Run them all before calling a change done; the first three cost about 10 seconds together.
 
-- **E2E: 245 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
+- **E2E: 249 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
   544 server unit tests and 94 GDScript ones alongside. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md.
 - **CI runs every layer and is green** (.github/workflows/ci.yml): the fast three on Linux, Windows
@@ -202,7 +202,13 @@ happened). That is the gap worth closing.
     and the `remove_child` that followed detached it, so **undoing a move left the node in no scene
     at all** — confirmed by reverting the fix, which empties Keeper out of the saved file entirely.
   - Same defect verbatim in `animation_tree_tools._delete_animation_tree_node`, which is a copy of
-    the old `_delete_node`.
+    the old `_delete_node`. **Covered by test since 2026-09-06 (AT-09..AT-12), not by inspection** —
+    and writing that coverage found the gap underneath it: every existing AT test passes a
+    `state_name`, so the tool's *other* branch, the one that removes the AnimationTree node from
+    the scene, **had never once executed**. Exactly the hole `refactor_signals` turned out to have
+    in 6.1.4. AT-09 adds a third child on purpose: with AT last, restoring it at the wrong index
+    and appending it are the same position, and the assertion would prove nothing. Both symptoms
+    reproduce on AT-11/AT-12 when the old registration is put back.
 - [x] 6.2b.1b - **`delete_node` freed the node it had just restored.** It registered
   `add_do_reference` on the deleted node. A reference is erased together with the branch it is
   registered on, and for a deletion the node lives on the *undo* branch; registered on the do
@@ -225,7 +231,7 @@ happened). That is the gap worth closing.
 - **Engine facts worth keeping:** undo ops run in registration order; `EditorUndoRedoManager` has
   no scriptable `undo()`; UndoRedo references are per-branch, and registering an object on both
   branches is not belt-and-braces — it is a free of a live object.
-- **Verified:** e2e **245 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2 (was 230), 544
+- **Verified:** e2e **249 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2 (was 230), 544
   server unit tests, 94 GDScript, parse gate clean, multi-session 11/11, reconnect 9/9.
 - [x] 6.2b.2 - **Reconnect. Done 2026-09-05 — `node e2e/reconnect.mjs`, 9/9.** The task predated
   6.5, which moved the retry loop to the other side of the wire and made this sharper rather than

@@ -32,8 +32,12 @@ child gone, **with not one ERROR line in the editor log**. Fixed in `_add_node`,
 `create_animation_tree`, `delete_animation_tree_node` and `set_environment`. Each fix verified to
 fail without it. The block drives undo through `execute_script` because `EditorUndoRedoManager`
 exposes no `undo()` to scripting at all — only `get_history_undo_redo()`, which hands back the
-plain `UndoRedo` that does. E2E **245/245, 163/163 tools** on 4.4.1 and 4.7.2, 544 server unit
-tests, 94 GDScript, multi-session 11/11, reconnect 9/9.)
+plain `UndoRedo` that does. `delete_animation_tree_node` was the one fix made by inspection rather
+than by test, and closing that (AT-09..AT-12) found the gap underneath it: every existing AT test
+passes a `state_name`, so the branch that removes the AnimationTree node from the scene **had never
+once executed** — the same hole `refactor_signals` turned out to have in 6.1.4. E2E **249/249,
+163/163 tools** on 4.4.1 and 4.7.2, 544 server unit tests, 94 GDScript, multi-session 11/11,
+reconnect 9/9.)
 
 **Previously:** 2026-09-06 (**9.6.4 closed — CI is green on Linux, and the cause was the caching
 directory rather than the path shape everyone expected.** Three ubuntu failures (SC-05, E-08g,
