@@ -27,6 +27,28 @@
       }
     },
     {
+      "id": "RS-03b",
+      "tool": "create_resource",
+      "comment": "PlaceholderTexture2D because it is the simplest built-in with a Vector2 property to write into; plain Resource has none, which is why the string-shorthand gap in the vector branches was never reached from here.",
+      "args": { "resource_class": "PlaceholderTexture2D", "resource_path": "res://test_vec.tres", "overwrite": true },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "RS-03c",
+      "tool": "edit_resource",
+      "comment": "The string form is handled for colours in this parser and was missing from every vector branch, so \"Vector2(64, 48)\" reached .set() as a String, Godot refused it, the property kept its old value and the tool answered success. The response cannot show that — the file can.",
+      "args": { "resource_path": "res://test_vec.tres", "properties": { "size": "Vector2(64, 48)" } },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "read_resource",
+        "args": { "resource_path": "res://test_vec.tres" },
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "64" }]
+      },
+      "expectFiles": [
+        { "path": "res://test_vec.tres", "op": "matches", "value": "size = Vector2\\( ?64,\\s*48 ?\\)" }
+      ]
+    },
+    {
       "id": "RS-04",
       "tool": "save_resource",
       "args": { "source_path": "res://test_res.tres" },

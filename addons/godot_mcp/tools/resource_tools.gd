@@ -115,26 +115,21 @@ func _parse_prop_value(val: Variant, expected_type: int) -> Variant:
 			return StringName(str(val))
 		TYPE_NODE_PATH:
 			return NodePath(str(val))
+		# The string shorthand is handled for TYPE_COLOR below but was missing from
+		# every vector branch, so "Vector2(64, 64)" fell out of the match and reached
+		# .set() as a String, which Godot refuses -- the property kept its old value
+		# and the tool reported success. Delegated to the shared coercion instead of
+		# growing a fourth case in each branch.
 		TYPE_VECTOR2:
-			if val is Array and val.size() >= 2:
-				return Vector2(float(val[0]), float(val[1]))
-			if val is Dictionary:
-				return Vector2(float(val.get("x", 0.0)), float(val.get("y", 0.0)))
+			return GodotMCPTypeUtils.to_vector2(val)
 		TYPE_VECTOR2I:
-			if val is Array and val.size() >= 2:
-				return Vector2i(int(val[0]), int(val[1]))
-			if val is Dictionary:
-				return Vector2i(int(val.get("x", 0)), int(val.get("y", 0)))
+			var v2 := GodotMCPTypeUtils.to_vector2(val)
+			return Vector2i(roundi(v2.x), roundi(v2.y))
 		TYPE_VECTOR3:
-			if val is Array and val.size() >= 3:
-				return Vector3(float(val[0]), float(val[1]), float(val[2]))
-			if val is Dictionary:
-				return Vector3(float(val.get("x", 0.0)), float(val.get("y", 0.0)), float(val.get("z", 0.0)))
+			return GodotMCPTypeUtils.to_vector3(val)
 		TYPE_VECTOR3I:
-			if val is Array and val.size() >= 3:
-				return Vector3i(int(val[0]), int(val[1]), int(val[2]))
-			if val is Dictionary:
-				return Vector3i(int(val.get("x", 0)), int(val.get("y", 0)), int(val.get("z", 0)))
+			var v3 := GodotMCPTypeUtils.to_vector3(val)
+			return Vector3i(roundi(v3.x), roundi(v3.y), roundi(v3.z))
 		TYPE_VECTOR4:
 			if val is Array and val.size() >= 4:
 				return Vector4(float(val[0]), float(val[1]), float(val[2]), float(val[3]))

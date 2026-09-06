@@ -5,44 +5,116 @@
   "setup": [
     { "tool": "create_scene", "args": { "name": "TileRoot", "root_type": "Node2D", "path": "res://test_tilemap.tscn" } },
     { "tool": "open_scene", "args": { "scene_path": "res://test_tilemap.tscn" } },
-    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "TileMapLayer", "node_name": "TileMap" } }
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "TileMapLayer", "node_name": "TileMap" } },
+    {
+      "tool": "execute_script",
+      "args": {
+        "code": "var root := EditorInterface.get_edited_scene_root()\nvar layer = root.get_node(\"TileMap\")\nvar img := Image.create_empty(32, 32, false, Image.FORMAT_RGBA8)\nimg.fill(Color(1, 0, 0))\nvar src := TileSetAtlasSource.new()\nsrc.texture = ImageTexture.create_from_image(img)\nsrc.texture_region_size = Vector2i(32, 32)\nsrc.create_tile(Vector2i(0, 0))\nvar ts := TileSet.new()\nts.tile_size = Vector2i(32, 32)\nts.add_source(src, 0)\nlayer.tile_set = ts\nreturn {\"sources\": ts.get_source_count()}\n"
+      }
+    }
   ],
   "tests": [
     {
       "id": "TM-01",
       "tool": "get_tilemap_info",
+      "comment": "cell_count is asserted at 0 here and at 9 in TM-07, so the two together bracket the writes: a fill that reported success but placed nothing passes one and fails the other.",
       "args": { "node_path": "TileMap" },
-      "asserts": [{ "field": "", "op": "notEmpty" }]
+      "asserts": [
+        { "field": "layers.0.name", "op": "eq", "value": "TileMap" },
+        { "field": "layers.0.cell_count", "op": "eq", "value": 0 }
+      ]
     },
     {
       "id": "TM-02",
       "tool": "get_tileset_info",
+      "comment": "This used to be allowError, which hid something worse than an error: with no TileSet on the layer the tool answers has_tileset: false as an ordinary success, so the test passed while reporting the fixture was empty — and every write test below was passing on 'the tool correctly refused'. The setup now builds a real single-tile atlas.",
       "args": { "node_path": "TileMap" },
-      "allowError": true
+      "asserts": [
+        { "field": "has_tileset", "op": "eq", "value": true },
+        { "field": "source_count", "op": "eq", "value": 1 },
+        { "field": "sources.0.source_id", "op": "eq", "value": 0 },
+        { "field": "sources.0.class", "op": "eq", "value": "TileSetAtlasSource" },
+        { "field": "sources.0.tile_count", "op": "gte", "value": 1 },
+        { "field": "tile_size.x", "op": "eq", "value": 32 }
+      ]
     },
     {
       "id": "TM-03",
       "tool": "set_tile_cell",
-      "args": { "node_path": "TileMap", "coords": "Vector2i(0, 0)", "source_id": 0 },
-      "allowError": true
+      "comment": "A non-zero cell on purpose. The coordinate parser used to drop the string form and fall back to (0, 0), so a test that writes at (0, 0) passes whether the coordinate was understood or discarded — which is exactly why the bug survived until TM-06 asked for a 3x3 fill.",
+      "args": { "node_path": "TileMap", "coords": "Vector2i(3, 1)", "source_id": 0 },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "source_id", "op": "eq", "value": 0 },
+        { "field": "coords.x", "op": "eq", "value": 3 },
+        { "field": "coords.y", "op": "eq", "value": 1 }
+      ],
+      "verify": {
+        "tool": "query_tile_cell",
+        "args": { "node_path": "TileMap", "coords": "Vector2i(3, 1)" },
+        "asserts": [
+          { "field": "is_empty", "op": "eq", "value": false },
+          { "field": "source_id", "op": "eq", "value": 0 }
+        ]
+      }
     },
     {
       "id": "TM-04",
       "tool": "query_tile_cell",
-      "args": { "node_path": "TileMap", "coords": "Vector2i(0, 0)" },
-      "asserts": [{ "field": "", "op": "notEmpty" }]
+      "comment": "The old assertion was notEmpty on the whole response, which passes for an empty cell too — query_tile_cell answers is_empty: true rather than failing.",
+      "args": { "node_path": "TileMap", "coords": "Vector2i(3, 1)" },
+      "asserts": [
+        { "field": "is_empty", "op": "eq", "value": false },
+        { "field": "source_id", "op": "eq", "value": 0 },
+        { "field": "atlas_coords.x", "op": "eq", "value": 0 }
+      ]
     },
     {
       "id": "TM-05",
       "tool": "erase_tile_cell",
-      "args": { "node_path": "TileMap", "coords": "Vector2i(0, 0)" },
-      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+      "args": { "node_path": "TileMap", "coords": "Vector2i(3, 1)" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "query_tile_cell",
+        "args": { "node_path": "TileMap", "coords": "Vector2i(3, 1)" },
+        "asserts": [{ "field": "is_empty", "op": "eq", "value": true }]
+      }
     },
     {
       "id": "TM-06",
       "tool": "fill_tiles",
+      "comment": "The test that caught it: a 3x3 region reported cells_filled 1, because to_coords parsed as (0, 0) and the rectangle collapsed onto its own corner. The echoed to_coords are asserted too — they name the parser directly instead of leaving a count to be explained.",
       "args": { "node_path": "TileMap", "from_coords": "Vector2i(0, 0)", "to_coords": "Vector2i(2, 2)", "source_id": 0 },
-      "allowError": true
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "cells_filled", "op": "eq", "value": 9 },
+        { "field": "to_coords.x", "op": "eq", "value": 2 },
+        { "field": "to_coords.y", "op": "eq", "value": 2 }
+      ],
+      "verify": {
+        "tool": "query_tile_cell",
+        "args": { "node_path": "TileMap", "coords": "Vector2i(2, 2)" },
+        "asserts": [{ "field": "is_empty", "op": "eq", "value": false }]
+      }
+    },
+    {
+      "id": "TM-07",
+      "tool": "get_tilemap_info",
+      "comment": "The fill counted by a different tool than the one that reported it.",
+      "args": { "node_path": "TileMap" },
+      "asserts": [{ "field": "layers.0.cell_count", "op": "eq", "value": 9 }]
+    },
+    {
+      "id": "TM-08",
+      "tool": "save_scene",
+      "comment": "And on disk: the cells and the TileSet the setup built have to survive being packed, which is the only place a write that lived solely in the editor's memory shows up as missing.",
+      "args": {},
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "expectFiles": [
+        { "path": "res://test_tilemap.tscn", "op": "contains", "value": "[node name=\"TileMap\" type=\"TileMapLayer\" parent=\".\"" },
+        { "path": "res://test_tilemap.tscn", "op": "contains", "value": "TileSetAtlasSource" },
+        { "path": "res://test_tilemap.tscn", "op": "contains", "value": "tile_map_data" }
+      ]
     }
   ],
   "cleanup": [

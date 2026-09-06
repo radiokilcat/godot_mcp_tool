@@ -36,9 +36,13 @@
         "theme_type": "Button",
         "stylebox_name": "normal",
         "stylebox_type": "flat",
-        "properties": { "bg_color": "#334455" }
+        "properties": { "bg_color": "#334455", "shadow_offset": "Vector2(4, 6)" }
       },
-      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+      "comment": "shadow_offset is the one StyleBox property that goes through a vector parser, and it is sent in the string shorthand deliberately: that copy of the parser knew Array and Dictionary but not String, so the offset silently became (0, 0) while the call reported success. Only the written .tres shows the difference — the response never carried the value back.",
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "expectFiles": [
+        { "path": "res://test_theme.tres", "op": "matches", "value": "shadow_offset = Vector2\\( ?4,\\s*6 ?\\)" }
+      ]
     },
     {
       "id": "TH-05b",

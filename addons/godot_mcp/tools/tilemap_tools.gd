@@ -18,14 +18,17 @@ func register(registry: GodotMCPToolRegistry) -> void:
 	registry.register_tool("get_tileset_info", GodotMCPCallableTool.new(_get_tileset_info))
 	registry.register_tool("erase_tile_cell",  GodotMCPCallableTool.new(_erase_tile_cell))
 	registry.register_tool("get_tilemap_info", GodotMCPCallableTool.new(_get_tilemap_info))
+## Delegates to the shared coercion instead of repeating three of its four cases.
+## The copy this replaces handled Vector2i, Array and Dictionary but **not String**,
+## so "Vector2i(2, 2)" fell through to the default — every coordinate a client sent
+## in the project's own documented shorthand silently became (0, 0), and the tool
+## reported success for a tile written somewhere else entirely. Caught by TM-06,
+## where a 3x3 fill reported one cell.
 func _parse_vec2i(val: Variant, default_val: Vector2i = Vector2i.ZERO) -> Vector2i:
 	if val is Vector2i:
 		return val
-	if val is Array and val.size() >= 2:
-		return Vector2i(int(val[0]), int(val[1]))
-	if val is Dictionary:
-		return Vector2i(int(val.get("x", 0)), int(val.get("y", 0)))
-	return default_val
+	var v := GodotMCPTypeUtils.to_vector2(val, Vector2(default_val))
+	return Vector2i(roundi(v.x), roundi(v.y))
 
 ## TileMapLayer (Godot 4.3+) is checked via is_class(), a String-based lookup,
 ## rather than `node is TileMapLayer` — a static type reference to a class

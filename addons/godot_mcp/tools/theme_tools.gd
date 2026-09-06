@@ -18,14 +18,11 @@ func register(registry: GodotMCPToolRegistry) -> void:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+## Same gap as tilemap_tools._parse_vec2i had: this copy knew Vector2, Array and
+## Dictionary but not String, so "Vector2(4, 4)" became (0, 0) and a shadow offset
+## sent in the project's documented shorthand was silently dropped.
 func _parse_vec2(val: Variant) -> Vector2:
-	if val is Vector2:
-		return val
-	if val is Array and val.size() >= 2:
-		return Vector2(float(val[0]), float(val[1]))
-	if val is Dictionary:
-		return Vector2(float(val.get("x", 0.0)), float(val.get("y", 0.0)))
-	return Vector2.ZERO
+	return GodotMCPTypeUtils.to_vector2(val)
 
 func _load_theme(theme_path: String) -> Variant:
 	if theme_path.is_empty():
