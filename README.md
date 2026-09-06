@@ -29,6 +29,10 @@ a per-launch token in `~/.godot-mcp/instances/`, which is how a server finds it.
 
 ## Tool categories (163 total)
 
+Every tool, its parameters and a worked example: **[API reference](docs/api/README.md)**. It is
+generated from the tool definitions, and the examples are the calls the end-to-end suite makes
+against a real editor, so neither can quietly drift from the code.
+
 | Category | Tools | Focus |
 |----------|-------|-------|
 | **Project** | 7 | Project info, file search, settings, UID conversion |
@@ -114,6 +118,9 @@ directory and otherwise tells you which are running. `GODOT_MCP_PORT` and
 
 Open your Godot project with the plugin enabled, and your assistant now has access to
 all the tools.
+
+Per-platform paths, every environment variable, and what each failure means:
+**[docs/installation.md](docs/installation.md)**.
 
 ## Testing
 
@@ -202,11 +209,15 @@ physics, shader, resource, batch and analysis. Set them in the `env` block of yo
 
 - All 163 tools implemented (23 categories)
 - Godot 4.4.1 and 4.7.2 compatibility verified — plugin loads clean, all tools registered
-- End-to-end suite green: **230/230 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
-- Planned: Lite Mode, expanded API docs, and npm packaging — see [progress.md](progress.md)
+- End-to-end suite green: **249/249 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
+- Generated [API reference](docs/api/README.md) and [installation guide](docs/installation.md)
+- Planned: npm packaging, and verifying the tool set against Cursor and Windsurf — see [progress.md](progress.md)
 - What has already shipped, and why each decision was made: [docs/changelog.md](docs/changelog.md)
 
 ## Troubleshooting
+
+The common cases are below; the fuller list, with what each symptom actually means, is in
+[docs/installation.md](docs/installation.md#troubleshooting).
 
 **Connection issues** — confirm the editor is open with the plugin enabled, and look in
 the Godot Output panel for `[Godot MCP] Listening on …`. That line names the port and the
