@@ -565,6 +565,7 @@ func _delete_animation_tree_node(args: Dictionary) -> Dictionary:
 		# copy: undo operations run in registration order, so add_child has to come
 		# before the move and the owner; and a deletion holds its node on the undo
 		# branch only, or the next edit after an undo frees it inside the scene.
+		# Both symptoms reproduce on AT-11/AT-12 if this is put back as it was.
 		ur.add_undo_method(parent, "add_child", node, true)
 		ur.add_undo_method(parent, "move_child", node, idx)
 		ur.add_undo_property(node, "owner", root)

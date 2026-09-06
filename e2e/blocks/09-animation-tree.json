@@ -59,6 +59,56 @@
       "tool": "edit_blend_space",
       "args": { "node_path": "AT", "action": "list_points" },
       "allowError": true
+    },
+    {
+      "id": "AT-09",
+      "tool": "add_node",
+      "comment": "A third child so AT is not the last one. Without it, restoring the node at the wrong index and appending it are the same position, and the ordering half of AT-11 asserts nothing.",
+      "args": { "parent_path": ".", "node_type": "Label", "node_name": "Tail" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "AT-10",
+      "tool": "delete_animation_tree_node",
+      "comment": "Every AT test above passes a state_name, so this tool's other branch — removing the AnimationTree node itself from the scene — had never once executed, the same gap refactor_signals turned out to have in 6.1.4. It is also a verbatim copy of _delete_node, so it inherited both of that function's undo defects (6.2b.1a, 6.2b.1b).",
+      "args": { "node_path": "AT" },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "deleted", "op": "eq", "value": "animation_tree" }
+      ],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonNotContains", "value": "AnimationTree" }]
+      }
+    },
+    {
+      "id": "AT-11",
+      "tool": "execute_script",
+      "comment": "Undone through the editor's own stack, as in block 24: EditorUndoRedoManager exposes no undo() to scripting, only get_history_undo_redo().",
+      "args": {
+        "code": "var ur := EditorInterface.get_editor_undo_redo()\nvar root := EditorInterface.get_edited_scene_root()\nvar h := ur.get_history_undo_redo(ur.get_object_history_id(root))\nif not h.has_undo():\n\treturn {\"undone\": \"<nothing on the undo stack>\"}\nvar action := h.get_current_action_name()\nh.undo()\nreturn {\"undone\": action}\n"
+      },
+      "asserts": [{ "field": "result.undone", "op": "contains", "value": "Delete AnimationTree" }],
+      "verify": {
+        "tool": "get_node_children",
+        "args": { "node_path": "." },
+        "asserts": [
+          { "field": "children.1.name", "op": "eq", "value": "AT" },
+          { "field": "total", "op": "eq", "value": 3 }
+        ]
+      }
+    },
+    {
+      "id": "AT-12",
+      "tool": "save_scene",
+      "comment": "The half the tree cannot show: a node restored without its owner is listed by AT-11 and written by nobody.",
+      "args": {},
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "expectFiles": [
+        { "path": "res://test_animtree.tscn", "op": "contains", "value": "[node name=\"AT\" type=\"AnimationTree\" parent=\".\"" },
+        { "path": "res://test_animtree.tscn", "op": "matches", "value": "\\[node name=\"AP\"[\\s\\S]*\\[node name=\"AT\"[\\s\\S]*\\[node name=\"Tail\"" }
+      ]
     }
   ],
   "cleanup": [
