@@ -1,0 +1,210 @@
+{
+  "block": 24,
+  "name": "UndoRedo (Ctrl+Z)",
+  "setup": [
+    { "tool": "create_scene", "args": { "name": "Root", "root_type": "Node2D", "path": "res://test_undo.tscn" } },
+    { "tool": "open_scene", "args": { "scene_path": "res://test_undo.tscn" } },
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "Label", "node_name": "Keeper" } },
+    { "tool": "set_node_property", "args": { "node_path": "Keeper", "property": "text", "value": "original" } }
+  ],
+  "tests": [
+    {
+      "id": "UR-01",
+      "tool": "set_node_property",
+      "comment": "Mutate first, so the undo below has something of the tool's own making to reverse.",
+      "args": { "node_path": "Keeper", "property": "text", "value": "changed" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_node_properties",
+        "args": { "node_path": "Keeper", "names": ["text"] },
+        "asserts": [{ "field": "properties", "op": "jsonContains", "value": "changed" }]
+      }
+    },
+    {
+      "id": "UR-02",
+      "tool": "execute_script",
+      "comment": "'All mutations support Ctrl+Z' is a headline README claim that nothing asserted. It is driven through execute_script because EditorUndoRedoManager — what EditorPlugin.get_undo_redo() hands the tools — exposes no undo() to scripting at all; only get_history_undo_redo(), which returns the plain UndoRedo that does. The action name is asserted too: it proves the mutation was committed as a named editor action rather than merely reversed by hand, which is what makes it a Ctrl+Z away in the editor's own menu.",
+      "args": {
+        "code": "var ur := EditorInterface.get_editor_undo_redo()\nvar root := EditorInterface.get_edited_scene_root()\nvar h := ur.get_history_undo_redo(ur.get_object_history_id(root))\nif not h.has_undo():\n\treturn {\"undone\": \"<nothing on the undo stack>\"}\nvar action := h.get_current_action_name()\nh.undo()\nreturn {\"undone\": action}\n"
+      },
+      "asserts": [{ "field": "result.undone", "op": "contains", "value": "Set Property" }],
+      "verify": {
+        "tool": "get_node_properties",
+        "args": { "node_path": "Keeper", "names": ["text"] },
+        "asserts": [
+          { "field": "properties", "op": "jsonContains", "value": "original" },
+          { "field": "properties", "op": "jsonNotContains", "value": "changed" }
+        ]
+      }
+    },
+    {
+      "id": "UR-03",
+      "tool": "add_node",
+      "args": { "parent_path": ".", "node_type": "Label", "node_name": "Doomed" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "Doomed" }]
+      }
+    },
+    {
+      "id": "UR-04",
+      "tool": "execute_script",
+      "comment": "Undoing a creation has to remove the node from the tree, not merely forget it.",
+      "args": {
+        "code": "var ur := EditorInterface.get_editor_undo_redo()\nvar root := EditorInterface.get_edited_scene_root()\nvar h := ur.get_history_undo_redo(ur.get_object_history_id(root))\nif not h.has_undo():\n\treturn {\"undone\": \"<nothing on the undo stack>\"}\nvar action := h.get_current_action_name()\nh.undo()\nreturn {\"undone\": action}\n"
+      },
+      "asserts": [{ "field": "result.undone", "op": "contains", "value": "Add Node" }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonNotContains", "value": "Doomed" }]
+      }
+    },
+    {
+      "id": "UR-05",
+      "tool": "execute_script",
+      "comment": "Redo is the other half: a tool that registers only the undo leg leaves the editor unable to put the change back, and nothing else in the suite exercises the do leg a second time.",
+      "args": {
+        "code": "var ur := EditorInterface.get_editor_undo_redo()\nvar root := EditorInterface.get_edited_scene_root()\nvar h := ur.get_history_undo_redo(ur.get_object_history_id(root))\nif not h.has_redo():\n\treturn {\"redone\": \"<nothing to redo>\"}\nh.redo()\nreturn {\"redone\": h.get_current_action_name()}\n"
+      },
+      "asserts": [{ "field": "result.redone", "op": "contains", "value": "Add Node" }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "Doomed" }]
+      }
+    },
+    {
+      "id": "UR-06",
+      "tool": "add_audio_player",
+      "comment": "Not a node tool: add_audio_player goes through _add_to_scene on the 9.3 base class, which is the single commit path behind 13 add_* tools across audio, physics, particles, navigation and scene-3d. One undo here covers all of them; the node tools commit their own actions separately.",
+      "args": { "parent_path": ".", "node_name": "Beeper", "type": "2d" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonContains", "value": "Beeper" }]
+      }
+    },
+    {
+      "id": "UR-07",
+      "tool": "execute_script",
+      "args": {
+        "code": "var ur := EditorInterface.get_editor_undo_redo()\nvar root := EditorInterface.get_edited_scene_root()\nvar h := ur.get_history_undo_redo(ur.get_object_history_id(root))\nif not h.has_undo():\n\treturn {\"undone\": \"<nothing on the undo stack>\"}\nvar action := h.get_current_action_name()\nh.undo()\nreturn {\"undone\": action}\n"
+      },
+      "asserts": [{ "field": "result.undone", "op": "contains", "value": "AudioStreamPlayer" }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonNotContains", "value": "Beeper" }]
+      }
+    },
+    {
+      "id": "UR-08",
+      "tool": "delete_node",
+      "comment": "Keeper is the first child, deliberately: undoing a delete has to put the node back where it was, and re-adding it is the easy half that a naive undo gets right while appending it last.",
+      "args": { "node_path": "Keeper" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_scene_tree",
+        "args": {},
+        "asserts": [{ "field": "", "op": "jsonNotContains", "value": "Keeper" }]
+      }
+    },
+    {
+      "id": "UR-09",
+      "tool": "execute_script",
+      "args": {
+        "code": "var ur := EditorInterface.get_editor_undo_redo()\nvar root := EditorInterface.get_edited_scene_root()\nvar h := ur.get_history_undo_redo(ur.get_object_history_id(root))\nif not h.has_undo():\n\treturn {\"undone\": \"<nothing on the undo stack>\"}\nvar action := h.get_current_action_name()\nh.undo()\nreturn {\"undone\": action}\n"
+      },
+      "asserts": [{ "field": "result.undone", "op": "contains", "value": "Delete Node" }],
+      "verify": {
+        "tool": "get_node_children",
+        "args": { "node_path": "." },
+        "asserts": [
+          { "field": "children.0.name", "op": "eq", "value": "Keeper" },
+          { "field": "total", "op": "eq", "value": 2 }
+        ]
+      }
+    },
+    {
+      "id": "UR-10",
+      "tool": "move_node",
+      "comment": "Reparenting has the most undo operations of any node tool, so it is where an ordering mistake does the most damage. It also lands here on purpose: committing an action after UR-09's undo discards the redo branch, which is where delete_node registered its do-reference to Keeper — if that reference frees a node the undo just put back in the tree, Keeper stops resolving right here.",
+      "args": { "node_path": "Keeper", "new_parent_path": "Doomed" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_node_children",
+        "args": { "node_path": "Doomed" },
+        "asserts": [{ "field": "children.0.name", "op": "eq", "value": "Keeper" }]
+      }
+    },
+    {
+      "id": "UR-11",
+      "tool": "execute_script",
+      "comment": "Undoing a move has to detach from the new parent, re-attach to the old one and restore the index — in that order. Run in any other one, add_child refuses a node that still has a parent and the following remove_child leaves it in no scene at all.",
+      "args": {
+        "code": "var ur := EditorInterface.get_editor_undo_redo()\nvar root := EditorInterface.get_edited_scene_root()\nvar h := ur.get_history_undo_redo(ur.get_object_history_id(root))\nif not h.has_undo():\n\treturn {\"undone\": \"<nothing on the undo stack>\"}\nvar action := h.get_current_action_name()\nh.undo()\nreturn {\"undone\": action}\n"
+      },
+      "asserts": [{ "field": "result.undone", "op": "contains", "value": "Move Node" }],
+      "verify": {
+        "tool": "get_node_children",
+        "args": { "node_path": "." },
+        "asserts": [
+          { "field": "children.0.name", "op": "eq", "value": "Keeper" },
+          { "field": "total", "op": "eq", "value": 2 }
+        ]
+      }
+    },
+    {
+      "id": "UR-12",
+      "tool": "save_scene",
+      "comment": "The effect half, and the reason this block ends in a save. Everything above was read back through the same in-memory tree the undo touched; the .tscn is where an undo that restored a node without its owner shows up as a node the editor lists and the file does not contain — the 6.1.4 failure shape exactly. It also pins the undone edits: Keeper's text is back to 'original', and Beeper left nothing behind.",
+      "args": {},
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "expectFiles": [
+        { "path": "res://test_undo.tscn", "op": "contains", "value": "[node name=\"Keeper\" type=\"Label\" parent=\".\"" },
+        { "path": "res://test_undo.tscn", "op": "contains", "value": "text = \"original\"" },
+        { "path": "res://test_undo.tscn", "op": "notContains", "value": "changed" },
+        { "path": "res://test_undo.tscn", "op": "notContains", "value": "Beeper" },
+        { "path": "res://test_undo.tscn", "op": "matches", "value": "\\[node name=\"Keeper\" type=\"Label\"[\\s\\S]*\\[node name=\"Doomed\" type=\"Label\"" }
+      ]
+    },
+    {
+      "id": "UR-13",
+      "tool": "add_node",
+      "comment": "A node to leave alive while its history is thrown away.",
+      "args": { "parent_path": ".", "node_type": "Label", "node_name": "Ghost" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
+    },
+    {
+      "id": "UR-14",
+      "tool": "execute_script",
+      "comment": "The other half of getting UndoRedo references right, and the one no undo can reach: a reference is erased together with the branch it was registered on, so a node registered on BOTH branches is freed when the history goes away even though the creation was never undone and the node is sitting in the scene. The editor discards a scene's history when the tab closes, and UndoRedo does the same to the oldest action once the tail is trimmed. is_instance_valid is asserted directly because the failure is a freed object, which every softer check reports as something else.",
+      "args": {
+        "code": "var ur := EditorInterface.get_editor_undo_redo()\nvar root := EditorInterface.get_edited_scene_root()\nvar h := ur.get_history_undo_redo(ur.get_object_history_id(root))\nvar ghost := root.get_node_or_null(\"Ghost\")\nh.clear_history()\nreturn {\"found\": ghost != null, \"alive_after\": is_instance_valid(ghost), \"children\": root.get_child_count()}\n"
+      },
+      "asserts": [
+        { "field": "result.found", "op": "eq", "value": true },
+        { "field": "result.alive_after", "op": "eq", "value": true },
+        { "field": "result.children", "op": "eq", "value": 3 }
+      ]
+    },
+    {
+      "id": "UR-15",
+      "tool": "save_scene",
+      "comment": "And it still saves: a node freed at UR-14 would leave the scene short one child here.",
+      "args": {},
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "expectFiles": [
+        { "path": "res://test_undo.tscn", "op": "contains", "value": "[node name=\"Ghost\" type=\"Label\" parent=\".\"" },
+        { "path": "res://test_undo.tscn", "op": "contains", "value": "[node name=\"Keeper\" type=\"Label\" parent=\".\"" }
+      ]
+    }
+  ],
+  "cleanup": [
+    { "tool": "delete_scene", "args": { "scene_path": "res://test_undo.tscn" } }
+  ]
+}
