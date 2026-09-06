@@ -12,7 +12,14 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-06 (**6.2b.1 done, and the claim it went to verify turned out to be
+**Last Updated:** 2026-09-06 (**`npm test` no longer hangs.** It was plain `vitest`, which watches
+outside CI — so the command progress.md and the README both document as the ~1 s unit layer sat
+there forever for anyone who followed the instructions, while CI passed because vitest detects CI
+and runs once. Now `vitest run`, with `test:watch` kept for the deliberate case, and
+`test:coverage` given the same treatment. The stale "(type parser)" note beside it in
+CONTRIBUTING.md went too — 9.2 deleted that module.)
+
+**Previously:** 2026-09-06 (**6.2b.1 done, and the claim it went to verify turned out to be
 false: every multi-step undo in the plugin was broken.** "All mutations support Ctrl+Z" was on the
 README's front page with `grep -ri undo e2e/blocks/` returning nothing. `e2e/blocks/24-undo.json`
 now mutates, undoes through the editor's own stack and re-reads both the tree and the saved file —

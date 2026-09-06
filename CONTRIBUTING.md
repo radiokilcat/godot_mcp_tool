@@ -27,7 +27,7 @@ Run all three checks — they mirror what CI runs:
 cd server
 npm run lint      # ESLint
 npm run build     # TypeScript must compile clean
-npm test          # unit tests (type parser)
+npm test          # unit tests (~1 s; npm run test:watch to keep them running)
 ```
 
 For anything that touches tool behavior, also run the end-to-end suite against a real
