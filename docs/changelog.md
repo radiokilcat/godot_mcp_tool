@@ -12,7 +12,48 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-05 (**6.2b.2 done — a session now provably survives an editor restart.**
+**Last Updated:** 2026-09-06 (**6.2b.1 done, and the claim it went to verify turned out to be
+false: every multi-step undo in the plugin was broken.** "All mutations support Ctrl+Z" was on the
+README's front page with `grep -ri undo e2e/blocks/` returning nothing. `e2e/blocks/24-undo.json`
+now mutates, undoes through the editor's own stack and re-reads both the tree and the saved file —
+15 tests, and three product bugs on the first run. **(1) Undo operations run in the order they are
+registered, not reversed**, which two sites asserted the opposite of in a comment: `delete_node`
+restored the node last and unowned, so it was in the scene tree and missing from the `.tscn` — the
+6.1.4 shape — while `move_node` was worse, since `add_child` refuses a still-parented node and the
+`remove_child` after it detached the node, leaving an undone move with the node in no scene at all.
+**(2) `delete_node` registered a do reference on the node it deleted**, so the first edit after an
+undo discarded the redo branch and freed a node that was back in the scene — caught as
+`'previously freed'`. **(3) Five creation sites registered the new node on both branches**, which
+frees it while it is alive: probed in isolation, `clear_history()` — what the editor does when a
+scene tab closes — frees it and the parent loses the child, and trimming the history tail does the
+same. Restoring that one registration makes the saved scene come back holding only its root, every
+child gone, **with not one ERROR line in the editor log**. Fixed in `_add_node`, `_delete_node`,
+`_duplicate_node`, `_move_node`, `_add_to_scene` on the 9.3 base class (13 `add_*` tools),
+`create_animation_tree`, `delete_animation_tree_node` and `set_environment`. Each fix verified to
+fail without it. The block drives undo through `execute_script` because `EditorUndoRedoManager`
+exposes no `undo()` to scripting at all — only `get_history_undo_redo()`, which hands back the
+plain `UndoRedo` that does. E2E **245/245, 163/163 tools** on 4.4.1 and 4.7.2, 544 server unit
+tests, 94 GDScript, multi-session 11/11, reconnect 9/9.)
+
+**Previously:** 2026-09-06 (**9.6.4 closed — CI is green on Linux, and the cause was the caching
+directory rather than the path shape everyone expected.** Three ubuntu failures (SC-05, E-08g,
+E-08h) all came from `check_source` returning an empty array: `_cache_file()` scratches in
+`OS.get_cache_dir()`, which is `$XDG_CACHE_HOME` or `~/.cache` on Linux and **the engine does not
+create it**, while `FileAccess` will not create intermediate directories — so on a fresh runner the
+probe write failed and the tool fell back to "code 43", no line, no reason. Windows never hit it
+because its cache dir always exists. Two things worth keeping from how this was answered. The
+recorded lead — absolute path vs `res://` — was wrong, the fourth plausible CI explanation that
+week not to survive contact, which is precisely why the entry refused to act on it before a run
+said so; on a platform you cannot reproduce, shipping instrumentation beats picking the most
+convincing story. And the instrumentation still never spoke: the fix rode in the same commit
+(6a05beb) as the explanation for its own absence, so it removed the failure before the message
+could print. Green on b0aee56, the commit that still recorded the task as open — the only
+behavioural change between the failing run and that one is the cache-dir creation. The diagnostics
+stay regardless: `check_source`/`check_path` now record *why* they had nothing — the open error and
+path, or the subprocess's exit code and the tail of its output — because a tool saying "code 43"
+about its own failure is the same complaint 6.6.5 existed to fix.)
+
+**Previously:** 2026-09-05 (**6.2b.2 done — a session now provably survives an editor restart.**
 The task predated the transport inversion, which made it sharper: the retry loop was rewritten on
 the other side of the wire two days earlier and had no coverage at all, while a restarted editor now
 returns on a *different port with a different token*, so recovery depends on the client rediscovering

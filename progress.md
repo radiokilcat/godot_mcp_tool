@@ -22,12 +22,12 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
   Run them all before calling a change done; the first three cost about 10 seconds together.
 
-- **E2E: 230 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
-  544 server unit tests and 80 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+- **E2E: 245 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
+  544 server unit tests and 94 GDScript ones alongside. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md.
-- **CI runs every layer** (.github/workflows/ci.yml): the fast three on Linux, Windows and macOS,
-  the headless suite plus the multi-session and reconnect checks on Linux and Windows. Windows is
-  the only host verified locally.
+- **CI runs every layer and is green** (.github/workflows/ci.yml): the fast three on Linux, Windows
+  and macOS, the headless suite plus the multi-session and reconnect checks on Linux and Windows.
+  Linux went green with 9.6.4; Windows is the only host also verified locally.
 - **The editor hosts the bridge; MCP sessions dial in** (6.5). It picks its own port and publishes
   it with a per-launch token to `~/.godot-mcp/instances/`. Several sessions can drive one editor,
   and each open project listens separately.
@@ -179,8 +179,54 @@ happened). That is the gap worth closing.
   the type and never match the closing bracket — the first version of these four assertions passed
   on 4.4.1 and failed on 4.7.2 for no reason connected to the code under test.
 
-### [ ] 6.2b - Untested paths left over from 6.2 (2026-08-31)
-- [ ] 6.2b.1 - **UndoRedo is asserted nowhere.** `grep -ri undo e2e/blocks/` returns nothing, yet "all mutations support Ctrl+Z" is a headline feature. Needs a block that mutates, undoes via the editor's UndoRedo, and re-reads the tree.
+### [x] 6.2b - Untested paths left over from 6.2 — closed 2026-09-06
+- [x] 6.2b.1 - **UndoRedo. Done 2026-09-06 — `e2e/blocks/24-undo.json`, 15 tests, and it found
+  three product bugs.** `grep -ri undo e2e/blocks/` returned nothing while "all mutations support
+  Ctrl+Z" sat on the README's front page. It does not: **every multi-step undo in the plugin was
+  broken**, and no response-level assertion could have said so.
+  - **Driven through `execute_script`, because there is no other way in.**
+    `EditorUndoRedoManager` — what `EditorPlugin.get_undo_redo()` hands the tools — **exposes no
+    `undo()` or `redo()` to scripting at all** (checked with `ClassDB.class_get_method_list`, not
+    assumed). The only route is `get_history_undo_redo(get_object_history_id(node))`, which returns
+    the plain `UndoRedo` that does. The block asserts the *action name* it undid as well, since
+    that is what makes the change a Ctrl+Z away in the editor's own menu rather than merely
+    reversible by hand.
+- [x] 6.2b.1a - **Undo operations run in the order they are registered, NOT reversed.** Two sites
+  said "LIFO undo order" in a comment and registered accordingly. Probed directly: three undo ops
+  registered first/second/third run first, second, third.
+  - `delete_node`: owner and `move_child` ran while the node was still parentless, failed, and
+    `add_child` then appended it **last and unowned** — listed by `get_scene_tree`, absent from the
+    saved `.tscn`. That is the 6.1.4 shape exactly: the tool's answer and the tree both agree, and
+    the file disagrees.
+  - `move_node` was worse than a wrong index: `add_child` refuses a node that still has a parent,
+    and the `remove_child` that followed detached it, so **undoing a move left the node in no scene
+    at all** — confirmed by reverting the fix, which empties Keeper out of the saved file entirely.
+  - Same defect verbatim in `animation_tree_tools._delete_animation_tree_node`, which is a copy of
+    the old `_delete_node`.
+- [x] 6.2b.1b - **`delete_node` freed the node it had just restored.** It registered
+  `add_do_reference` on the deleted node. A reference is erased together with the branch it is
+  registered on, and for a deletion the node lives on the *undo* branch; registered on the do
+  branch, the first edit after an undo discards the redo tail and frees a node that is back in the
+  scene. Caught by UR-10 as `Nonexistent function 'get_path' in base 'previously freed'`.
+- [x] 6.2b.1c - **Five creation sites registered the new node on _both_ branches**, which frees it
+  while it is alive in the scene — `_add_node`, `_duplicate_node`, `_add_to_scene` on the 9.3 base
+  class (13 `add_*` tools across audio, physics, particles, navigation and scene-3d),
+  `create_animation_tree`, and `set_environment`'s WorldEnvironment.
+  - **Isolated against the engine rather than argued**: with both references `clear_history()`
+    frees the node and the parent loses the child; with the do reference alone it survives. The
+    same happens when `UndoRedo` trims the oldest action off the tail. The editor discards a
+    scene's history when the tab closes, so this is ordinary use, not a corner.
+  - **The e2e damage is wider than one node and completely silent.** With the registration
+    restored on `add_node`, UR-14/UR-15 fail and the saved scene comes back holding *only its
+    root* — every child gone, and **not one `ERROR` line in the editor log**. The precise chain
+    inside the block is not claimed; the probe is the mechanism, the block is the guard.
+- **Each fix was verified to fail without it**, separately: the two orderings by reverting each in
+  turn, the reference bugs by restoring each registration.
+- **Engine facts worth keeping:** undo ops run in registration order; `EditorUndoRedoManager` has
+  no scriptable `undo()`; UndoRedo references are per-branch, and registering an object on both
+  branches is not belt-and-braces — it is a free of a live object.
+- **Verified:** e2e **245 passed / 0 failed, 163/163 tools** on 4.4.1 and 4.7.2 (was 230), 544
+  server unit tests, 94 GDScript, parse gate clean, multi-session 11/11, reconnect 9/9.
 - [x] 6.2b.2 - **Reconnect. Done 2026-09-05 — `node e2e/reconnect.mjs`, 9/9.** The task predated
   6.5, which moved the retry loop to the other side of the wire and made this sharper rather than
   softer: the restarted editor comes back on **a different port with a different token**, so
@@ -199,8 +245,8 @@ happened). That is the gap worth closing.
     entry after a restart. An editor killed outright never runs `_exit_tree`, so it never withdraws
     itself, and the helper matched a dead pid. It now skips dead pids — as the server already did
     via `isAlive` — and takes `notPid` to wait for a genuinely different editor.
-- **Priority:** MEDIUM — only 6.2b.1 (UndoRedo) is left, and it is the last unverified claim the
-  README makes on its own front page.
+- **Priority:** DONE — both items closed. The README's front-page claims are now each covered by
+  something that fails when the claim stops being true.
 
 ### [x] 6.5 - Bridge port lifecycle & the multi-session story — closed 2026-09-03
 - [x] 6.5.1 - **Graceful shutdown**: `GodotConnection.close()` exists but is wired to no signal, so a closing client leaves an orphaned node process holding 6505 — which then blocks every later session until it is killed by hand. Hook `SIGTERM`/`SIGINT`/`exit`. **Fixed 2026-09-02:** signals were only half the story — an MCP client normally ends a session by closing the pipe, not by signalling, and the SDK's stdio transport listens for `data`/`error` on stdin and never for EOF (verified in the SDK source), while the WebSocket server keeps the event loop alive on its own. `installShutdownHandlers()` (index.ts) now shuts down on stdin `end`/`close`, on `EPIPE` from stdout (a client that vanished without an orderly EOF — also a fatal unhandled error event otherwise), on `SIGINT`/`SIGTERM`/`SIGHUP` (plus `SIGBREAK` on Windows only — registering it elsewhere throws), and releases the socket from a process `exit` handler for any path that bypasses those. `close()` became idempotent, rejects in-flight calls, and **terminates the client sockets before `wss.close()`** — that turned out to be the load-bearing part: ws's internally created HTTP server only finishes closing once every established connection has ended, so with an editor attached the original one-line `close()` would have left the port bound anyway.
@@ -530,33 +576,42 @@ cross-platform support.
   diverge in the first place. Verified by deleting `.e2e_work/logs` and running all three.
   **This is the whole argument for 9.6 in one bug:** a suite that only ever runs on machines with
   history cannot tell you what a stranger's machine does.
-### [ ] 9.6.4 - `GodotMCPScriptCheck` returns nothing on Linux (found by CI, 2026-09-05)
-E2E on ubuntu is **185 passed / 3 failed / 42 skipped**, and all three failures are one defect:
-SC-05 (`validate_syntax`), E-08g and E-08h (`execute_script`) each fall back to the pre-6.6.5
+### [x] 9.6.4 - `GodotMCPScriptCheck` returned nothing on Linux — closed 2026-09-06
+E2E on ubuntu was **185 passed / 3 failed / 42 skipped**, and all three failures were one defect:
+SC-05 (`validate_syntax`), E-08g and E-08h (`execute_script`) each fell back to the pre-6.6.5
 message — "code 43", no line, no reason — because `check_source` produced an empty array. Nothing
-else is affected: the rest of `execute_script`, the transport, and every other tool pass, and the
-same suite is green on windows-latest.
+else was affected: the rest of `execute_script`, the transport, and every other tool passed, and
+the same suite was green on windows-latest, so it was the platform and not the tool.
 
-**The lead, not yet a conclusion.** `e2e/check-syntax.mjs` is green on Linux and does the same
-thing — runs the engine with `--check-only` and parses the same `SCRIPT ERROR` lines. Two things
-differ: it passes a `res://` path while `script_check.gd` passes an absolute path into the OS cache
-dir, and on Windows an absolute path carries a drive letter while on Linux it starts with `/`.
-Plausible, but three earlier plausible explanations for CI failures were wrong this week, so this
-is not being acted on until the run says so.
+**The cause was the cache directory — the thing this entry had filed under "not obviously it".**
+`_cache_file()` scratches in `OS.get_cache_dir()`, which on Linux is `$XDG_CACHE_HOME` or
+`~/.cache` and **the engine does not create it**. `FileAccess` will not create intermediate
+directories, so on a fresh runner the probe write returned null, `check_source` returned `[]`, and
+the tool answered with its fallback. Windows never hit it because its cache dir always exists.
+`_cache_file` now creates the directory and falls back to `user://`, which always does.
 
-**Already ruled out, by test rather than argument:** the parser is fine — `parse_diagnostics` now
-has unit coverage for both the Windows and Linux forms of the location line, including the `::` in
-`GDScript::reload`, and both parse correctly. The cache directory is not obviously it either; it is
-created if missing now, with a `user://` fallback.
+**The recorded lead was wrong.** It was the absolute path vs `res://` — the fourth plausible
+explanation for a CI failure that week not to survive contact, which is exactly why the entry said
+it would not be acted on until a run said so. Worth keeping as a pattern: on an unreproducible
+platform the cheap move is to ship the instrumentation and let the run answer, not to pick the most
+convincing story.
 
-**How it gets answered:** the fallback message now carries *why* it had nothing (6a05beb) — the
-open error and path if the probe could not be written, or the subprocess's exit code and the tail
-of its output. One CI run turns "code 43" into the actual cause. That the tool said nothing useful
-about its own failure is the same complaint 6.6.5 existed to fix, so this is worth having anyway.
+**And the diagnostics never got to speak.** The fix rode in the same commit (6a05beb) as the
+explanation for its absence, so it removed the failure before its own message could ever print.
+Confirmed by **CI going green on b0aee56** — the commit that still records this as open: the only
+behavioural change between the failing run and that one is the cache-dir creation; everything else
+in it is message text.
 
-- **Honest status: Windows is verified here, Linux and macOS are implemented and unexercised.**
-  I cannot run them on this machine; the first CI run is their real test. What *is* verified for
-  them: the release URLs resolve, and the interface/shape tests pass.
+**The instrumentation stays, on its own merit.** A tool that says "code 43" about its own failure
+is the same complaint 6.6.5 existed to fix. `check_source`/`check_path` now take a status
+dictionary and record *why* they had nothing — the open error and path if the probe could not be
+written, or the subprocess's exit code and the tail of its output — and `describe()` appends it to
+the fallback. The next platform that breaks this way explains itself in one run.
+
+- **Status: Windows and Linux are exercised by CI on every push; macOS runs the fast three
+  layers** (parse gate plus the GDScript unit harness), which is the cheapest run that still
+  downloads, unpacks and executes a Godot binary and keeps the darwin platform module from being
+  dead code. Windows is the only host also verified locally.
 - **Priority:** DONE
 
 ### [x] 9.6b - Two product bugs the first headless run exposed (2026-09-03)
