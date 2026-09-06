@@ -13,7 +13,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
   | | Command | Covers | Time |
   |---|---|---|---|
-  | Unit (server) | `npm test` in `server/` | version-utils, timeout policy, bridge seam, 163 tool schemas, e2e platform layer | ~1 s |
+  | Unit (server) | `npm test` in `server/` | version-utils, timeout policy, bridge seam, 163 tool schemas, e2e platform layer, generated API docs | ~1 s |
   | Unit (plugin) | `node e2e/unit.mjs` | vector/colour parsing, `_as_bool`, `_max_results`, `_value_to_json` | ~2 s |
   | Parse gate | `node e2e/check-syntax.mjs` | every plugin script compiles, named file and line | ~6 s |
   | E2E | `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
@@ -23,8 +23,9 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   Run them all before calling a change done; the first three cost about 10 seconds together.
 
 - **E2E: 249 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
-  544 server unit tests and 94 GDScript ones alongside. `e2e/blocks/*.json` is the executable
-  spec, not docs/mcp_test_plan.md.
+  549 server unit tests and 94 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+  spec, not docs/mcp_test_plan.md — and since 5.1 it is also where the API reference's examples
+  come from, so a stale example fails the suite.
 - **CI runs every layer and is green** (.github/workflows/ci.yml): the fast three on Linux, Windows
   and macOS, the headless suite plus the multi-session and reconnect checks on Linux and Windows.
   Linux went green with 9.6.4; Windows is the only host also verified locally.
@@ -61,12 +62,39 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
 ## Phase 5: Documentation & Configuration
 
-### [ ] 5.1 - Create Comprehensive API Documentation
-- [ ] Document all 163 tools
-- [ ] Create examples for each category
-- [ ] Generate API reference
-- **Priority:** HIGH
-- **Effort:** 4-5 hours
+### [x] 5.1 - API documentation — done 2026-09-06
+- [x] All 163 tools documented — `docs/api/`, an index plus one page per category.
+- [x] Examples for every tool (not just every category) — 163/163.
+- [x] Generated, not written: `npm run docs` in server/ renders it from the tool definitions.
+- **Generated because a hand-written page for 163 tools is stale the day after it is written**,
+  and wrong documentation is worse than none — an agent that reads a parameter which no longer
+  exists spends its turn on a call that cannot work. `server/src/docs/api-reference.ts` is a pure
+  renderer over the same objects the server registers; `generate.ts` is the thin CLI around it.
+- **The examples are the e2e blocks' own arguments**, which is the half that makes this hold up.
+  Invented examples are a second thing to keep true. These are executed against a live editor on
+  every CI run, so an example that stops working fails the suite before it can mislead anyone.
+  Coverage is 163/163 because the suite already exercises every tool, and 162 of them cite a
+  numbered test rather than an unasserted setup step.
+- **`tests/api-docs.test.ts` is what stops the drift** (5 checks, in `npm test`): the checked-in
+  files must equal what the renderer produces, every category needs a page, every tool an example,
+  every declared parameter a row. **Verified to fail**: editing one description in the generated
+  `node.md` fails with "docs/api/node.md is out of date" and the command that fixes it.
+- Linked from the README's category table; 240 relative links and anchors across the docs verified
+  to resolve.
+
+### [x] 5.3 - Installation guide — done 2026-09-06
+- [x] Step-by-step installation — `docs/installation.md`, with the per-OS copy commands, the
+  Output-panel line that means the plugin actually started, and where each client's config lives.
+- [x] Troubleshooting — symptom → what it means → fix, including the failures this project has
+  actually hit: no listening line, a missing discovery entry, several editors open, a pinned
+  `GODOT_MCP_PORT` surviving an editor restart.
+- [x] Configuration — all six environment variables in one table, each with which side reads it.
+  `GODOT_MCP_PRETTY` was undocumented anywhere before this.
+- **It deepens the README rather than repeating it**: the README keeps the three-step start and
+  links out. Every number in it was re-derived from the registry rather than copied from the
+  README — 163 tools, 115 under `core`, 14 categories kept and the 9 dropped named explicitly.
+- **Cursor and Windsurf are described as unverified, not supported**, because 4.2 is still open and
+  neither has been run against a live editor here.
 
 ### [ ] 5.2 - Create Permission Presets
 - [ ] Define Claude Code auto-approval preset
@@ -75,13 +103,11 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 - [ ] Create custom preset template
 - **Priority:** MEDIUM
 - **Effort:** 1-2 hours
-
-### [ ] 5.3 - Create Installation Guide
-- [ ] Step-by-step installation
-- [ ] Troubleshooting guide
-- [ ] Configuration guide
-- **Priority:** HIGH
-- **Effort:** 2-3 hours
+- **Two of the four items are blocked by the same thing as 4.2** (noted while writing 5.3): a
+  preset is a permission format, and Cursor's and Windsurf's are not Claude Code's. Writing them
+  from memory is the failure mode 5.1 exists to avoid — documentation that looks authoritative and
+  is wrong. The Claude Code preset and the generic template can be written now; the other two need
+  the clients. `.claude/settings.json` in this repo is already a working example of the first.
 
 *(5.4 closed 2026-09-02 by 9.1.6 — see the changelog.)*
 

@@ -12,7 +12,26 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-06 (**`npm test` no longer hangs.** It was plain `vitest`, which watches
+**Last Updated:** 2026-09-06 (**5.1 and 5.3 done — the API reference is generated, and its
+examples are executed.** `docs/api/` is an index plus a page per category covering all 163 tools,
+rendered from the tool definitions by `npm run docs`, because a hand-written page for 163 tools is
+stale the day after it is written and wrong documentation is worse than none: an agent that reads a
+parameter which no longer exists spends its turn on a call that cannot work. The examples are the
+arguments `e2e/blocks/*.json` already sends to a live editor on every CI run — 163/163 tools have
+one, 162 citing a numbered test — so an example that stops working fails the suite rather than
+quietly misleading someone. `tests/api-docs.test.ts` holds the whole thing to the code: the
+checked-in files must equal what the renderer produces, and it was verified to fail by editing one
+description in the generated `node.md`. `docs/installation.md` is the long-form install: per-OS
+paths, the Output-panel line that means the plugin really started, all six environment variables in
+one table (`GODOT_MCP_PRETTY` was documented nowhere before), and troubleshooting written from the
+failures this project actually hit. Every figure in it was re-derived from the registry rather than
+copied from the README. Cursor and Windsurf are described as **unverified rather than supported**,
+since 4.2 is still open — and writing 5.3 turned up that two of 5.2's four items are blocked the
+same way, because a permission preset is a format and inventing Cursor's and Windsurf's from memory
+is exactly the failure 5.1 exists to prevent. 240 relative links and anchors checked to resolve;
+549 server unit tests.)
+
+**Previously:** 2026-09-06 (**`npm test` no longer hangs.** It was plain `vitest`, which watches
 outside CI — so the command progress.md and the README both document as the ~1 s unit layer sat
 there forever for anyone who followed the instructions, while CI passed because vitest detects CI
 and runs once. Now `vitest run`, with `test:watch` kept for the deliberate case, and
