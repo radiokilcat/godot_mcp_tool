@@ -21,14 +21,19 @@ MCP client at `server/dist/index.js`.
 
 ## Before opening a PR
 
-Run all three checks — they mirror what CI runs:
+Run these — they mirror what CI runs:
 
 ```bash
 cd server
 npm run lint      # ESLint
 npm run build     # TypeScript must compile clean
 npm test          # unit tests (~1 s; npm run test:watch to keep them running)
+npm run docs      # only if you changed a tool's name, description or schema
 ```
+
+`npm run docs` regenerates `docs/api/` from the tool definitions. It is not optional after a
+schema change — `npm test` compares the checked-in pages against what the generator produces and
+fails if they differ.
 
 For anything that touches tool behavior, also run the end-to-end suite against a real
 editor:

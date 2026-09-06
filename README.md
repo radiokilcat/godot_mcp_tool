@@ -6,8 +6,8 @@ An MCP server that lets AI assistants (Claude and other MCP clients) drive the G
 Editor through **163 tools across 23 categories** — scenes, nodes, scripts, animation,
 3D, physics, shaders, runtime inspection, automated testing, and more.
 
-Every release is exercised by a **230-test end-to-end suite that boots a real Godot
-editor** and runs all 163 registered tools against it — see [Testing](#testing).
+Every tool is exercised against a **real Godot editor** on every run of the end-to-end
+suite, on both Godot 4.4.1 and 4.7.2. See [Testing](#testing).
 
 ## Architecture
 
@@ -27,77 +27,46 @@ end: sessions come and go without fighting over it, several can attach at once,
 and each open project listens on its own port. The plugin advertises its port and
 a per-launch token in `~/.godot-mcp/instances/`, which is how a server finds it.
 
-## Tool categories (163 total)
+## What it can do
 
-Every tool, its parameters and a worked example: **[API reference](docs/api/README.md)**. It is
-generated from the tool definitions, and the examples are the calls the end-to-end suite makes
-against a real editor, so neither can quietly drift from the code.
+163 tools in 23 categories: project, scene, node, script, editor, input, runtime,
+animation, animation-tree, 3D scene, physics, particles, navigation, audio, tilemap,
+theme, shader, resource, batch/refactor, analysis, testing, profiling and export.
 
-| Category | Tools | Focus |
-|----------|-------|-------|
-| **Project** | 7 | Project info, file search, settings, UID conversion |
-| **Scene** | 10 | Scene tree, create/open/save/delete, play/stop, instancing |
-| **Node** | 14 | Add/delete/duplicate, properties, signals, groups |
-| **Script** | 8 | Read/create/edit, attach, validate syntax, search |
-| **Editor** | 8 | Screenshots, error log, execute scripts, editor state |
-| **Input** | 7 | Key/mouse/action simulation, sequences, input mapping |
-| **Runtime** | 19 | Game inspection, recording/replay, navigate, UI click |
-| **Animation** | 6 | Create animations, tracks, keyframes, easing |
-| **AnimationTree** | 8 | State machines, transitions, blend trees |
-| **3D Scene** | 6 | Meshes, cameras, lights, environment, GridMap |
-| **Physics** | 6 | Bodies, collision shapes, layers, raycasts |
-| **Particle** | 5 | GPU particles, materials, gradients, presets |
-| **Navigation** | 6 | Regions, agents, baking, layer management |
-| **Audio** | 6 | Players, bus layout, effects |
-| **TileMap** | 6 | Set/fill/query cells, tile set info |
-| **Theme/UI** | 6 | Colors, fonts, constants, StyleBox |
-| **Shader** | 6 | Create/edit shaders, assign materials, parameters |
-| **Resource** | 6 | Read/edit/create .tres, autoloads |
-| **Batch/Refactor** | 8 | Find by type, cross-scene updates, dependencies |
-| **Analysis** | 4 | Scene complexity, signal flow, unused resources |
-| **Testing/QA** | 6 | Automated tests, assertions, screenshot compare |
-| **Profiling** | 2 | Performance monitors, FPS/memory/draw calls |
-| **Export** | 3 | Presets, export commands, template info |
+**[API reference →](docs/api/README.md)** — every tool with its parameters and a worked
+example. It is generated from the tool definitions, and the examples are the calls the
+end-to-end suite makes against a real editor, so neither can quietly drift from the code.
 
 ## Key features
 
-- **UndoRedo integration** — all mutations support Ctrl+Z in the editor
+- **UndoRedo integration** — mutations are committed as editor actions, undoable with Ctrl+Z
 - **Smart type parsing** — `Vector2(100, 200)`, `#ff0000`, `Color(1,0,0)` are auto-converted
-- **Auto-reconnect** — a session reconnects with backoff, and rediscovers the editor each
-  attempt, so an editor restarted mid-session is picked up on its new port
+- **Auto-reconnect** — a session rediscovers the editor on every attempt, so an editor
+  restarted mid-session is picked up on its new port
 - **Structured errors** — contextual hints on failure
 - **2D & 3D** — full support for both workflows
-- **Version-gating** — tools declare a supported Godot range; incompatible calls return a clear error instead of failing inside the editor (verified on Godot 4.4.1 and 4.7.2; targets 4.0+)
+- **Version-gating** — tools declare a supported Godot range and refuse outside it, instead
+  of failing somewhere inside the editor
 
 ## Quick start
 
-### Prerequisites
+Needs **Godot 4.x** (verified on 4.4.1 and 4.7.2; targets 4.0+) and **Node.js 18+**.
 
-- **Godot 4.x** (verified on 4.4.1 and 4.7.2; targets 4.0+)
-- **Node.js 18+**
-
-### 1. Install the plugin
-
-Copy the plugin into your Godot project and enable it:
+**1. Install the plugin.** Copy it into your project, then enable it in Godot under
+**Project → Project Settings → Plugins → Godot MCP**.
 
 ```bash
 cp -r addons/godot_mcp /path/to/your/godot/project/addons/
 ```
 
-Then in Godot: **Project → Project Settings → Plugins → Godot MCP → Enable**.
-
-### 2. Build the server
+**2. Build the server.**
 
 ```bash
-cd server
-npm install
-npm run build
+cd server && npm install && npm run build
 ```
 
-### 3. Point your MCP client at it
-
-Add to your client's MCP config (e.g. `.mcp.json`), using an **absolute path** to the
-built entry point:
+**3. Point your MCP client at it** — in `.mcp.json` or your client's equivalent, with an
+**absolute path** to the built entry point:
 
 ```json
 {
@@ -110,56 +79,63 @@ built entry point:
 }
 ```
 
-No port to configure: the editor picks one, writes it with a per-launch token to
-`~/.godot-mcp/instances/`, and the server reads that. With one editor open there is
-nothing to choose; with several, the server picks the one matching its working
-directory and otherwise tells you which are running. `GODOT_MCP_PORT` and
-`GODOT_MCP_TOKEN` override discovery entirely.
+There is no port to configure: the editor picks one and publishes it with a per-launch
+token to `~/.godot-mcp/instances/`, and the server reads that. Open your project with the
+plugin enabled, and your assistant has the tools.
 
-Open your Godot project with the plugin enabled, and your assistant now has access to
-all the tools.
+**[Installation guide →](docs/installation.md)** — per-platform paths, every environment
+variable, and what each failure actually means.
 
-Per-platform paths, every environment variable, and what each failure means:
-**[docs/installation.md](docs/installation.md)**.
+## Trimming the tool list
+
+`tools/list` is loaded into the model's context before you ask anything, so its size is
+paid every session whether or not a tool is called. All 163 tools cost about **27.7k
+tokens**. If you never touch particles, tilemaps or themes, don't carry their schemas:
+
+```bash
+GODOT_MCP_PROFILE=core       # 115 tools, ~17.4k tokens (-40%)
+GODOT_MCP_CATEGORIES=project,scene,node,script,editor    # or pick exactly what you want
+```
+
+Set them in the `env` block of your client config; the default is everything. Which
+categories `core` keeps, and the slug for each:
+[installation guide](docs/installation.md#choosing-which-tools-to-register).
 
 ## Testing
 
-Six layers, fastest first. The first three together cost about ten seconds and need no
-editor, so run them before reaching for the suite:
+Six layers, fastest first. The first three cost about ten seconds together and need no
+editor, so run them before reaching for the suite.
 
-```bash
-cd server && npm test              # ~1 s   544 tests: version/timeout/bridge logic, 163 tool schemas, platform layer
-node e2e/unit.mjs                  # ~2 s   80 checks: plugin coercion rules, headless GDScript
-node e2e/check-syntax.mjs          # ~6 s   every plugin script compiles, names file and line
-node e2e/run.mjs --godot 4.4.1     # ~4 min the full suite below
-node e2e/multi-session.mjs         # ~40 s  two sessions on one editor, queueing, token checks
-node e2e/reconnect.mjs             # ~60 s  a session surviving an editor restart
-```
+| Command (from the repo root) | Covers | Time |
+|---|---|---|
+| `cd server && npm test` | version/timeout/bridge logic, 163 tool schemas, generated docs | ~1 s |
+| `node e2e/unit.mjs` | plugin coercion rules, headless GDScript | ~2 s |
+| `node e2e/check-syntax.mjs` | every plugin script compiles, names file and line | ~6 s |
+| `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
+| `node e2e/multi-session.mjs` | two sessions on one editor, queueing, token checks | ~40 s |
+| `node e2e/reconnect.mjs` | a session surviving an editor restart | ~60 s |
+
+The end-to-end suite downloads a Godot distribution, generates a throwaway project, boots
+the editor, runs every tool through the full MCP stack, writes a report and cleans up. It
+runs on Windows, Linux and macOS; CI exercises the fast layers on all three and the
+headless suite on Linux and Windows.
 
 The parse gate earns its place: a typo in any one plugin file stops `plugin.gd` compiling,
 so *every* tool disappears and the only symptom the suite reports is `Tool not found`.
 
-**End-to-end suite** — downloads a Godot distribution, generates a throwaway project,
-boots the editor, runs every tool through the full MCP stack, writes a report, and
-cleans up:
+Flags, exit codes and design:
+[docs/e2e_test_infrastructure.md](docs/e2e_test_infrastructure.md). The executable spec is
+`e2e/blocks/*.json`; [docs/mcp_test_plan.md](docs/mcp_test_plan.md) is the original prose
+plan, kept for background and stale in places.
 
-```bash
-node e2e/run.mjs --godot 4.4.1
-```
+## Security
 
-Useful flags: `--blocks 3,9` (run specific blocks), `--test AT-03` (single test),
-`--headless` (rendering-dependent tests auto-skip), `--godot 4.4.1,4.7.2` (version
-matrix), `--port 6510` (pin the editor to a known port), `--keep-work` (keep the
-generated project for debugging). Exit codes are CI-friendly: `0` all pass, `1` test
-failures, `2` infrastructure error.
-
-Runs on Windows, Linux and macOS — the platform differences (release archive, extraction,
-killing the editor's process tree) live in `e2e/lib/platform/`. CI exercises the fast layers
-on all three, and the headless suite plus the multi-session and reconnect checks on Linux and Windows.
-
-Design and internals: [docs/e2e_test_infrastructure.md](docs/e2e_test_infrastructure.md).
-The executable spec is `e2e/blocks/*.json`; [docs/mcp_test_plan.md](docs/mcp_test_plan.md) is
-the original prose plan, kept for background and stale in places.
+The bridge binds `127.0.0.1` and a client must present the token from the discovery file.
+Both matter: WebSocket is exempt from same-origin, so any web page you have open may
+connect to `ws://127.0.0.1:<port>`, and `execute_script` runs arbitrary GDScript in your
+editor. A page cannot read the token off disk, which is what closes that door. Setting
+`GODOT_MCP_HOST` to attach across machines removes the first of those two defences — do it
+only on a network you control.
 
 ## Project structure
 
@@ -169,75 +145,35 @@ godot_mcp_tool/
 ├── server/               # Node.js MCP server (TypeScript)
 │   └── src/tools/        # Tool categories
 ├── e2e/                  # End-to-end test runner + block definitions
-├── docs/                 # E2E design, and the changelog of closed work
+├── docs/                 # API reference, installation, e2e design, changelog
 └── progress.md           # Open tasks (closed ones: docs/changelog.md)
 ```
 
-### Development
-
-```bash
-cd server
-npm run build      # compile TypeScript
-npm run watch      # compile in watch mode
-npm run lint       # ESLint
-npm test           # 544 unit tests (vitest), ~1 s
-```
-
-The six test layers are described under [Testing](#testing).
-
-## Clients
-
-Works with any MCP-compatible client. Tested primarily with Claude Code / Claude Desktop;
-the tool set also fits Cursor and Windsurf.
-
-### Trimming the tool list
-
-`tools/list` is loaded into the model's context before you ask anything, so its size is
-paid every session whether or not a tool is called. All 163 tools cost about **27.7k
-tokens**. If you never touch particles, tilemaps or themes, don't carry their schemas:
-
-```bash
-GODOT_MCP_PROFILE=core                       # 115 tools, ~17.4k tokens (-40%)
-GODOT_MCP_CATEGORIES=project,scene,node,script,editor   # or pick exactly what you want
-```
-
-`core` keeps project, scene, node, script, editor, input, runtime, animation, scene-3d,
-physics, shader, resource, batch and analysis. Set them in the `env` block of your
-`.mcp.json`. The default is everything.
-
 ## Status
 
-- All 163 tools implemented (23 categories)
-- Godot 4.4.1 and 4.7.2 compatibility verified — plugin loads clean, all tools registered
-- End-to-end suite green: **249/249 tests, 163/163 tools covered** on both 4.4.1 and 4.7.2
-- Generated [API reference](docs/api/README.md) and [installation guide](docs/installation.md)
-- Planned: npm packaging, and verifying the tool set against Cursor and Windsurf — see [progress.md](progress.md)
-- What has already shipped, and why each decision was made: [docs/changelog.md](docs/changelog.md)
+- All 163 tools implemented, across 23 categories
+- End-to-end suite green: **249/249 tests, 163/163 tools covered** on Godot 4.4.1 and 4.7.2
+- Open work: [progress.md](progress.md). What shipped and why each decision was made:
+  [docs/changelog.md](docs/changelog.md)
+
+Tested primarily with Claude Code and Claude Desktop. Nothing in the server is
+client-specific and the tool set fits Cursor and Windsurf, but neither has been run
+against a live editor here yet.
 
 ## Troubleshooting
 
-The common cases are below; the fuller list, with what each symptom actually means, is in
-[docs/installation.md](docs/installation.md#troubleshooting).
-
-**Connection issues** — confirm the editor is open with the plugin enabled, and look in
-the Godot Output panel for `[Godot MCP] Listening on …`. That line names the port and the
-discovery file; if it is absent the plugin never started. If it is present but the
-assistant still cannot connect, check that `~/.godot-mcp/instances/` holds a matching
-entry.
+**No `[Godot MCP] Listening on …` in the Godot Output panel** — the plugin never started.
+Check it is enabled in Project Settings → Plugins.
 
 **"N Godot editors are running…"** — two or more projects are open and the working
-directory does not identify one. Set `GODOT_MCP_PORT` and `GODOT_MCP_TOKEN` from the
-entry you want.
+directory does not identify one. Set `GODOT_MCP_PORT` and `GODOT_MCP_TOKEN` from the entry
+you want in `~/.godot-mcp/instances/`.
 
-**The bridge is loopback-only and authenticated** — it binds `127.0.0.1`, and a client
-must present the token from the discovery file. Both matter: WebSocket is exempt from
-same-origin, so any web page you have open may connect to `ws://127.0.0.1:<port>`, and
-`execute_script` runs arbitrary GDScript. A page cannot read the token off disk, which is
-what closes that door. To attach an editor on another machine set `GODOT_MCP_HOST` on
-both ends, and only on a network you control.
+**"Tool not found"** — the plugin is not enabled, the server was not rebuilt
+(`server/dist/index.js` must exist), or the tool's category is not registered.
 
-**Tool not found** — verify the plugin is enabled and the server built successfully
-(`server/dist/index.js` exists).
+The full list, with what each symptom means:
+[installation guide](docs/installation.md#troubleshooting).
 
 ## Contributing
 
