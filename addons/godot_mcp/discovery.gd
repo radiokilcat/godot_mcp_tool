@@ -47,7 +47,13 @@ static func generate_token() -> String:
 	return crypto.generate_random_bytes(32).hex_encode()
 
 ## Write (or replace) this editor's entry. Returns the file path, or "" on failure.
-static func publish(port: int, token: String, plugin_version: String) -> String:
+## `is_private` marks an editor that was told which port to listen on, which in
+## practice means a harness launched it. The entry is still written — the harness
+## reads the token straight out of it — but a session doing ordinary discovery
+## skips it. Without that, a throwaway e2e editor is the only one running, so any
+## idle MCP session on the machine picks it up and starts issuing calls into a
+## project that is about to be deleted.
+static func publish(port: int, token: String, plugin_version: String, is_private: bool = false) -> String:
 	var dir_path := instances_dir()
 	var dir := DirAccess.open(_home_dir())
 	if dir == null:
@@ -69,6 +75,7 @@ static func publish(port: int, token: String, plugin_version: String) -> String:
 		"godot_version": Engine.get_version_info().get("string", ""),
 		"plugin_version": plugin_version,
 		"started_at": Time.get_datetime_string_from_system(true),
+		"private": is_private,
 	}
 
 	var file := FileAccess.open(file_path, FileAccess.WRITE)

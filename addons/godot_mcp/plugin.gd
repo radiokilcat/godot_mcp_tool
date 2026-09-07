@@ -57,6 +57,11 @@ func _initialize_plugin() -> void:
 	var env_port := OS.get_environment("GODOT_MCP_PORT")
 	if env_port.is_valid_int():
 		listen_port = int(env_port)
+	# A *named* port means a harness owns this editor, and the discovery entry is
+	# marked private so no ambient session attaches to it. Port 0 is the opposite
+	# request -- "pick one for me" -- and the reconnect test sets exactly that,
+	# because it needs the client to find this editor by discovery alone.
+	var port_was_pinned := env_port.is_valid_int() and int(env_port) > 0
 
 	# Same override the server reads, so both ends stay on one address
 	var env_host := OS.get_environment("GODOT_MCP_HOST")
@@ -81,7 +86,7 @@ func _initialize_plugin() -> void:
 		push_error("%s Could not listen on %s:%d — %s" % [LOG_PREFIX, listen_host, listen_port, error_string(err)])
 	else:
 		listen_port = ws_server.get_port()
-		_discovery_path = GodotMCPDiscovery.publish(listen_port, _token, VERSION)
+		_discovery_path = GodotMCPDiscovery.publish(listen_port, _token, VERSION, port_was_pinned)
 		if _discovery_path.is_empty():
 			push_error("%s Listening on %d but could not publish the discovery file; set GODOT_MCP_PORT and GODOT_MCP_TOKEN on the MCP server to connect." % [LOG_PREFIX, listen_port])
 		else:

@@ -24,7 +24,7 @@ Set a tile at a specific cell position in a TileMap layer. Use get_tileset_info 
 ```json
 {
   "node_path": "TileMap",
-  "coords": "Vector2i(0, 0)",
+  "coords": "Vector2i(3, 1)",
   "source_id": 0
 }
 ```
@@ -64,12 +64,12 @@ Get the tile data at a specific cell position. Returns source_id, atlas_coords, 
 | `layer` | `integer` | — | TileMap layer index (default: 0) |
 | `coords` | `array` | yes | Cell coordinates as [column, row] Array items are `integer`. |
 
-**Example** — the call the suite makes, from `e2e/blocks/15-tilemap.json`, test TM-04:
+**Example** — the call the suite makes, from `e2e/blocks/15-tilemap.json`, test TM-03 (verify):
 
 ```json
 {
   "node_path": "TileMap",
-  "coords": "Vector2i(0, 0)"
+  "coords": "Vector2i(3, 1)"
 }
 ```
 
@@ -104,7 +104,7 @@ Remove the tile at a specific cell position, leaving it empty. Fully undoable.
 ```json
 {
   "node_path": "TileMap",
-  "coords": "Vector2i(0, 0)"
+  "coords": "Vector2i(3, 1)"
 }
 ```
 

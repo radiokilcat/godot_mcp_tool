@@ -114,7 +114,8 @@ Create and assign a StyleBox to a named slot for a specific Control type in a Th
   "stylebox_name": "normal",
   "stylebox_type": "flat",
   "properties": {
-    "bg_color": "#334455"
+    "bg_color": "#334455",
+    "shadow_offset": "Vector2(4, 6)"
   }
 }
 ```

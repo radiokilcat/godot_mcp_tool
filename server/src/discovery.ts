@@ -24,6 +24,12 @@ export interface GodotInstance {
   pid: number;
   godotVersion: string;
   pluginVersion: string;
+  /**
+   * The editor was launched with its port pinned, which in practice means a test
+   * harness owns it. Such an editor still publishes — the harness reads its token
+   * from the entry — but ordinary discovery must not select it.
+   */
+  isPrivate: boolean;
   /** Where this came from, for error messages. */
   source: string;
 }
@@ -57,6 +63,7 @@ export function readInstances(dir = instancesDir()): GodotInstance[] {
         pid: Number(raw.pid ?? 0),
         godotVersion: String(raw.godot_version ?? ""),
         pluginVersion: String(raw.plugin_version ?? ""),
+        isPrivate: raw.private === true,
         source: path,
       });
     } catch {
@@ -102,7 +109,23 @@ export function selectInstance(
   instances: GodotInstance[],
   cwd = process.cwd()
 ): { instance: GodotInstance } | { error: string } {
-  if (instances.length === 0) {
+  // An editor whose port was pinned belongs to whoever pinned it. Attaching to one
+  // by accident is not harmless: a harness editor drives a generated project that
+  // is deleted at the end of the run, and the calls an ambient session makes into
+  // it land in the middle of somebody's test.
+  const hidden = instances.filter((i) => i.isPrivate);
+  const visible = instances.filter((i) => !i.isPrivate);
+
+  if (visible.length === 0) {
+    if (hidden.length > 0) {
+      return {
+        error:
+          `${hidden.length} Godot editor(s) are running, but each was started with its port ` +
+          "pinned, so it belongs to a test harness rather than to discovery. Open the project " +
+          "you want to drive in a normal editor, or set GODOT_MCP_PORT and GODOT_MCP_TOKEN to " +
+          "attach to one deliberately.",
+      };
+    }
     return {
       error:
         "No running Godot editor found. Open your project with the Godot MCP plugin enabled — " +
@@ -110,19 +133,19 @@ export function selectInstance(
         "To bypass discovery, set GODOT_MCP_PORT (and GODOT_MCP_TOKEN if the editor requires one).",
     };
   }
-  if (instances.length === 1) return { instance: instances[0] };
+  if (visible.length === 1) return { instance: visible[0] };
 
-  const matches = instances.filter(
+  const matches = visible.filter(
     (i) => within(i.projectPath, cwd) || within(cwd, i.projectPath)
   );
   if (matches.length === 1) return { instance: matches[0] };
 
-  const listed = instances
+  const listed = visible
     .map((i) => `  - ${i.projectName || "(unnamed)"} on port ${i.port} — ${i.projectPath}`)
     .join("\n");
   return {
     error:
-      `${instances.length} Godot editors are running and none matches this working directory ` +
+      `${visible.length} Godot editors are running and none matches this working directory ` +
       `(${cwd}), so the target is ambiguous:\n${listed}\n` +
       "Set GODOT_MCP_PORT and GODOT_MCP_TOKEN to choose one.",
   };
@@ -144,6 +167,8 @@ export function resolveTarget(cwd = process.cwd()): { instance: GodotInstance } 
         pid: 0,
         godotVersion: "",
         pluginVersion: "",
+        // Pinned by hand, so it never goes through the visibility filter below.
+        isPrivate: false,
         source: "GODOT_MCP_PORT",
       },
     };
