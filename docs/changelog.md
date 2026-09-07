@@ -12,7 +12,34 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-06 (**5.1 and 5.3 done — the API reference is generated, and its
+**Last Updated:** 2026-09-07 (**A release-readiness pass found the coverage claim overstates what
+is checked, and the first category re-tested produced a real bug.** "163/163 tools covered" means
+*called*: 20 tools had no asserting test at all, only `allowError: true`, which passes whether the
+tool works or errors — and nine of them sit in rendering blocks CI skips entirely (headless is 207
+of 253). Rebuilding the **TileMap** block turned up that its fixture was a `TileMapLayer` with no
+`TileSet`, so the write tools were passing on their own refusal, and `get_tileset_info` was worse
+than an error: it answers `has_tileset: false` as an ordinary **success**. With a real atlas in
+place, `fill_tiles` over a 3x3 region reported success and filled **one** cell —
+`tilemap_tools._parse_vec2i` knew `Vector2i`, `Array` and `Dictionary` but **not `String`**, so
+`"Vector2i(2, 2)"` fell through to the default `(0, 0)`. The same gap sat in
+`theme_tools._parse_vec2` and in every vector branch of `resource_tools._parse_prop_value`, where
+the string form is implemented for colours and was forgotten for vectors — the string reached
+`.set()`, Godot refused it, the property kept its old value and the tool answered success. All
+three now delegate to `GodotMCPTypeUtils`: the divergence 9.3 meant to remove and missed, and
+exactly the 6.6.14 class. It survived this long because the whole block wrote to cell (0, 0), the
+very value the bug produced, so the tests passed either way; they now write to (3, 1) and assert
+the coordinates the tool echoes back. Separately, **discovery was handing harness editors to
+ambient sessions** — a throwaway e2e editor is the only one running, so every idle MCP session on
+the machine attached to a project about to be deleted; entries from a pinned port are now marked
+private and skipped by `selectInstance`, with port 0 deliberately not counting as pinned because
+`reconnect.mjs` depends on discovery finding it. And one thing is recorded **unfixed**: four
+game-related tests timed out for four consecutive runs and then stopped, with the suite now 253/253.
+`stop_playing_scene()` measures 59-95 ms, so the tool body is not the stall; the bridge is polled
+from the editor's main loop, so a stall there silences everything. The tempting correlation — a
+second MCP client — did not survive, since the suite later went green with five attached. E2E
+**253/253**, 552 server unit tests, reconnect 9/9.)
+
+**Previously:** 2026-09-06 (**5.1 and 5.3 done — the API reference is generated, and its
 examples are executed.** `docs/api/` is an index plus a page per category covering all 163 tools,
 rendered from the tool definitions by `npm run docs`, because a hand-written page for 163 tools is
 stale the day after it is written and wrong documentation is worse than none: an agent that reads a

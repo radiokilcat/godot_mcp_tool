@@ -22,8 +22,8 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
   Run them all before calling a change done; the first three cost about 10 seconds together.
 
-- **E2E: 249 passed / 0 failed, 163/163 tools exercised**, green on Godot **4.4.1** and **4.7.2**;
-  549 server unit tests and 94 GDScript ones alongside. `e2e/blocks/*.json` is the executable
+- **E2E: 253 passed / 0 failed, 163/163 tools exercised** on Godot **4.4.1**; 552 server unit tests
+  and 94 GDScript ones alongside. **Coverage means "called", not "checked" for 17 tools** — see 6.7. `e2e/blocks/*.json` is the executable
   spec, not docs/mcp_test_plan.md — and since 5.1 it is also where the API reference's examples
   come from, so a stale example fails the suite.
 - **CI runs every layer and is green** (.github/workflows/ci.yml): the fast three on Linux, Windows
@@ -381,6 +381,84 @@ because its one real advantage — shared server-side state — does not exist h
 
 *(6.2, 6.3, 6.4 and the whole 6.6 field report are closed — see the changelog. 6.4 built the
 E2E infrastructure; 6.6 is the field report whose 15 fixes the current behaviour rests on.)*
+
+---
+
+### [ ] 6.7 - Turn the non-asserting e2e tests into real ones (opened 2026-09-07)
+A release-readiness pass found that **"163/163 tools covered" means "called", not "checked"**:
+20 tools had no asserting test at all, only `allowError: true`, which passes whether the tool
+works or returns an error. Nine of those sit in blocks that require rendering, so **CI never runs
+them either** — headless is 207 of 253. This is the same shape as the vacuous coverage 6.1.4 found
+in `refactor_signals` and 6.2b.1 found in `delete_animation_tree_node`, and it has now produced a
+real bug on its first attempt, as both of those did.
+- [x] 6.7.1 - **TileMap. Done 2026-09-07 — and it found the string-coercion gap (6.7.2).** The
+  fixture was a `TileMapLayer` with no `TileSet`, so every write tool answered "has no TileSet
+  assigned" and the tests passed on the refusal. `get_tileset_info` was worse than an error: it
+  answers `has_tileset: false` as an ordinary **success**, so that test passed while reporting the
+  fixture was empty. Setup now builds a real single-tile atlas through `execute_script`, and the
+  block is 8 asserting tests including an on-disk check. Writes moved off cell (0, 0) deliberately
+  — see 6.7.2 for why that mattered.
+- [x] 6.7.2 - **The string vector shorthand was ignored in three files (found and fixed
+  2026-09-07).** `fill_tiles` over a 3x3 region reported `success` and filled **one** cell. Not the
+  loop: `tilemap_tools._parse_vec2i` handled `Vector2i`, `Array` and `Dictionary` but **not
+  `String`**, so `"Vector2i(2, 2)"` fell through to the default `(0, 0)` and the rectangle
+  collapsed onto its own corner.
+  - **The same gap was in two more copies**: `theme_tools._parse_vec2` (a `shadow_offset` sent as a
+    string silently became `(0, 0)`) and `resource_tools._parse_prop_value`, where the string form
+    is implemented for **colours** and was missing from every vector branch — the string reached
+    `.set()`, Godot refused it, the property kept its old value and the tool reported success.
+  - All three now delegate to `GodotMCPTypeUtils`. This is exactly the divergence 9.3 set out to
+    remove and missed, and the bug class 6.6.14 named: the plugin coerces to the default and
+    reports success. It also contradicted the README's headline "Smart type parsing".
+  - **Why it survived**: the whole TileMap block wrote to cell (0, 0) — the very value the bug
+    produced — so the tests passed whether the coordinate was understood or discarded. The tests
+    now write to (3, 1) and assert the coordinates the tool echoes back, which names the parser
+    directly instead of leaving a cell count to be explained. Each fix verified to fail without it.
+- [ ] 6.7.3 - 17 soft tests left: input (2), runtime (7), animation-tree (2), navigation (2),
+  audio (2), testing (3). Seven are in blocks CI does not run at all.
+- **Priority:** HIGH — this is the last thing between the suite and the coverage claim the README
+  makes, and it is finding real defects at a rate of one per category attempted.
+
+### [ ] 6.8 - `stop_scene` intermittently times out on a windowed run (2026-09-07)
+Four tests (S-09b, E-03c, I-01, R-01 — all around a played game) failed with `e2e client timeout
+after 30000ms` across four consecutive runs, then stopped reproducing and have not returned:
+the full suite is **253/253**. Recorded rather than closed, because nothing was fixed and the
+cause is unknown.
+
+**Measured, not inferred:**
+- **The tool body is not the stall.** Instrumented, `EditorInterface.stop_playing_scene()` returns
+  in 59-95 ms. The call still timed out at 30 s, and the *next* call took 8-11 s.
+- **The bridge is polled from the editor's main loop** (`websocket_server.gd:_process`), so any
+  main-loop stall silences every call rather than slowing one. A frame-gap probe caught an 836 ms
+  stall right after a game stops, in a run that passed.
+- **A tempting correlation that did not survive.** Every failing run had a second MCP client
+  attached and the first passing one had a single client — but the suite later went green with
+  **five** attached. The second client is not the cause.
+
+**Not to be tried again without evidence:** blaming `_stop_scene`, which is two lines, or the
+client count. The next lead worth instrumenting is what the editor does on the main thread after a
+game exits — a filesystem rescan is the obvious suspect, given every write path calls
+`scan()` (9.6b.1).
+
+*(6.9 below is the isolation hole this investigation turned up, which is real and was fixed —
+but it is not the explanation for the above.)*
+
+### [x] 6.9 - Discovery handed harness editors to ambient sessions — closed 2026-09-07
+Found while investigating 6.8: the plugin publishes its discovery entry **always**, including when
+a harness pinned `GODOT_MCP_PORT`. A throwaway e2e editor is then the only editor running, so
+`selectInstance` hands it to every idle MCP session on the machine — confirmed in the editor log
+(`MCP client 2 connected`) and by two long-lived `server/dist/index.js` processes belonging to the
+developer's own client.
+- **Fixed by marking, not by hiding.** The entry still carries port and token, because the harness
+  reads them straight out of it; it now also carries `private: true`, and `selectInstance` drops
+  such entries before it counts. An all-private registry gets an error saying so rather than "no
+  editor found".
+- **Port 0 is not pinning.** `reconnect.mjs` launches with `GODOT_MCP_PORT=0` — "choose one for me"
+  — precisely so the client has to find the editor by discovery. Treating any set variable as
+  pinning would have broken that test; only a port above zero counts. Caught before committing,
+  and reconnect is 9/9.
+- Three unit tests cover the rule; the calls an ambient session makes into a generated project that
+  is deleted at the end of a run are the reason it is worth having.
 
 ---
 
