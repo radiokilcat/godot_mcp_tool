@@ -617,13 +617,22 @@ multi-session / 9 reconnect — all reconfirmed this session, not assumed from t
 
 ## Phase 8: Release Preparation
 
-### [ ] 8.1 - Version 1.0 Release
-- [ ] Final testing
-- [ ] Create changelog
-- [ ] Create release notes
-- [ ] Tag version 1.0
-- **Priority:** HIGH
-- **Effort:** 2-3 hours
+### [x] 8.1 - Version 1.0 Release — closed 2026-09-08
+- [x] Final testing — all six layers re-run in one sitting immediately before tagging, not
+  assumed from an earlier session: 552 server unit tests, 94 GDScript unit checks, the 32-script
+  parse gate, **e2e 261/261 on Godot 4.4.1**, multi-session 11/11, reconnect 9/9.
+- [x] Create changelog — dated entry in [docs/changelog.md](docs/changelog.md).
+- [x] Create release notes — [RELEASE_NOTES.md](RELEASE_NOTES.md).
+- [x] Tag version 1.0 — annotated tag `v1.0.0`, **local only**. `server/package.json` and
+  `addons/godot_mcp/plugin.cfg` were already at `1.0.0`; nothing to bump.
+- **Not pushed and no GitHub Release was created** — this pass was scoped to local prep plus the
+  tag; pushing the tag/commit and cutting the GitHub Release on `origin` is a separate, explicit
+  step for whoever is ready to make it public.
+- **Known gaps recorded, not fixed, going into this tag** (all pre-existing, all in
+  RELEASE_NOTES.md): CI's version matrix is one Godot version; Cursor/Windsurf remain unverified
+  (4.2/5.2 still open); `minGodotVersion`/`maxGodotVersion` is wired up but no tool uses it; 6.8's
+  intermittent timeout is unresolved.
+- **Priority:** DONE.
 
 ### [ ] 8.2 - Create Example Projects
 - [ ] Simple 2D game example

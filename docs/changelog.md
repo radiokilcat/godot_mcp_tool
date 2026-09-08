@@ -12,7 +12,23 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-07 (**A release-readiness pass found the coverage claim overstates what
+**Last Updated:** 2026-09-08 (**Tagged v1.0.0.** Every one of the six test layers was re-run in one
+sitting immediately before tagging, rather than trusting the previous session's numbers: 552 server
+unit tests, 94 GDScript unit checks, the 32-script parse gate, **e2e 261/261 on Godot 4.4.1**,
+multi-session 11/11, reconnect 9/9 — all green. Folded in along the way was the rest of the
+release-readiness pass recorded in progress.md's 6.7.3 and 6.10: `set_variable_value` gained the
+same existence check `get_variable_value` already had (it was silently no-opping on an unset
+property, `success: true` and all), the remaining 18 soft e2e assertions across input, runtime,
+animation-tree, navigation, audio and testing became real ones, and a spot-check on Godot 4.2.2
+found the undo-verification *probe* — not the plugin — needs 4.3+, so `24-undo.json` and two
+animation-tree tests now gate on that instead of failing on older engines. `server/package.json`
+and `addons/godot_mcp/plugin.cfg` were already at `1.0.0`; nothing to bump. See
+[RELEASE_NOTES.md](../RELEASE_NOTES.md) for the user-facing summary. 6.8 (an intermittent
+`stop_scene` timeout, cause unknown) stays open and unresolved — it is not blocking, since it
+disappeared as suddenly as it appeared and every game-related test is currently passing, but it is
+not to be mistaken for fixed.)
+
+**Previously:** 2026-09-07 (**A release-readiness pass found the coverage claim overstates what
 is checked, and the first category re-tested produced a real bug.** "163/163 tools covered" means
 *called*: 20 tools had no asserting test at all, only `allowError: true`, which passes whether the
 tool works or errors — and nine of them sit in rendering blocks CI skips entirely (headless is 207
