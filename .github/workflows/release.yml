@@ -1,0 +1,55 @@
+name: Release
+
+# Runs when a version tag is pushed (git tag v1.0.0 && git push origin v1.0.0).
+# Builds the server from the exact commit the tag points at, packages it as a
+# ready-to-run zip (no TypeScript/build step needed on the user's side, just
+# Node.js), packages the Godot plugin the same way, and attaches both to the
+# GitHub Release for that tag — creating the release if it doesn't exist yet.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+        working-directory: server
+      - run: npm test
+        working-directory: server
+      - run: npm run build
+        working-directory: server
+      # Re-install with devDependencies (typescript, vitest, eslint, ...)
+      # pruned out — the zip should only carry what dist/index.js needs at
+      # runtime, not the toolchain that built it.
+      - run: npm ci --omit=dev
+        working-directory: server
+
+      - name: Package the MCP server
+        run: |
+          mkdir -p ../release
+          zip -r "../release/godot-mcp-server-${GITHUB_REF_NAME}.zip" dist node_modules package.json
+        working-directory: server
+
+      - name: Package the Godot plugin
+        run: |
+          mkdir -p release
+          zip -r "release/godot-mcp-addon-${GITHUB_REF_NAME}.zip" addons/godot_mcp
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.zip
+          body_path: RELEASE_NOTES.md
+          fail_on_unmatched_files: true
