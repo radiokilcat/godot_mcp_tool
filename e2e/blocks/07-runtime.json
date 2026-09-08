@@ -6,6 +6,7 @@
     { "tool": "create_scene", "args": { "name": "RuntimeRoot", "root_type": "Node2D", "path": "res://test_runtime.tscn" } },
     { "tool": "open_scene", "args": { "scene_path": "res://test_runtime.tscn" } },
     { "tool": "add_node", "args": { "parent_path": ".", "node_type": "Button", "node_name": "TestBtn" } },
+    { "tool": "add_node", "args": { "parent_path": ".", "node_type": "Timer", "node_name": "PulseTimer" } },
     { "tool": "execute_script", "args": { "code": "EditorInterface.save_scene()" } },
     { "tool": "play_scene", "args": { "scene_path": "res://test_runtime.tscn" } }
   ],
@@ -96,27 +97,48 @@
     {
       "id": "R-12",
       "tool": "emit_signal",
-      "args": { "node_path": "/root", "signal_name": "child_entered_tree", "args": [] },
-      "allowError": true
+      "comment": "'/root' resolves to the editor's own Window, not anything from this scene (get_edited_scene_root() sits deep under the docks, not literally at /root/<name> — probed live) — TestBtn is a real node in the played scene, and 'pressed' takes no arguments.",
+      "args": { "node_path": "TestBtn", "signal_name": "pressed", "args": [] },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "signal", "op": "eq", "value": "pressed" }
+      ]
+    },
+    {
+      "id": "R-13a",
+      "tool": "call_function",
+      "comment": "Starts PulseTimer (default wait_time=1.0, one_shot=false) so R-13 has a real, deterministic 'timeout' to catch rather than depending on something external firing.",
+      "args": { "node_path": "PulseTimer", "method": "start" },
+      "asserts": [{ "field": "success", "op": "eq", "value": true }]
     },
     {
       "id": "R-13",
       "tool": "listen_to_signal",
-      "args": { "node_path": "/root", "signal_name": "child_entered_tree", "timeout": 2 },
-      "allowError": true,
+      "comment": "PulseTimer ticks every ~1s once started (R-13a); a 3s timeout leaves margin for the tests between start and here.",
+      "args": { "node_path": "PulseTimer", "signal_name": "timeout", "timeout": 3 },
+      "asserts": [
+        { "field": "fired", "op": "eq", "value": true },
+        { "field": "signal", "op": "eq", "value": "timeout" }
+      ],
       "timeoutMs": 20000
     },
     {
       "id": "R-14",
       "tool": "navigate_to_node",
-      "args": { "node_path": "/root" },
-      "allowError": true
+      "args": { "node_path": "TestBtn" },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "selected", "op": "contains", "value": "TestBtn" }
+      ]
     },
     {
       "id": "R-15",
       "tool": "click_ui_element",
-      "args": { "node_path": "/root/RuntimeRoot/TestBtn" },
-      "allowError": true
+      "args": { "node_path": "TestBtn" },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "node_path", "op": "eq", "value": "TestBtn" }
+      ]
     },
     {
       "id": "R-16",
@@ -127,22 +149,52 @@
     {
       "id": "R-17",
       "tool": "record_gameplay",
-      "args": { "duration": 1 },
+      "comment": "Nothing is dispatched during the window (calls are sequential, so nothing can happen concurrently) — asserted directly as the recorder's quiet path, same as I-06.",
+      "args": { "duration": 0.5 },
       "timeoutMs": 20000,
-      "save": { "GP_EVENTS": "events" }
+      "asserts": [
+        { "field": "duration", "op": "eq", "value": 0.5 },
+        { "field": "event_count", "op": "eq", "value": 0 },
+        { "field": "events", "op": "eq", "value": [] }
+      ]
     },
     {
       "id": "R-18",
       "tool": "replay_gameplay",
-      "args": { "events": "$GP_EVENTS" },
-      "allowError": true,
+      "comment": "A fixed events array rather than R-17's (empty) recording, so the replay path itself is exercised.",
+      "args": {
+        "events": [
+          { "type": "key", "key": "B", "pressed": true, "delay": 0 },
+          { "type": "key", "key": "B", "pressed": false, "delay": 0.05 }
+        ]
+      },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "replayed", "op": "eq", "value": 2 }
+      ],
       "timeoutMs": 20000
     },
     {
       "id": "R-19",
       "tool": "set_variable_value",
-      "args": { "node_path": "/root", "variable": "_mcp_test_var", "value": 42 },
-      "allowError": true
+      "comment": "'/root'+'_mcp_test_var' targeted a property that does not exist on the editor Window — GDScript's dynamic set() silently no-ops on an unknown property, so the tool answered success for a write that never happened. TestBtn.text is a real property.",
+      "args": { "node_path": "TestBtn", "variable": "text", "value": "MCP" },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "new_value", "op": "eq", "value": "MCP" }
+      ],
+      "verify": {
+        "tool": "get_variable_value",
+        "args": { "node_path": "TestBtn", "variable": "text" },
+        "asserts": [{ "field": "value", "op": "eq", "value": "MCP" }]
+      }
+    },
+    {
+      "id": "R-19b",
+      "tool": "set_variable_value",
+      "comment": "Regression for the bug R-19 exposed: node.set() on an unknown property is a silent GDScript no-op, so without the existence check this answered success:true and left the node untouched. Verified to fail without the fix (the pre-fix build has no error to expect here).",
+      "args": { "node_path": "TestBtn", "variable": "_mcp_nonexistent_var", "value": 1 },
+      "expectError": true
     }
   ],
   "cleanup": [

@@ -152,7 +152,7 @@ godot_mcp_tool/
 ## Status
 
 - All 163 tools implemented, across 23 categories
-- End-to-end suite green: **249/249 tests, 163/163 tools covered** on Godot 4.4.1 and 4.7.2
+- End-to-end suite green: **261/261 tests, 163/163 tools covered** on Godot 4.4.1 and 4.7.2
 - Open work: [progress.md](progress.md). What shipped and why each decision was made:
   [docs/changelog.md](docs/changelog.md)
 

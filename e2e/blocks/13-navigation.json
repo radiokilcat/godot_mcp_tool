@@ -31,16 +31,36 @@
       "asserts": [{ "field": "", "op": "notEmpty" }]
     },
     {
-      "id": "NAV-05",
-      "tool": "get_navigation_path",
-      "args": { "from": "Vector2(0, 0)", "to": "Vector2(100, 100)", "dimension": "2d" },
-      "allowError": true
+      "id": "NAV-04b",
+      "tool": "execute_script",
+      "comment": "add_navigation_region leaves an empty NavigationPolygon with no outline — bake_navigation would have nothing to build, and get_navigation_path nothing to route across. A real square outline is what makes both of the next two tests observable rather than vacuous.",
+      "args": { "code": "var r := EditorInterface.get_edited_scene_root().get_node(\"NavRegion\")\nvar poly: NavigationPolygon = r.navigation_polygon\npoly.clear_outlines()\npoly.add_outline(PackedVector2Array([Vector2(0, 0), Vector2(200, 0), Vector2(200, 200), Vector2(0, 200)]))\nreturn {\"outline_count\": poly.get_outline_count()}" },
+      "asserts": [{ "field": "result.outline_count", "op": "eq", "value": 1 }]
     },
     {
       "id": "NAV-06",
       "tool": "bake_navigation",
       "args": { "node_path": "NavRegion" },
-      "allowError": true
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "type", "op": "eq", "value": "NavigationRegion2D" }
+      ],
+      "verify": {
+        "tool": "execute_script",
+        "args": { "code": "var r := EditorInterface.get_edited_scene_root().get_node(\"NavRegion\")\nreturn {\"polygon_count\": r.navigation_polygon.get_polygon_count()}" },
+        "asserts": [{ "field": "result.polygon_count", "op": "gte", "value": 1 }]
+      }
+    },
+    {
+      "id": "NAV-05",
+      "tool": "get_navigation_path",
+      "comment": "Runs after the bake (NAV-06) so the region actually has navigable area to route across — otherwise the server has nothing to build a path from and this passes for the wrong reason.",
+      "args": { "from": "Vector2(10, 10)", "to": "Vector2(150, 150)", "dimension": "2d" },
+      "delayMs": 300,
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "point_count", "op": "gte", "value": 2 }
+      ]
     }
   ],
   "cleanup": [

@@ -37,16 +37,37 @@
       "expectError": true
     },
     {
+      "id": "AU-05b",
+      "tool": "execute_script",
+      "comment": "AU-05 is a negative test (nonexistent.ogg), so Player still has no stream — play_audio would have nothing to actually play. A short real AudioStreamWAV is assigned directly so AU-06/AU-07 exercise real playback state, not just the tools' own (unverified) claims.",
+      "args": { "code": "var stream := AudioStreamWAV.new()\nstream.format = AudioStreamWAV.FORMAT_16_BITS\nstream.mix_rate = 44100\nstream.stereo = false\nvar data := PackedByteArray()\ndata.resize(44100)\nstream.data = data\nvar p := EditorInterface.get_edited_scene_root().get_node(\"Player\")\np.stream = stream\nreturn {\"assigned\": p.stream != null}" },
+      "asserts": [{ "field": "result.assigned", "op": "eq", "value": true }]
+    },
+    {
       "id": "AU-06",
       "tool": "play_audio",
+      "comment": "play_audio's 'playing: true' in its own response is hardcoded, not read back from the node — the verify step is what actually proves playback started.",
       "args": { "node_path": "Player" },
-      "allowError": true
+      "asserts": [{ "field": "success", "op": "eq", "value": true }],
+      "verify": {
+        "tool": "get_variable_value",
+        "args": { "node_path": "Player", "variable": "playing" },
+        "asserts": [{ "field": "value", "op": "eq", "value": true }]
+      }
     },
     {
       "id": "AU-07",
       "tool": "stop_audio",
       "args": { "node_path": "Player" },
-      "allowError": true
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "was_playing", "op": "eq", "value": true }
+      ],
+      "verify": {
+        "tool": "get_variable_value",
+        "args": { "node_path": "Player", "variable": "playing" },
+        "asserts": [{ "field": "value", "op": "eq", "value": false }]
+      }
     }
   ],
   "cleanup": [

@@ -34,19 +34,43 @@
     {
       "id": "QA-05",
       "tool": "record_test",
-      "args": { "action": "start", "test_name": "mcp_e2e_rec" }
+      "args": { "action": "start", "test_name": "mcp_e2e_rec" },
+      "asserts": [
+        { "field": "status", "op": "eq", "value": "recording" },
+        { "field": "test_name", "op": "eq", "value": "mcp_e2e_rec" }
+      ]
+    },
+    {
+      "id": "QA-05b",
+      "tool": "record_test",
+      "comment": "record_test only captures events pushed through action='add_event' — unlike input_tools' record_input_sequence, it does not listen for real input. Without this, QA-06/QA-07 would just be exercising the empty-recording path.",
+      "args": { "action": "add_event", "event": { "type": "wait", "seconds": 0.05 } },
+      "asserts": [
+        { "field": "status", "op": "eq", "value": "event_added" },
+        { "field": "event_count", "op": "eq", "value": 1 }
+      ]
     },
     {
       "id": "QA-06",
       "tool": "record_test",
       "args": { "action": "stop" },
+      "asserts": [
+        { "field": "status", "op": "eq", "value": "stopped" },
+        { "field": "test_name", "op": "eq", "value": "mcp_e2e_rec" },
+        { "field": "event_count", "op": "eq", "value": 1 }
+      ],
       "save": { "REC_EVENTS": "events" }
     },
     {
       "id": "QA-07",
       "tool": "replay_test",
       "args": { "events": "$REC_EVENTS" },
-      "allowError": true,
+      "asserts": [
+        { "field": "replayed", "op": "eq", "value": 1 },
+        { "field": "total", "op": "eq", "value": 1 },
+        { "field": "status", "op": "eq", "value": "pass" },
+        { "field": "errors", "op": "eq", "value": [] }
+      ],
       "timeoutMs": 20000
     },
     {

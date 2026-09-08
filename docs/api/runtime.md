@@ -77,7 +77,7 @@ Record gameplay input events for a duration (game must be running)
 
 ```json
 {
-  "duration": 1
+  "duration": 0.5
 }
 ```
 
@@ -94,7 +94,20 @@ Replay a previously recorded gameplay session (game must be running)
 
 ```json
 {
-  "events": "$GP_EVENTS"
+  "events": [
+    {
+      "type": "key",
+      "key": "B",
+      "pressed": true,
+      "delay": 0
+    },
+    {
+      "type": "key",
+      "key": "B",
+      "pressed": false,
+      "delay": 0.05
+    }
+  ]
 }
 ```
 
@@ -110,7 +123,7 @@ Select and scroll to a node in the editor's Scene panel
 
 ```json
 {
-  "node_path": "/root"
+  "node_path": "TestBtn"
 }
 ```
 
@@ -127,7 +140,7 @@ Simulate a click on a UI Control node (calls press() for buttons or emits gui_in
 
 ```json
 {
-  "node_path": "/root/RuntimeRoot/TestBtn"
+  "node_path": "TestBtn"
 }
 ```
 
@@ -248,9 +261,9 @@ Set the value of a node property or exported variable at runtime
 
 ```json
 {
-  "node_path": "/root",
-  "variable": "_mcp_test_var",
-  "value": 42
+  "node_path": "TestBtn",
+  "variable": "text",
+  "value": "MCP"
 }
 ```
 
@@ -285,8 +298,8 @@ Emit a signal on a node with optional arguments
 
 ```json
 {
-  "node_path": "/root",
-  "signal_name": "child_entered_tree",
+  "node_path": "TestBtn",
+  "signal_name": "pressed",
   "args": []
 }
 ```
@@ -305,8 +318,8 @@ Wait for a signal to fire on a node (async, with timeout)
 
 ```json
 {
-  "node_path": "/root",
-  "signal_name": "child_entered_tree",
-  "timeout": 2
+  "node_path": "PulseTimer",
+  "signal_name": "timeout",
+  "timeout": 3
 }
 ```

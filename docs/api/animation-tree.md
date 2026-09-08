@@ -89,7 +89,16 @@ Set the tree_root of an AnimationTree to a new AnimationNodeBlendTree, optionall
 
 ```json
 {
-  "node_path": "AT"
+  "node_path": "AT",
+  "nodes": [
+    {
+      "name": "n1",
+      "type": "animation",
+      "animation": "RESET",
+      "x": 10,
+      "y": 20
+    }
+  ]
 }
 ```
 
@@ -143,12 +152,14 @@ Add, remove, reposition, or list blend points in a BlendSpace1D or BlendSpace2D 
 | `x` | `number` | — | X position on the 2D blend plane (BlendSpace2D only) |
 | `y` | `number` | — | Y position on the 2D blend plane (BlendSpace2D only) |
 
-**Example** — the call the suite makes, from `e2e/blocks/09-animation-tree.json`, test AT-08:
+**Example** — the call the suite makes, from `e2e/blocks/09-animation-tree.json`, test AT-08b:
 
 ```json
 {
-  "node_path": "AT",
-  "action": "list_points"
+  "node_path": "AT2",
+  "action": "add_point",
+  "animation": "RESET",
+  "pos": 0.5
 }
 ```
 

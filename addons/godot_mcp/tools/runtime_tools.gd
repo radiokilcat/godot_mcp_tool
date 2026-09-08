@@ -430,6 +430,8 @@ func _set_variable_value(args: Dictionary) -> Dictionary:
 	var node := _resolve_node(node_path)
 	if node == null:
 		return {"error": "Node not found: %s" % node_path}
+	if not variable in node.get_property_list().map(func(p): return p.name):
+		return {"error": "Property '%s' not found on node" % variable}
 	var old_val = node.get(variable)
 	node.set(variable, args.get("value"))
 	return {

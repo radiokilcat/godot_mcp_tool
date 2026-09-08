@@ -1,6 +1,8 @@
 {
   "block": 24,
   "name": "UndoRedo (Ctrl+Z)",
+  "requires": { "minGodot": "4.3" },
+  "comment": "Not the tools under test (_plugin.get_undo_redo(), which is the ordinary EditorPlugin API and works from 4.0) — the verification method. Every undo/redo in this block is driven by execute_script calling EditorInterface.get_editor_undo_redo(), added in Godot 4.3; on 4.2.2 that's a 'Static function not found' engine error, and everything downstream (a probe's effect never happening) cascades into unrelated-looking failures like 'Node not found: Keeper'. Found live 2026-09-07 running this suite against 4.2.2 for a release-readiness check.",
   "setup": [
     { "tool": "create_scene", "args": { "name": "Root", "root_type": "Node2D", "path": "res://test_undo.tscn" } },
     { "tool": "open_scene", "args": { "scene_path": "res://test_undo.tscn" } },

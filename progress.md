@@ -22,10 +22,16 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
 
   Run them all before calling a change done; the first three cost about 10 seconds together.
 
-- **E2E: 253 passed / 0 failed, 163/163 tools exercised** on Godot **4.4.1**; 552 server unit tests
-  and 94 GDScript ones alongside. **Coverage means "called", not "checked" for 17 tools** — see 6.7. `e2e/blocks/*.json` is the executable
-  spec, not docs/mcp_test_plan.md — and since 5.1 it is also where the API reference's examples
-  come from, so a stale example fails the suite.
+- **E2E: 261 passed / 0 failed, 163/163 tools exercised** on Godot **4.4.1**; 552 server unit tests
+  and 94 GDScript ones alongside. **Every tool now has at least one asserting test** (6.7, closed
+  2026-09-07) — `allowError` alone no longer stands in for coverage anywhere in the suite.
+  `e2e/blocks/*.json` is the executable spec, not docs/mcp_test_plan.md — and since 5.1 it is also
+  where the API reference's examples come from, so a stale example fails the suite.
+- **Also spot-checked on Godot 4.2.2** (6.10, 2026-09-07): 236/236 non-skipped, 25 correctly
+  self-skipped (`requires.minGodot`, 8 pre-existing on TileMap, 17 added this session on the e2e
+  suite's own undo-verification tests, which need a 4.3+-only Editor API the shipped plugin itself
+  never calls). **CI's own matrix is still one version** (4.4.1 only) — this was a manual run, not a
+  standing guardrail; see 6.10 for what that means for the "4.0+"/"4.7.2" claims.
 - **CI runs every layer and is green** (.github/workflows/ci.yml): the fast three on Linux, Windows
   and macOS, the headless suite plus the multi-session and reconnect checks on Linux and Windows.
   Linux went green with 9.6.4; Windows is the only host also verified locally.
@@ -384,7 +390,7 @@ E2E infrastructure; 6.6 is the field report whose 15 fixes the current behaviour
 
 ---
 
-### [ ] 6.7 - Turn the non-asserting e2e tests into real ones (opened 2026-09-07)
+### [x] 6.7 - Turn the non-asserting e2e tests into real ones — closed 2026-09-07
 A release-readiness pass found that **"163/163 tools covered" means "called", not "checked"**:
 20 tools had no asserting test at all, only `allowError: true`, which passes whether the tool
 works or returns an error. Nine of those sit in blocks that require rendering, so **CI never runs
@@ -414,10 +420,85 @@ real bug on its first attempt, as both of those did.
     produced — so the tests passed whether the coordinate was understood or discarded. The tests
     now write to (3, 1) and assert the coordinates the tool echoes back, which names the parser
     directly instead of leaving a cell count to be explained. Each fix verified to fail without it.
-- [ ] 6.7.3 - 17 soft tests left: input (2), runtime (7), animation-tree (2), navigation (2),
-  audio (2), testing (3). Seven are in blocks CI does not run at all.
-- **Priority:** HIGH — this is the last thing between the suite and the coverage claim the README
-  makes, and it is finding real defects at a rate of one per category attempted.
+- [x] 6.7.3 - **The remaining 18 soft tests. Done 2026-09-07** — input (2), runtime (7),
+  animation-tree (2), navigation (2), audio (2), testing (3). (The task line that opened this said
+  17; the six per-category counts it listed sum to 18, which is the number actually there —
+  recorded rather than quietly changed.)
+  - **`set_variable_value` had no existence check, unlike `get_variable_value` right next to it —
+    found and fixed.** `node.set(variable, value)` on a property that does not exist is a silent
+    GDScript no-op (`_set()` unhandled, no error), so the tool answered `success: true`,
+    `new_value: null` for a write that never happened. The original soft test's own arguments
+    (`/root` + `_mcp_test_var`) are exactly that shape — confirmed by running them
+    with a real assertion against HEAD before fixing anything. Fixed by adding the same
+    `variable in node.get_property_list()...` check `_get_variable_value` already had.
+    **Verified to fail without the fix**: reverting it and running the new regression test
+    (R-19b, a nonexistent property, `expectError: true`) fails with
+    `success:true` on an unset property.
+  - **Two "soft" node paths were simply wrong, not untested.** `/root` and
+    `/root/RuntimeRoot/TestBtn` (runtime block) assumed the played scene hangs directly off the
+    SceneTree root. Probed live with `execute_script`: `get_edited_scene_root().get_path()` is
+    `/root/@EditorNode@.../DockHSplitMain/.../RuntimeRoot` — four dock levels deep, not `/root/
+    RuntimeRoot`. `/root` alone still resolves (to the editor's own top Window, a real but
+    unrelated node), which is exactly why the old `notEmpty` assertions on tools using it
+    (R-05/06/07/08/09/11/16) passed without ever inspecting the played scene — see the note below.
+    `navigate_to_node` and `click_ui_element` now address `TestBtn` directly, the plugin's own
+    documented convention (scene-relative, never the editor's).
+  - **Two tools' only prior exercise was the empty-input path.** `record_input_sequence` /
+    `record_gameplay` only capture events that happen *during* the call, and the harness sends one
+    tool call at a time — so with nothing to inject concurrently, both always recorded zero events,
+    and their paired replay tool always got an empty array (hence the original `allowError`).
+    Kept that path (asserted directly: `count: 0`, `events: []`) and, since it was proving nothing
+    about replay, gave `replay_input_sequence`/`replay_gameplay` a fixed literal events array
+    instead of the chained (empty) recording — both now assert `replayed` against a known count.
+    `record_test` (testing block) turned out to be the same shape for a different reason: it only
+    captures events pushed through `action: "add_event"`, never real input, so a `start`/`stop`
+    pair with nothing in between was always going to record nothing — one `add_event` test between
+    them (QA-05b) gives `record_test`/`replay_test` a real one-event round trip instead.
+  - **`listen_to_signal` had never once seen its `fired: true` path.** All prior calls either
+    emitted a signal *before* listening started (which the listener cannot catch — connections
+    only fire on emissions after they're made) or relied on nothing happening within a fixed
+    window. A repeating `Timer` (`PulseTimer`, default `wait_time=1.0`, `one_shot=false`) started
+    one call earlier makes the `timeout` signal genuinely, deterministically fire inside a 3s
+    window without needing two calls to run concurrently — which the harness cannot do; calls are
+    strictly one at a time.
+  - **`bake_navigation` and `get_navigation_path` were both exercising nothing.**
+    `add_navigation_region` leaves an empty `NavigationPolygon` (no outline), so baking it produces
+    no navigable area and a path query across it has nothing to route through — both tools would
+    "succeed" on an input that could never produce real output. Added a real square outline via
+    `execute_script` before baking; `get_navigation_path` now runs *after* the bake and asserts
+    `point_count >= 2` on a route that actually crosses the baked region. Neither needed
+    `play_scene` — `NavigationRegion2D` registers with `NavigationServer2D` as soon as it's in the
+    live (editor) tree, not only while playing.
+  - **`play_audio`'s `playing: true` is hard-coded in its own response, not read back from the
+    node** — same shape as `_set_variable_value` above, just not exploitable the same way, since
+    the prior test never gave the player a stream to begin with (`load_audio_file`'s only test is
+    negative, `res://nonexistent.ogg`). Assigned a short real `AudioStreamWAV` directly so
+    `play_audio`/`stop_audio` have something to actually play, and verified the true state via a
+    separate `get_variable_value("playing")` call rather than trusting the tool's own claim — this
+    one turned out to be honest both ways.
+  - **A related gap, not fixed here:** `get_node_tree_runtime`, `inspect_node_at_runtime`,
+    `get_performance_metrics`, `list_loaded_resources`, `list_autoloads`, `call_function` and
+    `get_signal_connections` (R-05/06/07/08/09/11/16) all assert `{"field": "", "op": "notEmpty"}`
+    on a dict-returning tool. Every one of this plugin's error responses is *also* a non-empty
+    dict (`{"error": "..."}`), so that assertion passes identically whether the call succeeded or
+    failed — it was never proven that `/root` resolves to anything relevant to the played scene for
+    any of the seven, only that *something* answered. Same shape as the 20 tools 6.7 opened to fix,
+    just not on the counted list of 18. Left as found; a candidate for whoever picks this back up.
+  - **All work verified live** against Godot 4.4.1, windowed (this machine renders — screenshots,
+    audio playback and the timer-driven signal wait all ran for real, not skipped). Every new
+    `server/dist/` connect used a rebuilt server; the very first run of this session hung for 90s
+    against a `server/dist/` last built 2026-07-03, predating the entire 6.5 transport inversion —
+    a local build-staleness issue, not a repo bug (`dist/` is gitignored), but worth remembering:
+    rebuild before trusting a hung local e2e run.
+  - **Docs regenerated** (`npm run docs`, 5.1's mechanism): the animation-tree/input/navigation/
+    runtime pages picked up the new example args automatically — notably `replay_input_sequence`'s
+    doc example no longer shows the unresolved `"$INPUT_EVENTS"` token, and
+    `navigate_to_node`/`click_ui_element` no longer show the broken `/root/RuntimeRoot/TestBtn` path.
+- **Verified:** e2e **261 passed / 0 failed, 163/163 tools** on 4.4.1 (was 253 — 8 new tests: 2
+  regression/setup steps in runtime, 3 in animation-tree, 1 each in navigation/audio/testing), 552
+  server unit tests, 94 GDScript, parse gate clean, multi-session 11/11, reconnect 9/9.
+- **Priority:** DONE — 6.7 is closed (6.7.1, 6.7.2, 6.7.3 all landed). Every one of the 163 tools
+  now has at least one asserting e2e test; none are covered by `allowError` alone.
 
 ### [ ] 6.8 - `stop_scene` intermittently times out on a windowed run (2026-09-07)
 Four tests (S-09b, E-03c, I-01, R-01 — all around a played game) failed with `e2e client timeout
@@ -459,6 +540,60 @@ developer's own client.
   and reconnect is 9/9.
 - Three unit tests cover the rule; the calls an ambient session makes into a generated project that
   is deleted at the end of a run are the reason it is worth having.
+
+### [x] 6.10 - Release-readiness pass: run every layer, spot-check an untested Godot version — closed 2026-09-07
+CI's version matrix is **one version** (`GODOT_VERSION: "4.4.1"` in ci.yml) — "verified on 4.4.1 and
+4.7.2" in the README rests entirely on manual local runs, never on a standing guardrail, and no
+version below 4.4.1 had ever been run at all despite "targets 4.0+" (the changelog's own `--godot
+4.2.2,4.4.1` was a CLI usage example, never an actual invocation). Picked **4.2.2**, closer to that
+claimed floor than anything previously exercised, and ran the full suite against it after confirming
+all six layers still
+green on 4.4.1 (552 server / 94 GDScript / 32-script parse gate clean / **261 e2e** / 11
+multi-session / 9 reconnect — all reconfirmed this session, not assumed from the prior one).
+- **First run: 241 passed / 12 failed / 8 skipped.** All 8 skips were TileMap correctly gating
+  itself (`"requires": {"minGodot": "4.3"}`, already in place — `TileMapLayer` is a 4.3+ node). All
+  12 failures traced to **one root cause**, confirmed by reading the actual engine log rather than
+  guessing from the MCP error alone: `EditorInterface.get_editor_undo_redo()` does not exist on
+  4.2.2 ("Static function not found in base GDScriptNativeClass"). That call is **only in the e2e
+  blocks' own verification code** (the `execute_script` undo-probe 6.2b.1 introduced, used by
+  AT-11/AT-12 and block 24) — grepped `addons/` to confirm zero uses in the shipped plugin, which
+  drives undo through `EditorPlugin.get_undo_redo()` instead, a much older, stable API. So this was
+  never a product regression: **every actual tool call in those blocks passed** (UR-01/03/06/08/13,
+  AT-01 through AT-10); only the test's own way of stepping the undo stack to verify the *effect*
+  needs 4.3+. The two save_scene checks and the one move_node that "failed" (UR-10/12/15) were
+  downstream of that — they depend on state an earlier, silently-broken probe was supposed to leave
+  behind, so a single missing engine method produced five unrelated-looking symptoms.
+- **Fixed the same way TileMap already does it**, rather than leaving it a standing false failure on
+  any pre-4.3 engine: `24-undo.json` gets a block-level `requires.minGodot: "4.3"` (all 15 tests are
+  entangled in one undo chain — partially skipping it would leave a confusing half-run), and
+  `09-animation-tree.json`'s AT-11/AT-12 get the same at the test level, since the rest of that block
+  does not need it. **Verified both directions**: re-run on 4.2.2 now shows those 17 as clean
+  `SKIP requires Godot >= 4.3`, zero failures; re-run on 4.4.1 shows all 30 of the same tests still
+  `PASS` (`0 failed / 0 skipped`) — the floor is not accidentally too high.
+- **Final tally on 4.2.2: 236 passed / 0 failed / 25 skipped (261).** Every tool that Godot 4.2.2
+  itself supports works through this plugin exactly as it does on 4.4.1 — this is reassuring
+  evidence for the "targets 4.0+" claim, though 4.0.x/4.1.x themselves remain literally never run.
+- **A related, unfixed gap found along the way:** `ToolDefinition.minGodotVersion`/`maxGodotVersion`
+  (server/src/types/index.ts) is real, wired up in index.ts (`satisfiesVersionRange` before
+  dispatch), documented in the generated API reference, and named as a "key feature" in the
+  README ("tools declare a supported Godot range and refuse outside it") — but **grepped zero uses
+  across all 163 tool definitions in `server/src/tools/*.ts`**. The block-level `requires.minGodot`
+  used above is a *different*, e2e-harness-only mechanism (`e2e/lib/executor.mjs`) that only the
+  TileMap block (and now 24-undo/AT-11/AT-12) uses; it has no effect on what the MCP server itself
+  will attempt. An agent calling a tilemap tool against a real Godot 4.2 project today gets whatever
+  raw engine error results, not the clean guidance the README promises. Left open — recorded here
+  rather than fixed blind, since deciding the right `minGodotVersion` per tool needs the same kind
+  of live check this task just did, not a guess from reading the code.
+- **Also corrected:** README's "Status" section still said `249/249` (stale since before this
+  session — the actual count had already moved to 253, then 261, and the file was never touched).
+  Fixed to `261/261`. Nothing else in `docs/api/*.md` was stale — `api-docs.test.ts` already guards
+  those.
+- **Verified:** e2e 236/236 non-skipped on 4.2.2, 261/261 on 4.4.1 (both re-run after the fix), 552
+  server unit tests, both confirmed green after the two JSON edits.
+- **Priority:** DONE. The CI single-version-matrix gap itself (not just this one spot-check) and the
+  unused `minGodotVersion` field are recorded as findings above, not separately opened as tasks —
+  whoever picks this up should decide whether either is worth the ongoing CI cost/tool-by-tool audit
+  before opening one.
 
 ---
 

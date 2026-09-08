@@ -102,8 +102,8 @@ Query the navigation server for a walkable path between two positions. Returns a
 
 ```json
 {
-  "from": "Vector2(0, 0)",
-  "to": "Vector2(100, 100)",
+  "from": "Vector2(10, 10)",
+  "to": "Vector2(150, 150)",
   "dimension": "2d"
 }
 ```

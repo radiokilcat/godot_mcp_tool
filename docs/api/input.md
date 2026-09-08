@@ -101,7 +101,7 @@ Record all keyboard and mouse events for a given duration, then return the seque
 
 ```json
 {
-  "duration": 1
+  "duration": 0.5
 }
 ```
 
@@ -118,7 +118,20 @@ Replay a recorded or manually defined input sequence
 
 ```json
 {
-  "events": "$INPUT_EVENTS"
+  "events": [
+    {
+      "type": "key",
+      "key": "B",
+      "pressed": true,
+      "delay": 0
+    },
+    {
+      "type": "key",
+      "key": "B",
+      "pressed": false,
+      "delay": 0.05
+    }
+  ]
 }
 ```
 

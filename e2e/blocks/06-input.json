@@ -42,15 +42,29 @@
     {
       "id": "I-06",
       "tool": "record_input_sequence",
-      "args": { "duration": 1 },
+      "comment": "Nothing is dispatched during the window (the harness sends tool calls one at a time, so nothing can happen concurrently) — this is the recorder's quiet path, asserted directly rather than swallowed.",
+      "args": { "duration": 0.5 },
       "timeoutMs": 20000,
-      "save": { "INPUT_EVENTS": "events" }
+      "asserts": [
+        { "field": "duration", "op": "eq", "value": 0.5 },
+        { "field": "count", "op": "eq", "value": 0 },
+        { "field": "events", "op": "eq", "value": [] }
+      ]
     },
     {
       "id": "I-07",
       "tool": "replay_input_sequence",
-      "args": { "events": "$INPUT_EVENTS" },
-      "allowError": true,
+      "comment": "A fixed events array rather than I-06's (empty) recording, so the replay path itself is exercised and asserted rather than depending on capture timing.",
+      "args": {
+        "events": [
+          { "type": "key", "key": "B", "pressed": true, "delay": 0 },
+          { "type": "key", "key": "B", "pressed": false, "delay": 0.05 }
+        ]
+      },
+      "asserts": [
+        { "field": "success", "op": "eq", "value": true },
+        { "field": "replayed", "op": "eq", "value": 2 }
+      ],
       "timeoutMs": 20000
     },
     {
