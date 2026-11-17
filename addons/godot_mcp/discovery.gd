@@ -86,11 +86,62 @@ static func publish(port: int, token: String, plugin_version: String, is_private
 	_restrict_permissions(file_path)
 	return file_path
 
-static func withdraw(file_path: String) -> void:
-	if file_path.is_empty():
+## Remove this editor's entry, but only while it is still this editor's. The file
+## is named per project, not per process, so any second engine opened on the same
+## project writes to the same path, and deleting blindly on exit erased whatever
+## entry was there by then: a live editor's, if it had re-published in between.
+## The token is the ownership test because it is unique per launch; the pid is not
+## (a reused pid would match). Anything unreadable is left alone: the server drops
+## entries whose pid is dead, so a stray file costs nothing and a wrong delete
+## costs the user their connection.
+static func withdraw(file_path: String, token: String) -> void:
+	if file_path.is_empty() or token.is_empty():
 		return
-	if FileAccess.file_exists(file_path):
-		DirAccess.remove_absolute(file_path)
+	if not FileAccess.file_exists(file_path):
+		return
+	if _read_token(file_path) != token:
+		return
+	DirAccess.remove_absolute(file_path)
+
+## JSON.new().parse() rather than JSON.parse_string(): a half-written or foreign
+## file is an expected case here, and it should not put an error in the Output panel.
+static func _read_token(file_path: String) -> String:
+	var json := JSON.new()
+	if json.parse(FileAccess.get_file_as_string(file_path)) != OK:
+		return ""
+	var data: Variant = json.data
+	if data is Dictionary:
+		return str(data.get("token", ""))
+	return ""
+
+## Flags under which the engine opens the project as an editor, runs one export and
+## exits. Only these: `--import`, `--quit`, `--quit-after`, `--headless` and `--path`
+## are consumed while the engine parses its arguments and never reach
+## OS.get_cmdline_args() (an import run reports just ["--editor"], measured on
+## 4.4.1), so the headless rule below is what catches an import.
+const ONE_SHOT_FLAGS := ["--export-release", "--export-debug", "--export-pack", "--export-patch"]
+
+## Why this engine should not start the bridge, or "" if it should.
+##
+## `godot --headless --import` loads the plugin like any editor, and because the
+## discovery file is named after the project it overwrote the entry of the editor
+## the user had open, then deleted it on exit. Every session after that got "No
+## running Godot editor found" while the editor sat there listening. The plugin's
+## own export_project spawns exactly such an engine, so this was self-inflicted too.
+##
+## A one-shot run never needs the bridge: nobody can attach before it quits. The
+## flag list cannot name every tool that drives a headless editor, though, and a
+## headless editor has no user in front of it, so by default it stays off discovery
+## as well. The e2e harness runs real headless editors that must listen; it always
+## sets GODOT_MCP_PORT, so for headless that variable is the opt-in. `0` counts: it
+## opts in while still letting the OS pick the port.
+static func bridge_skip_reason(cmdline_args: PackedStringArray, display_server: String, port_env: String) -> String:
+	for arg in cmdline_args:
+		if arg in ONE_SHOT_FLAGS:
+			return "the engine was started with %s and will exit when done" % arg
+	if display_server == "headless" and port_env.is_empty():
+		return "the engine is headless and GODOT_MCP_PORT is not set (set it, 0 included, to run the bridge headless)"
+	return ""
 
 ## GDScript has no chmod, and the default 0644 would leave the token readable by
 ## every local account. Shelling out is unlovely but it is the only route, and it

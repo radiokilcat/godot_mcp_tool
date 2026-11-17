@@ -55,6 +55,14 @@ func _initialize_plugin() -> void:
 
 	# Env override so test harnesses can isolate from a live setup (6.4.8)
 	var env_port := OS.get_environment("GODOT_MCP_PORT")
+
+	# Before anything listens or publishes: a one-shot engine on this project would
+	# otherwise take over the open editor's discovery entry and delete it on exit.
+	var skip := GodotMCPDiscovery.bridge_skip_reason(OS.get_cmdline_args(), DisplayServer.get_name(), env_port)
+	if not skip.is_empty():
+		print_log("Bridge not started: %s." % skip)
+		return
+
 	if env_port.is_valid_int():
 		listen_port = int(env_port)
 	# A *named* port means a harness owns this editor, and the discovery entry is
@@ -107,7 +115,7 @@ func _shutdown_plugin() -> void:
 
 	# Withdraw before closing, so a client that reconnects in the gap does not find
 	# a stale entry pointing at a port nobody is listening on.
-	GodotMCPDiscovery.withdraw(_discovery_path)
+	GodotMCPDiscovery.withdraw(_discovery_path, _token)
 	_discovery_path = ""
 
 	# Anything still queued will never run; say so rather than leaving the caller

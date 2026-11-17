@@ -139,7 +139,7 @@ All configuration is environment variables, set in the `env` block of your clien
 |---|---|---|---|
 | `GODOT_MCP_PROFILE` | server | unset | `core` registers 14 of the 23 categories (115 tools) instead of all 163. See [below](#choosing-which-tools-to-register). |
 | `GODOT_MCP_CATEGORIES` | server | unset | Explicit comma-separated category list, e.g. `project,scene,node`. Wins over `GODOT_MCP_PROFILE`. An all-typo list falls back to everything rather than registering nothing. |
-| `GODOT_MCP_PORT` | both | unset | Pins the port instead of using discovery. On the **plugin** side it fixes the listen port; on the **server** side it bypasses the discovery file entirely. Set it on both ends or neither. |
+| `GODOT_MCP_PORT` | both | unset | Pins the port instead of using discovery. On the **plugin** side it fixes the listen port; on the **server** side it bypasses the discovery file entirely. Set it on both ends or neither. It is also what lets a **headless** editor (`--headless`) run the bridge, which it otherwise skips; `0` opts in and still lets the OS pick the port. |
 | `GODOT_MCP_TOKEN` | server | unset | The auth token to present, for use with `GODOT_MCP_PORT`. Without discovery the server has no other way to learn it. |
 | `GODOT_MCP_HOST` | both | `127.0.0.1` | Bind address for the plugin, dial address for the server. Only change it to attach across machines, and only on a network you control. |
 | `GODOT_MCP_PRETTY` | server | unset | `1` pretty-prints tool results. For reading raw responses by hand; it costs tokens in normal use. |
@@ -184,6 +184,16 @@ Plugins. The Godot version must be 4.x.
 `~/.godot-mcp/instances/` for a `.json` entry whose `project_path` is your project. If it
 is missing, the plugin logged an error about publishing the discovery file — set
 `GODOT_MCP_PORT` and `GODOT_MCP_TOKEN` on both ends from the port in the Output line.
+
+**"No running Godot editor found" although the editor is open and listening.** The entry was
+there and then disappeared. Plugin copies older than 2026-11-17 started the bridge inside any
+engine that opened the project as an editor, including a `godot --headless --import` or an
+export run by a script, another tool or the `export_project` tool. That engine wrote its entry
+over the open editor's (the file is named after the project) and deleted it on exit. Disable
+and re-enable the plugin to publish the entry again, then update the project's
+`addons/godot_mcp/` from this repository. Current versions do not start the bridge in an export
+run, or in any headless engine unless `GODOT_MCP_PORT` is set, and on exit they remove the entry
+only if it still holds their own token.
 
 **"N Godot editors are running and none matches this working directory".** Two or more
 projects are open and the server cannot tell which one you mean. Either start the client

@@ -12,7 +12,19 @@ decision, what a fix actually changed, or which engine behaviour forced a workar
 
 ## Dated log — what shipped, newest first
 
-**Last Updated:** 2026-09-08 (**Tagged v1.0.0.** Every one of the six test layers was re-run in one
+**Last Updated:** 2026-11-17 (**A headless import no longer takes the open editor's discovery
+entry away** (progress.md 6.11). Reported from DragonHoard: `godot --headless --import`, run by
+another session to import a sprite, loaded the plugin, wrote its own entry over the editor's (the
+file is named after the project, not the process) and deleted it on exit, so every session got "No
+running Godot editor found" while the editor kept listening. `export_project` spawned the same kind
+of engine. The plugin now skips the bridge in an `--export-*` run, and in a headless engine unless
+`GODOT_MCP_PORT` is set (`0` included, which is how the harness's own headless editors keep
+working). `--import` itself cannot be the test: the engine consumes it before
+`OS.get_cmdline_args()` is filled, measured on 4.4.1. On exit, `withdraw` now removes the entry
+only if it still holds this launch's token. 12 new GDScript unit checks; the incident was
+reproduced against the fix on a scratch project.)
+
+**Previously:** 2026-09-08 (**Tagged v1.0.0.** Every one of the six test layers was re-run in one
 sitting immediately before tagging, rather than trusting the previous session's numbers: 552 server
 unit tests, 94 GDScript unit checks, the 32-script parse gate, **e2e 261/261 on Godot 4.4.1**,
 multi-session 11/11, reconnect 9/9 — all green. Folded in along the way was the rest of the

@@ -23,6 +23,8 @@ func _initialize() -> void:
 	_test_max_results()
 	_test_value_to_json()
 	_test_script_check_parsing()
+	_test_bridge_skip_reason()
+	_test_withdraw_ownership()
 	await _test_timer_cancellation()
 
 	print("[gdunit] %d passed / %d failed" % [_passed, _failures.size()])
@@ -230,6 +232,68 @@ func _test_script_check_parsing() -> void:
 	var explained: String = GodotMCPScriptCheck.describe([], "fallback", {"reason": "no cache dir"})
 	check("describe reports why the re-check produced nothing",
 		explained.contains("no cache dir") and explained.begins_with("fallback"), true)
+
+## Which engines may start the bridge (6.11). The bug: `godot --headless --import`
+## of an open project took over the editor's discovery entry and deleted it on
+## exit. The e2e suite cannot show the fix from the outside, because its own
+## headless editors must keep listening; this pins down both halves.
+##
+## The argument lists are what OS.get_cmdline_args() really returns, recorded
+## from Godot 4.4.1: the engine consumes --import, --headless and --path, so an
+## import run and a headless editor look identical, and only the display server
+## and the environment tell them apart.
+func _test_bridge_skip_reason() -> void:
+	var editor := PackedStringArray(["--editor"])
+	var export_run := PackedStringArray(["--export-release", "Windows", "C:/out.exe", "--editor"])
+
+	check("a windowed editor starts the bridge",
+		GodotMCPDiscovery.bridge_skip_reason(editor, "Windows", ""), "")
+	check("a windowed editor with a pinned port starts the bridge",
+		GodotMCPDiscovery.bridge_skip_reason(editor, "Windows", "6510"), "")
+	# `godot --headless --import` with a clean environment: the reported incident.
+	check("a headless engine nobody opted in does not",
+		GodotMCPDiscovery.bridge_skip_reason(editor, "headless", "").contains("GODOT_MCP_PORT"), true)
+	# What export_project spawns. It inherits the editor's environment, which for a
+	# harness editor includes GODOT_MCP_PORT, so the flag has to win over it.
+	check("an export does not, even with GODOT_MCP_PORT set",
+		GodotMCPDiscovery.bridge_skip_reason(export_run, "headless", "0").contains("--export-release"), true)
+	check("an export from a windowed launch does not either",
+		GodotMCPDiscovery.bridge_skip_reason(export_run, "Windows", "").is_empty(), false)
+	check("the harness's headless editor (pinned port) does",
+		GodotMCPDiscovery.bridge_skip_reason(editor, "headless", "6510"), "")
+	# reconnect.mjs and multi-session.mjs launch with port 0 and rely on discovery.
+	check("a headless editor with GODOT_MCP_PORT=0 does",
+		GodotMCPDiscovery.bridge_skip_reason(editor, "headless", "0"), "")
+
+## withdraw() deletes only an entry this launch still owns (6.11).
+func _test_withdraw_ownership() -> void:
+	var path := ProjectSettings.globalize_path("user://").path_join("withdraw_ownership_test.json")
+	var write := func(text: String) -> void:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(text)
+		f.close()
+
+	write.call(JSON.stringify({"port": 1, "token": "theirs"}))
+	GodotMCPDiscovery.withdraw(path, "mine")
+	check("withdraw leaves an entry another launch has taken over", FileAccess.file_exists(path), true)
+
+	write.call("{not json")
+	GodotMCPDiscovery.withdraw(path, "mine")
+	check("withdraw leaves an entry it cannot read", FileAccess.file_exists(path), true)
+
+	write.call(JSON.stringify({"port": 1, "token": ""}))
+	GodotMCPDiscovery.withdraw(path, "")
+	check("withdraw never matches on an empty token", FileAccess.file_exists(path), true)
+
+	write.call(JSON.stringify({"port": 1, "token": "mine"}))
+	GodotMCPDiscovery.withdraw(path, "mine")
+	check("withdraw removes its own entry", FileAccess.file_exists(path), false)
+
+	# Nothing there is not an error.
+	GodotMCPDiscovery.withdraw(path, "mine")
+	check("withdraw of a missing entry is a no-op", FileAccess.file_exists(path), false)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
 
 ## The mechanism plugin.gd's _shutdown_plugin relies on (9.4.5). `await` on a
 ## SceneTreeTimer holds a reference to the awaiting object until the timer fires,

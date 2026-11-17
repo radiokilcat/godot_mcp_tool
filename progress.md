@@ -14,7 +14,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   | | Command | Covers | Time |
   |---|---|---|---|
   | Unit (server) | `npm test` in `server/` | version-utils, timeout policy, bridge seam, 163 tool schemas, e2e platform layer, generated API docs | ~1 s |
-  | Unit (plugin) | `node e2e/unit.mjs` | vector/colour parsing, `_as_bool`, `_max_results`, `_value_to_json` | ~2 s |
+  | Unit (plugin) | `node e2e/unit.mjs` | vector/colour parsing, `_as_bool`, `_max_results`, `_value_to_json`, which engines start the bridge, discovery-entry ownership | ~2 s |
   | Parse gate | `node e2e/check-syntax.mjs` | every plugin script compiles, named file and line | ~6 s |
   | E2E | `node e2e/run.mjs --godot 4.4.1` | all 163 tools against a live editor, plus on-disk effects | ~4 min |
   | Multi-session | `node e2e/multi-session.mjs` | two sessions on one editor, the call queue, token enforcement | ~40 s |
@@ -23,7 +23,7 @@ the start of nearly every session, so it stays short on purpose (task 9.7.2).
   Run them all before calling a change done; the first three cost about 10 seconds together.
 
 - **E2E: 261 passed / 0 failed, 163/163 tools exercised** on Godot **4.4.1**; 552 server unit tests
-  and 94 GDScript ones alongside. **Every tool now has at least one asserting test** (6.7, closed
+  and 106 GDScript ones alongside (12 added by 6.11). **Every tool now has at least one asserting test** (6.7, closed
   2026-09-07) — `allowError` alone no longer stands in for coverage anywhere in the suite.
   `e2e/blocks/*.json` is the executable spec, not docs/mcp_test_plan.md — and since 5.1 it is also
   where the API reference's examples come from, so a stale example fails the suite.
@@ -594,6 +594,42 @@ multi-session / 9 reconnect — all reconfirmed this session, not assumed from t
   unused `minGodotVersion` field are recorded as findings above, not separately opened as tasks —
   whoever picks this up should decide whether either is worth the ongoing CI cost/tool-by-tool audit
   before opening one.
+
+### [x] 6.11 - A headless import of an open project took its discovery entry away — closed 2026-11-17
+Reported from DragonHoard: every call answered "No running Godot editor found" while the editor had
+been open for a day and was still listening on its port. Another session had run
+`godot --headless --path DragonHoard --import` to import a sprite. That engine opens the project as
+an editor, so it loaded the plugin, which started the bridge and published its entry. The file name
+is a hash of the **project path**, not of the process, so it wrote over the open editor's entry and
+deleted it on exit. The plugin's own `export_project` spawns the same kind of engine, so this was
+also self-inflicted.
+- **The token check on exit alone would not have fixed it.** The import wrote its own token into
+  the file before deleting it, so by then the entry it removed *was* its own. What fixes the report
+  is not starting the bridge in such an engine. The token check covers the reverse order: an engine
+  that exits after another one has re-published no longer deletes the newer entry.
+- **`--import` is invisible to the plugin.** Measured on 4.4.1 with a probe print: `--import`,
+  `--headless`, `--path`, `--quit` and `--quit-after` are consumed while the engine parses its
+  arguments, and an import run reports just `["--editor"]` from `OS.get_cmdline_args()`. That is
+  identical to the e2e harness's headless editor. Only the `--export-*` flags survive. The first
+  draft listed `--import` among the one-shot flags and it never matched.
+- **So the rule is in two parts** (`GodotMCPDiscovery.bridge_skip_reason`): an `--export-*` flag
+  always skips, because an export inherits the editor's environment, `GODOT_MCP_PORT` included. A
+  headless display server skips unless `GODOT_MCP_PORT` is set, `0` included. The harness sets it on
+  every launch, including `reconnect.mjs` and `multi-session.mjs` with `0`, so its editors are
+  unaffected. A user who drives a headless editor by hand now has to set it; the skip message says so,
+  and docs/installation.md documents it.
+- **Still open by design:** the e2e pre-import pass sets `GODOT_MCP_PORT`, so its bridge still
+  starts for the few seconds of the import. It runs on a throwaway project with its own hash, so it
+  collides with nothing.
+- **Reproduced against the fix:** a headless editor with `GODOT_MCP_PORT=0` on a scratch project,
+  then `--headless --import` of the same project with a clean environment. The entry kept its port,
+  pid and token, and the import logged `Bridge not started`.
+- **Deployed copies need the update.** DragonHoard's `addons/godot_mcp/` is a copy, so it keeps the
+  bug until it is re-copied. Toggling the plugin republishes a lost entry in the meantime.
+- **Verified:** GDScript unit 106/106 (12 new), server unit 552/552, parse gate clean, headless e2e
+  217 passed / 0 failed / 44 skipped (rendering) on 4.4.1, reconnect 9/9, multi-session 11/11. The
+  last two launch with `GODOT_MCP_PORT=0` and are the check that the opt-in works. After every run
+  `~/.godot-mcp/instances/` held only the three files that were there before.
 
 ---
 
